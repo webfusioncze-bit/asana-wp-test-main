@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.webfusion-gradient {
+  background: linear-gradient(135deg, #333 0%, #239a93 100%);
+}
+
+.webfusion-btn {
+  background-color: #239a93;
+}
+
+.webfusion-btn:hover {
+  background-color: #1d7c76;
+}
+
+.webfusion-text {
+  color: #239a93;
+}
