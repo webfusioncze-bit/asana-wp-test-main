@@ -158,6 +158,7 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
               folderId={currentFolderId}
               onTaskClick={onSelectTask}
               refreshTrigger={refreshTrigger}
+              isCompletedFolder={currentFolder?.name === 'Dokončené'}
             />
           </>
         ) : (

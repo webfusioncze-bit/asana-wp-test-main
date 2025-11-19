@@ -170,6 +170,18 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     setSubtasks(data || []);
   }
 
+  async function getMaxSectionPosition(folderId: string): Promise<number> {
+    const { data } = await supabase
+      .from('task_sections')
+      .select('position')
+      .eq('folder_id', folderId)
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data?.position ?? -1;
+  }
+
   async function loadTaskHierarchy() {
     const hierarchy: Task[] = [];
     let currentTaskId: string | null = taskId;
@@ -194,45 +206,39 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     const updateData = { ...editedTask, updated_at: new Date().toISOString() };
 
     if (editedTask.status === 'completed' && task.status !== 'completed') {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: completedFolder } = await supabase
-          .from('folders')
+      updateData.completed_at = new Date().toISOString();
+
+      if (task.folder_id) {
+        const { data: completedSection } = await supabase
+          .from('task_sections')
           .select('id')
-          .eq('owner_id', user.id)
+          .eq('folder_id', task.folder_id)
           .eq('name', 'Dokončené')
-          .eq('folder_type', 'tasks')
           .maybeSingle();
 
-        if (completedFolder) {
-          updateData.previous_folder_id = task.folder_id;
-          updateData.folder_id = completedFolder.id;
-          updateData.completed_at = new Date().toISOString();
-        }
-      }
-    } else if (editedTask.status !== 'completed' && task.status === 'completed') {
-      if (task.previous_folder_id) {
-        updateData.folder_id = task.previous_folder_id;
-        updateData.previous_folder_id = null;
-      } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: defaultFolder } = await supabase
-            .from('folders')
-            .select('id')
-            .eq('owner_id', user.id)
-            .eq('folder_type', 'tasks')
-            .neq('name', 'Dokončené')
-            .order('position', { ascending: true })
-            .limit(1)
-            .maybeSingle();
+        if (completedSection) {
+          updateData.section_id = completedSection.id;
+        } else {
+          const maxPosition = await getMaxSectionPosition(task.folder_id);
+          const { data: newSection } = await supabase
+            .from('task_sections')
+            .insert({
+              folder_id: task.folder_id,
+              name: 'Dokončené',
+              position: maxPosition + 1,
+              is_collapsed: false
+            })
+            .select()
+            .single();
 
-          if (defaultFolder) {
-            updateData.folder_id = defaultFolder.id;
+          if (newSection) {
+            updateData.section_id = newSection.id;
           }
         }
       }
+    } else if (editedTask.status !== 'completed' && task.status === 'completed') {
       updateData.completed_at = null;
+      updateData.section_id = null;
     } else if (editedTask.status === 'completed') {
       updateData.completed_at = task.completed_at || new Date().toISOString();
     } else {

@@ -8,9 +8,10 @@ interface TaskSectionListProps {
   folderId: string;
   onTaskClick: (taskId: string) => void;
   refreshTrigger?: number;
+  isCompletedFolder?: boolean;
 }
 
-export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskSectionListProps) {
+export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompletedFolder }: TaskSectionListProps) {
   const [sections, setSections] = useState<TaskSection[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -30,6 +31,11 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
   }, [folderId, refreshTrigger]);
 
   async function loadSections() {
+    if (isCompletedFolder) {
+      setSections([]);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('task_sections')
       .select('*')
@@ -73,12 +79,19 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
   }
 
   async function loadTasks() {
-    const { data, error } = await supabase
+    let query = supabase
       .from('tasks')
       .select('*')
-      .eq('folder_id', folderId)
       .is('parent_task_id', null)
       .order('position', { ascending: true });
+
+    if (isCompletedFolder) {
+      query = query.eq('status', 'completed');
+    } else {
+      query = query.eq('folder_id', folderId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error loading tasks:', error);
@@ -378,46 +391,50 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
         );
       })}
 
-      {isCreatingSection ? (
-        <div className="bg-gray-50 rounded border border-dashed border-gray-300 p-2">
-          <input
-            type="text"
-            value={newSectionName}
-            onChange={(e) => setNewSectionName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') createSection();
-              if (e.key === 'Escape') setIsCreatingSection(false);
-            }}
-            placeholder="Název sekce..."
-            className="w-full px-2 py-1 mb-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-            autoFocus
-          />
-          <div className="flex gap-1">
+      {!isCompletedFolder && (
+        <>
+          {isCreatingSection ? (
+            <div className="bg-gray-50 rounded border border-dashed border-gray-300 p-2">
+              <input
+                type="text"
+                value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') createSection();
+                  if (e.key === 'Escape') setIsCreatingSection(false);
+                }}
+                placeholder="Název sekce..."
+                className="w-full px-2 py-1 mb-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
+              <div className="flex gap-1">
+                <button
+                  onClick={createSection}
+                  className="flex-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
+                >
+                  Vytvořit
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCreatingSection(false);
+                    setNewSectionName('');
+                  }}
+                  className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-xs"
+                >
+                  Zrušit
+                </button>
+              </div>
+            </div>
+          ) : (
             <button
-              onClick={createSection}
-              className="flex-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
+              onClick={() => setIsCreatingSection(true)}
+              className="w-full py-2 bg-gray-50 rounded border border-dashed border-gray-300 hover:border-blue-400 hover:bg-gray-100 transition-all flex items-center justify-center gap-1 text-gray-500 hover:text-blue-500"
             >
-              Vytvořit
+              <PlusIcon className="w-4 h-4" />
+              <span className="text-sm font-medium">Nová sekce</span>
             </button>
-            <button
-              onClick={() => {
-                setIsCreatingSection(false);
-                setNewSectionName('');
-              }}
-              className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-xs"
-            >
-              Zrušit
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setIsCreatingSection(true)}
-          className="w-full py-2 bg-gray-50 rounded border border-dashed border-gray-300 hover:border-blue-400 hover:bg-gray-100 transition-all flex items-center justify-center gap-1 text-gray-500 hover:text-blue-500"
-        >
-          <PlusIcon className="w-4 h-4" />
-          <span className="text-sm font-medium">Nová sekce</span>
-        </button>
+          )}
+        </>
       )}
     </div>
   );
