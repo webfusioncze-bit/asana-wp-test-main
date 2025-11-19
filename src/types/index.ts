@@ -23,11 +23,22 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 export type TaskStatus = 'todo' | 'in_progress' | 'completed';
 export type RecurrenceRule = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
+export interface TaskSection {
+  id: string;
+  folder_id: string;
+  name: string;
+  position: number;
+  color: string | null;
+  created_at: string;
+  created_by: string;
+}
+
 export interface Task {
   id: string;
   title: string;
   description: string;
   folder_id: string | null;
+  section_id: string | null;
   category_id: string | null;
   parent_task_id: string | null;
   assigned_to: string;
