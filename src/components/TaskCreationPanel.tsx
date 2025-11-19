@@ -72,6 +72,24 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
     setFolders(data || []);
   }
 
+  function buildFolderHierarchy(folders: Folder[], parentId: string | null = null, level: number = 0): JSX.Element[] {
+    const children = folders.filter(f => f.parent_id === parentId);
+    const result: JSX.Element[] = [];
+
+    children.forEach(folder => {
+      const indent = '\u00A0\u00A0'.repeat(level * 2);
+      const prefix = level > 0 ? '└─ ' : '';
+      result.push(
+        <option key={folder.id} value={folder.id}>
+          {indent}{prefix}{folder.name}
+        </option>
+      );
+      result.push(...buildFolderHierarchy(folders, folder.id, level + 1));
+    });
+
+    return result;
+  }
+
   async function loadUsers() {
     const { data: profiles, error } = await supabase
       .from('user_profiles')
@@ -215,7 +233,7 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Zadejte název úkolu"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             autoFocus
           />
         </div>
@@ -228,8 +246,8 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Detailní popis úkolu..."
-            rows={6}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            rows={4}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
           <p className="text-xs text-gray-500 mt-1">Můžete použít Markdown formátování</p>
         </div>
@@ -242,12 +260,10 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
             <select
               value={selectedFolderId}
               onChange={(e) => setSelectedFolderId(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Bez složky</option>
-              {folders.map(folder => (
-                <option key={folder.id} value={folder.id}>{folder.name}</option>
-              ))}
+              {buildFolderHierarchy(folders)}
             </select>
           </div>
 
@@ -258,7 +274,7 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Bez kategorie</option>
               {categories.map(cat => (
@@ -276,7 +292,7 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
             <select
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Vyberte uživatele</option>
               {users.map(user => (
@@ -292,7 +308,7 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as Priority)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="low">Nízká</option>
               <option value="medium">Střední</option>
@@ -310,7 +326,7 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
             type="datetime-local"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
