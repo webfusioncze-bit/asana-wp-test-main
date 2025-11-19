@@ -117,75 +117,51 @@ export function SubfolderGrid({ parentFolderId, folders, onFolderSelect, onFolde
   const displayFolders = loading ? subfolders.map(f => ({ ...f, isShared: false })) : foldersWithSharing;
 
   return (
-    <div className="mb-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
         {displayFolders.map(folder => (
           <button
             key={folder.id}
             onClick={() => onFolderSelect(folder.id)}
-            className="relative group bg-white rounded-lg border-2 border-gray-200 p-4 hover:border-blue-400 hover:shadow-md transition-all text-left"
+            className="relative group bg-white rounded border border-gray-200 p-2 hover:border-blue-400 hover:shadow transition-all text-left"
           >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <FolderIcon
-                  className="w-6 h-6"
-                  style={{ color: folder.color }}
-                />
-                <h3 className="font-medium text-gray-900">{folder.name}</h3>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <FolderIcon
+                className="w-4 h-4 flex-shrink-0"
+                style={{ color: folder.color }}
+              />
+              <span className="text-sm font-medium text-gray-900 truncate flex-1">{folder.name}</span>
               {folder.isShared && (
-                <Share2Icon className="w-4 h-4 text-blue-500" />
+                <Share2Icon className="w-3 h-3 text-blue-500 flex-shrink-0" />
               )}
             </div>
-
-            {folder.isShared && (
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <UsersIcon className="w-3 h-3" />
-                  <span>
-                    Sdíleno: {folder.sharedUsers?.length || 0} uživatelů, {folder.sharedGroups?.length || 0} skupin
-                  </span>
-                </div>
-                {folder.sharedUsers && folder.sharedUsers.length > 0 && (
-                  <div className="mt-1 text-xs text-gray-600">
-                    {folder.sharedUsers.slice(0, 2).map(u => u.email).join(', ')}
-                    {folder.sharedUsers.length > 2 && ` +${folder.sharedUsers.length - 2}`}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {folder.item_count !== undefined && (
-              <div className="mt-2 text-sm text-gray-500">
-                {folder.item_count} úkolů
-              </div>
-            )}
           </button>
         ))}
 
         {isCreating ? (
-          <div className="bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-4">
+          <div className="bg-gray-50 rounded border border-dashed border-gray-300 p-2">
             <input
               type="text"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') createFolder();
+                if (e.key === 'Escape') setIsCreating(false);
+              }}
               placeholder="Název složky..."
-              className="w-full px-3 py-2 mb-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-2 py-1 mb-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
               autoFocus
             />
-            <div className="mb-3">
-              <label className="block text-sm text-gray-600 mb-1">Barva</label>
-              <input
-                type="color"
-                value={newFolderColor}
-                onChange={(e) => setNewFolderColor(e.target.value)}
-                className="w-full h-10 rounded cursor-pointer"
-              />
-            </div>
-            <div className="flex gap-2">
+            <input
+              type="color"
+              value={newFolderColor}
+              onChange={(e) => setNewFolderColor(e.target.value)}
+              className="w-full h-6 rounded cursor-pointer mb-2"
+            />
+            <div className="flex gap-1">
               <button
                 onClick={createFolder}
-                className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
+                className="flex-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
               >
                 Vytvořit
               </button>
@@ -194,7 +170,7 @@ export function SubfolderGrid({ parentFolderId, folders, onFolderSelect, onFolde
                   setIsCreating(false);
                   setNewFolderName('');
                 }}
-                className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-xs"
               >
                 Zrušit
               </button>
@@ -203,10 +179,10 @@ export function SubfolderGrid({ parentFolderId, folders, onFolderSelect, onFolde
         ) : (
           <button
             onClick={() => setIsCreating(true)}
-            className="bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-4 hover:border-blue-400 hover:bg-gray-100 transition-all flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-blue-500"
+            className="bg-gray-50 rounded border border-dashed border-gray-300 p-2 hover:border-blue-400 hover:bg-gray-100 transition-all flex items-center justify-center gap-1 text-gray-500 hover:text-blue-500"
           >
-            <PlusIcon className="w-6 h-6" />
-            <span className="text-sm font-medium">Nová složka</span>
+            <PlusIcon className="w-4 h-4" />
+            <span className="text-xs font-medium">Nová</span>
           </button>
         )}
       </div>

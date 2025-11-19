@@ -3,6 +3,7 @@ import { ArrowLeftIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { SubfolderGrid } from './SubfolderGrid';
 import { TaskSectionList } from './TaskSectionList';
+import { FolderDetailHeader } from './FolderDetailHeader';
 import type { Folder } from '../types';
 
 interface TaskListNewProps {
@@ -95,46 +96,46 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50">
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center gap-2 mb-2">
-          {currentFolder && (
-            <button
-              onClick={navigateUp}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
-            >
-              <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
-            </button>
-          )}
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <button
-              onClick={() => navigateToFolder(null)}
-              className="hover:text-blue-500 transition-colors"
-            >
-              Všechny složky
-            </button>
-            {folderPath.map((folder, index) => (
-              <span key={folder.id} className="flex items-center gap-2">
-                <span>/</span>
-                {index === folderPath.length - 1 ? (
-                  <span className="text-gray-900 font-medium">{folder.name}</span>
-                ) : (
-                  <button
-                    onClick={() => navigateToFolder(folder.id)}
-                    className="hover:text-blue-500 transition-colors"
-                  >
-                    {folder.name}
-                  </button>
-                )}
-              </span>
-            ))}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-3 py-2">
+          <div className="flex items-center gap-2">
+            {currentFolder && (
+              <button
+                onClick={navigateUp}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+              >
+                <ArrowLeftIcon className="w-4 h-4 text-gray-600" />
+              </button>
+            )}
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <button
+                onClick={() => navigateToFolder(null)}
+                className="hover:text-blue-500 transition-colors"
+              >
+                Všechny složky
+              </button>
+              {folderPath.map((folder, index) => (
+                <span key={folder.id} className="flex items-center gap-2">
+                  <span>/</span>
+                  {index === folderPath.length - 1 ? (
+                    <span className="text-gray-900 font-medium">{folder.name}</span>
+                  ) : (
+                    <button
+                      onClick={() => navigateToFolder(folder.id)}
+                      className="hover:text-blue-500 transition-colors"
+                    >
+                      {folder.name}
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
-        {currentFolder && (
-          <h2 className="text-2xl font-bold text-gray-900">{currentFolder.name}</h2>
-        )}
+        {currentFolder && <FolderDetailHeader folder={currentFolder} />}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-3">
         {currentFolderId ? (
           <>
             <SubfolderGrid
