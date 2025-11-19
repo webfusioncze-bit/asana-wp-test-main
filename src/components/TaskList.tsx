@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PlusIcon, SearchIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Task, Category, Request } from '../types';
+import type { Task, Category, Request, User } from '../types';
 import { TaskItem } from './TaskItem';
 import { TaskCreationPanel } from './TaskCreationPanel';
 
@@ -16,6 +16,7 @@ export function TaskList({ folderId, selectedTaskId, onSelectTask, onOpenRequest
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreationPanel, setShowCreationPanel] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'todo' | 'in_progress' | 'completed'>('all');
@@ -27,6 +28,7 @@ export function TaskList({ folderId, selectedTaskId, onSelectTask, onOpenRequest
     loadTasks();
     loadCategories();
     loadRequests();
+    loadUsers();
   }, [folderId]);
 
   async function loadTasks() {
@@ -191,6 +193,19 @@ export function TaskList({ folderId, selectedTaskId, onSelectTask, onOpenRequest
     setRequests(data || []);
   }
 
+  async function loadUsers() {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('id, email');
+
+    if (error) {
+      console.error('Error loading users:', error);
+      return;
+    }
+
+    setUsers((data || []).map(u => ({ id: u.id, email: u.email || '' })));
+  }
+
 
   async function updateTaskStatus(taskId: string, status: Task['status']) {
     const task = tasks.find(t => t.id === taskId);
@@ -299,6 +314,8 @@ export function TaskList({ folderId, selectedTaskId, onSelectTask, onOpenRequest
           task={task}
           isSelected={selectedTaskId === task.id}
           categoryColor={getCategoryColor(task.category_id)}
+          categoryName={getCategoryName(task.category_id)}
+          assignedUserEmail={getUserEmail(task.assigned_to)}
           onSelect={() => onSelectTask(task.id)}
           onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
           hasSubtasks={subtaskCount > 0}
@@ -322,6 +339,17 @@ export function TaskList({ folderId, selectedTaskId, onSelectTask, onOpenRequest
     if (!categoryId) return '#6B7280';
     const category = categories.find(c => c.id === categoryId);
     return category?.color || '#6B7280';
+  };
+
+  const getCategoryName = (categoryId: string | null) => {
+    if (!categoryId) return undefined;
+    const category = categories.find(c => c.id === categoryId);
+    return category?.name;
+  };
+
+  const getUserEmail = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user?.email;
   };
 
   return (
