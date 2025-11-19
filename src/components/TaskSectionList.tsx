@@ -231,56 +231,56 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
   return (
     <div className="space-y-3">
       {tasksWithoutSection.length > 0 && (
-        <div className="bg-white rounded border border-gray-200">
-          <div className="px-3 py-2 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-700">Bez sekce</h3>
-          </div>
-          <div className="p-2 space-y-1">
-            {tasksWithoutSection.map(task => {
-              const category = categories.find(c => c.id === task.category_id);
-              const assignedUser = users.find(u => u.id === task.assigned_to);
-              return (
-                <TaskItemSimple
-                  key={task.id}
-                  task={task}
-                  category={category}
-                  assignedUser={assignedUser}
-                  onClick={() => onTaskClick(task.id)}
-                  onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
-                />
-              );
-            })}
-            {quickAddTaskSection === null ? (
+        <div className="space-y-1 mb-3">
+          {tasksWithoutSection.map(task => {
+            const category = categories.find(c => c.id === task.category_id);
+            const assignedUser = users.find(u => u.id === task.assigned_to);
+            return (
+              <TaskItemSimple
+                key={task.id}
+                task={task}
+                category={category}
+                assignedUser={assignedUser}
+                onClick={() => onTaskClick(task.id)}
+                onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {tasksWithoutSection.length === 0 && sections.length === 0 && (
+        <div className="mb-3">
+          {quickAddTaskSection === null ? (
+            <button
+              onClick={() => setQuickAddTaskSection(null)}
+              className="w-full py-1.5 text-xs text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-1"
+            >
+              <PlusIcon className="w-3 h-3" />
+              Přidat úkol
+            </button>
+          ) : (
+            <div className="flex gap-1">
+              <input
+                type="text"
+                value={quickTaskTitle}
+                onChange={(e) => setQuickTaskTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') createQuickTask(null);
+                  if (e.key === 'Escape') setQuickAddTaskSection(null);
+                }}
+                placeholder="Název úkolu..."
+                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                autoFocus
+              />
               <button
-                onClick={() => setQuickAddTaskSection(null)}
-                className="w-full py-1.5 text-xs text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-1"
+                onClick={() => createQuickTask(null)}
+                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
               >
-                <PlusIcon className="w-3 h-3" />
-                Přidat úkol
+                Přidat
               </button>
-            ) : (
-              <div className="flex gap-1">
-                <input
-                  type="text"
-                  value={quickTaskTitle}
-                  onChange={(e) => setQuickTaskTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') createQuickTask(null);
-                    if (e.key === 'Escape') setQuickAddTaskSection(null);
-                  }}
-                  placeholder="Název úkolu..."
-                  className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  autoFocus
-                />
-                <button
-                  onClick={() => createQuickTask(null)}
-                  className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
-                >
-                  Přidat
-                </button>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
