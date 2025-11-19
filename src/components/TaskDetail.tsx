@@ -94,7 +94,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     const { data, error } = await supabase
       .from('folders')
       .select('*')
-      .eq('folder_type', 'tasks');
+      .eq('folder_type', 'tasks')
+      .order('position', { ascending: true });
 
     if (error) {
       console.error('Error loading folders:', error);
@@ -102,6 +103,24 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     }
 
     setFolders(data || []);
+  }
+
+  function buildFolderHierarchy(folders: Folder[], parentId: string | null = null, level: number = 0): JSX.Element[] {
+    const children = folders.filter(f => f.parent_id === parentId);
+    const result: JSX.Element[] = [];
+
+    children.forEach(folder => {
+      const indent = '\u00A0\u00A0'.repeat(level * 2);
+      const prefix = level > 0 ? '└─ ' : '';
+      result.push(
+        <option key={folder.id} value={folder.id}>
+          {indent}{prefix}{folder.name}
+        </option>
+      );
+      result.push(...buildFolderHierarchy(folders, folder.id, level + 1));
+    });
+
+    return result;
   }
 
   async function loadUsers() {
@@ -582,9 +601,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Žádná složka</option>
-                {folders.map(folder => (
-                  <option key={folder.id} value={folder.id}>{folder.name}</option>
-                ))}
+                {buildFolderHierarchy(folders)}
               </select>
             ) : (
               <p className="text-gray-600 text-sm">
