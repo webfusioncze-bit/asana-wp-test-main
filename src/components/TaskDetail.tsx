@@ -126,14 +126,21 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   async function loadUsers() {
     const { data: profiles, error } = await supabase
       .from('user_profiles')
-      .select('id, email');
+      .select('id, email, first_name, last_name, avatar_url, display_name');
 
     if (error) {
       console.error('Error loading user profiles:', error);
       return;
     }
 
-    setUsers((profiles || []).map(p => ({ id: p.id, email: p.email || '' })));
+    setUsers((profiles || []).map(p => ({
+      id: p.id,
+      email: p.email || '',
+      first_name: p.first_name,
+      last_name: p.last_name,
+      avatar_url: p.avatar_url,
+      display_name: p.display_name
+    })));
   }
 
   async function loadTimeEntries() {
@@ -551,13 +558,28 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 {users.map(user => (
-                  <option key={user.id} value={user.id}>{user.email}</option>
+                  <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
                 ))}
               </select>
             ) : (
-              <p className="text-gray-600 text-sm truncate">
-                {users.find(u => u.id === task.assigned_to)?.email || 'Neznámý uživatel'}
-              </p>
+              <div className="flex items-center gap-2">
+                {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
+                  <img
+                    src={users.find(u => u.id === task.assigned_to)?.avatar_url}
+                    alt="Avatar"
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <UserIcon className="w-4 h-4 text-gray-500" />
+                  </div>
+                )}
+                <p className="text-gray-600 text-sm truncate">
+                  {users.find(u => u.id === task.assigned_to)?.display_name ||
+                   users.find(u => u.id === task.assigned_to)?.email ||
+                   'Neznámý uživatel'}
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -882,9 +904,9 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                     onChange={(e) => setNewSubtask({ ...newSubtask, assigned_to: e.target.value })}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   >
-                    <option value="">Výchozí ({users.find(u => u.id === task.assigned_to)?.email || 'N/A'})</option>
+                    <option value="">Výchozí ({users.find(u => u.id === task.assigned_to)?.display_name || users.find(u => u.id === task.assigned_to)?.email || 'N/A'})</option>
                     {users.map(user => (
-                      <option key={user.id} value={user.id}>{user.email}</option>
+                      <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
                     ))}
                   </select>
                 </div>
@@ -972,9 +994,19 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                       </span>
                     )}
                     {subtask.assigned_to && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700" title={users.find(u => u.id === subtask.assigned_to)?.email}>
-                        <UserIcon className="w-3 h-3 mr-1" />
-                        {users.find(u => u.id === subtask.assigned_to)?.email?.split('@')[0] || 'N/A'}
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700" title={users.find(u => u.id === subtask.assigned_to)?.display_name || users.find(u => u.id === subtask.assigned_to)?.email}>
+                        {users.find(u => u.id === subtask.assigned_to)?.avatar_url ? (
+                          <img
+                            src={users.find(u => u.id === subtask.assigned_to)?.avatar_url}
+                            alt="Avatar"
+                            className="w-4 h-4 rounded-full object-cover"
+                          />
+                        ) : (
+                          <UserIcon className="w-3 h-3" />
+                        )}
+                        {users.find(u => u.id === subtask.assigned_to)?.display_name ||
+                         users.find(u => u.id === subtask.assigned_to)?.email?.split('@')[0] ||
+                         'N/A'}
                       </span>
                     )}
                   </div>

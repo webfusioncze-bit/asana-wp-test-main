@@ -67,7 +67,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
   async function loadUsers() {
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('id, email')
+      .select('id, email, first_name, last_name, avatar_url, display_name')
       .order('email', { ascending: true });
 
     if (error) {
