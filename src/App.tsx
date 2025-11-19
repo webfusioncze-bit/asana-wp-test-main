@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
 import { FolderSidebar } from './components/FolderSidebar';
-import { TaskList } from './components/TaskList';
+import { TaskListNew } from './components/TaskListNew';
 import { TaskDetail } from './components/TaskDetail';
 import { RequestList } from './components/RequestList';
 import { RequestDetail } from './components/RequestDetail';
@@ -216,16 +216,10 @@ function App() {
             <AdminDashboard />
           ) : viewMode === 'tasks' ? (
             <div className="flex h-full">
-              <TaskList
+              <TaskListNew
                 key={tasksRefreshKey}
                 folderId={selectedFolderId}
-                selectedTaskId={selectedTaskId}
                 onSelectTask={setSelectedTaskId}
-                onOpenRequest={(requestId) => {
-                  setViewMode('requests');
-                  setSelectedRequestId(requestId);
-                  setSelectedTaskId(null);
-                }}
               />
               {selectedTaskId && (
                 <TaskDetail

@@ -36,20 +36,42 @@ export function SubfolderGrid({ parentFolderId, folders, onFolderSelect, onFolde
     for (const folder of subfolders) {
       const { data: shares } = await supabase
         .from('folder_shares')
-        .select('*, user_profiles!shared_with_user_id(id, email), user_groups!shared_with_group_id(*)')
+        .select('*')
         .eq('folder_id', folder.id);
 
-      const sharedUsers = shares
-        ?.filter(s => s.shared_with_user_id)
-        .map(s => ({
-          id: s.user_profiles?.id || '',
-          email: s.user_profiles?.email || ''
-        })) || [];
+      const sharedUsers: User[] = [];
+      const sharedGroups: UserGroup[] = [];
 
-      const sharedGroups = shares
-        ?.filter(s => s.shared_with_group_id)
-        .map(s => s.user_groups)
-        .filter(Boolean) || [];
+      if (shares) {
+        for (const share of shares) {
+          if (share.shared_with_user_id) {
+            const { data: userData } = await supabase
+              .from('user_profiles')
+              .select('id, email')
+              .eq('id', share.shared_with_user_id)
+              .maybeSingle();
+
+            if (userData) {
+              sharedUsers.push({
+                id: userData.id,
+                email: userData.email || ''
+              });
+            }
+          }
+
+          if (share.shared_with_group_id) {
+            const { data: groupData } = await supabase
+              .from('user_groups')
+              .select('*')
+              .eq('id', share.shared_with_group_id)
+              .maybeSingle();
+
+            if (groupData) {
+              sharedGroups.push(groupData);
+            }
+          }
+        }
+      }
 
       enrichedFolders.push({
         ...folder,
