@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon, UsersIcon } from 'lucide-react';
+import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon, UsersIcon, MoreVerticalIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Folder, User, FolderShare } from '../types';
 import { FolderSharingManager } from './FolderSharingManager';
@@ -25,6 +25,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   const [selectedUserId, setSelectedUserId] = useState('');
   const [allTasksCount, setAllTasksCount] = useState(0);
   const [folderShares, setFolderShares] = useState<Record<string, number>>({});
+  const [openMenuFolderId, setOpenMenuFolderId] = useState<string | null>(null);
 
   useEffect(() => {
     loadFolders();
@@ -330,72 +331,99 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-1">
-                <span className="text-sm text-gray-700">{folder.name}</span>
+            <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-[13px] text-gray-700 truncate">{folder.name}</span>
                 {folderShares[folder.id] > 0 && (
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded" title={`Sdíleno ${folderShares[folder.id]}× (uživatelům/skupinám)`}>
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded flex-shrink-0" title={`Sdíleno ${folderShares[folder.id]}× (uživatelům/skupinám)`}>
                     <UsersIcon className="w-3 h-3 text-blue-600" />
                     <span className="text-xs text-blue-600 font-medium">{folderShares[folder.id]}</span>
                   </div>
                 )}
               </div>
               {folder.item_count !== undefined && (
-                <span className="text-xs text-gray-500 px-2 py-0.5 bg-gray-100 rounded-full">
+                <span className="text-xs text-gray-500 px-2 py-0.5 bg-gray-100 rounded-full flex-shrink-0">
                   {folder.item_count}
                 </span>
               )}
             </div>
           )}
           {folderType === 'tasks' && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="relative flex-shrink-0">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setCreatingSubfolderFor(folder.id);
-                  setNewSubfolderName('');
-                  // Automaticky rozbal složku
-                  const newExpanded = new Set(expandedFolders);
-                  newExpanded.add(folder.id);
-                  setExpandedFolders(newExpanded);
+                  setOpenMenuFolderId(openMenuFolderId === folder.id ? null : folder.id);
                 }}
-                className="p-1 hover:bg-green-100 rounded"
-                title="Přidat pod-složku"
+                className="p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-200 rounded transition-opacity"
+                title="Nastavení složky"
               >
-                <FolderPlusIcon className="w-3 h-3 text-green-600" />
+                <MoreVerticalIcon className="w-4 h-4 text-gray-500" />
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditingFolderId(folder.id);
-                  setEditingFolderName(folder.name);
-                }}
-                className="p-1 hover:bg-gray-200 rounded"
-                title="Upravit složku"
-              >
-                <Edit2Icon className="w-3 h-3 text-gray-500" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSharingFolderId(folder.id);
-                  setShowSharingManager(true);
-                }}
-                className="p-1 hover:bg-gray-200 rounded"
-                title="Sdílet složku"
-              >
-                <Share2Icon className="w-3 h-3 text-gray-500" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteFolder(folder.id, folder.name);
-                }}
-                className="p-1 hover:bg-red-100 rounded"
-                title="Smazat složku"
-              >
-                <TrashIcon className="w-3 h-3 text-red-500" />
-              </button>
+              {openMenuFolderId === folder.id && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenuFolderId(null);
+                    }}
+                  />
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCreatingSubfolderFor(folder.id);
+                        setNewSubfolderName('');
+                        const newExpanded = new Set(expandedFolders);
+                        newExpanded.add(folder.id);
+                        setExpandedFolders(newExpanded);
+                        setOpenMenuFolderId(null);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <FolderPlusIcon className="w-4 h-4 text-green-600" />
+                      Přidat pod-složku
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingFolderId(folder.id);
+                        setEditingFolderName(folder.name);
+                        setOpenMenuFolderId(null);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <Edit2Icon className="w-4 h-4 text-gray-600" />
+                      Upravit složku
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSharingFolderId(folder.id);
+                        setShowSharingManager(true);
+                        setOpenMenuFolderId(null);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <Share2Icon className="w-4 h-4 text-blue-600" />
+                      Sdílet složku
+                    </button>
+                    <div className="border-t border-gray-200 my-1"></div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteFolder(folder.id, folder.name);
+                        setOpenMenuFolderId(null);
+                      }}
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 flex items-center gap-2 text-red-600"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                      Smazat složku
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -513,7 +541,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
           onClick={() => onSelectFolder(null)}
         >
           <FolderIcon className="w-4 h-4 text-gray-600" />
-          <span className="text-sm text-gray-700 flex-1">
+          <span className="text-[13px] text-gray-700 flex-1">
             {folderType === 'tasks' ? 'Všechny úkoly' : 'Nové poptávky'}
           </span>
           {folderType === 'tasks' && (
