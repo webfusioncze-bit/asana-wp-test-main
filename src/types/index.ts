@@ -197,3 +197,40 @@ export interface ZapierWebhookLog {
   error_message: string | null;
   created_at: string;
 }
+
+export interface UserGroup {
+  id: string;
+  name: string;
+  color: string;
+  description: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserGroupMember {
+  id: string;
+  group_id: string;
+  user_id: string;
+  added_by: string;
+  created_at: string;
+}
+
+export type FolderSharePermission = 'view' | 'edit';
+
+export interface FolderShare {
+  id: string;
+  folder_id: string;
+  shared_with_user_id: string | null;
+  shared_with_group_id: string | null;
+  permission_level: FolderSharePermission;
+  created_by: string;
+  created_at: string;
+}
+
+export interface FolderWithShares extends Folder {
+  is_shared?: boolean;
+  share_count?: number;
+  shared_groups?: UserGroup[];
+  shared_users?: User[];
+}

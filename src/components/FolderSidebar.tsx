@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon } from 'lucide-react';
+import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon, UsersIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Folder, User } from '../types';
+import type { Folder, User, FolderShare } from '../types';
+import { FolderSharingManager } from './FolderSharingManager';
 
 interface FolderSidebarProps {
   selectedFolderId: string | null;
@@ -17,15 +18,18 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   const [creatingSubfolderFor, setCreatingSubfolderFor] = useState<string | null>(null);
   const [newSubfolderName, setNewSubfolderName] = useState('');
   const [sharingFolderId, setSharingFolderId] = useState<string | null>(null);
+  const [showSharingManager, setShowSharingManager] = useState(false);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [allTasksCount, setAllTasksCount] = useState(0);
+  const [folderShares, setFolderShares] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadFolders();
     loadUsers();
+    loadFolderShares();
   }, [folderType]);
 
   async function loadFolders() {
@@ -180,6 +184,24 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     setUsers((profiles || []).map(p => ({ id: p.id, email: p.email || '' })));
   }
 
+  async function loadFolderShares() {
+    const { data, error } = await supabase
+      .from('folder_shares')
+      .select('folder_id');
+
+    if (error) {
+      console.error('Error loading folder shares:', error);
+      return;
+    }
+
+    const shareCounts: Record<string, number> = {};
+    (data || []).forEach((share: FolderShare) => {
+      shareCounts[share.folder_id] = (shareCounts[share.folder_id] || 0) + 1;
+    });
+
+    setFolderShares(shareCounts);
+  }
+
   async function shareFolder() {
     if (!sharingFolderId || !selectedUserId) return;
 
@@ -199,6 +221,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
 
     setSharingFolderId(null);
     setSelectedUserId('');
+    loadFolderShares();
     alert('Složka byla úspěšně sdílena!');
   }
 
@@ -307,8 +330,16 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-between">
-              <span className="text-sm text-gray-700">{folder.name}</span>
+            <div className="flex-1 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-sm text-gray-700">{folder.name}</span>
+                {folderShares[folder.id] > 0 && (
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded" title={`Sdíleno ${folderShares[folder.id]}× (uživatelům/skupinám)`}>
+                    <UsersIcon className="w-3 h-3 text-blue-600" />
+                    <span className="text-xs text-blue-600 font-medium">{folderShares[folder.id]}</span>
+                  </div>
+                )}
+              </div>
               {folder.item_count !== undefined && (
                 <span className="text-xs text-gray-500 px-2 py-0.5 bg-gray-100 rounded-full">
                   {folder.item_count}
@@ -348,6 +379,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                 onClick={(e) => {
                   e.stopPropagation();
                   setSharingFolderId(folder.id);
+                  setShowSharingManager(true);
                 }}
                 className="p-1 hover:bg-gray-200 rounded"
                 title="Sdílet složku"
@@ -493,36 +525,15 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         {rootFolders.map(folder => renderFolder(folder))}
       </div>
 
-      {sharingFolderId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSharingFolderId(null)}>
-          <div className="bg-white rounded-lg p-6 w-96" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4">Sdílet složku</h3>
-            <select
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4"
-            >
-              <option value="">Vyberte uživatele</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>{user.email}</option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <button
-                onClick={shareFolder}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
-              >
-                Sdílet
-              </button>
-              <button
-                onClick={() => setSharingFolderId(null)}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Zrušit
-              </button>
-            </div>
-          </div>
-        </div>
+      {showSharingManager && sharingFolderId && (
+        <FolderSharingManager
+          folderId={sharingFolderId}
+          onClose={() => {
+            setShowSharingManager(false);
+            setSharingFolderId(null);
+            loadFolderShares();
+          }}
+        />
       )}
     </div>
   );
