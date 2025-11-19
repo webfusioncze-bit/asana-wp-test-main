@@ -87,6 +87,11 @@ export function TaskItemSimple({ task, category, assignedUser, onClick, onUpdate
   const completedSubtasks = subtasks.filter(s => s.status === 'completed').length;
   const totalSubtasks = subtasks.length;
 
+  const uniqueSubtaskAssignees = [...new Set(subtasks.map(s => s.assigned_to).filter(Boolean))];
+  const subtaskAssigneeUsers = uniqueSubtaskAssignees
+    .map(id => subtaskUsers.find(u => u.id === id))
+    .filter(Boolean) as User[];
+
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
@@ -200,6 +205,39 @@ export function TaskItemSimple({ task, category, assignedUser, onClick, onUpdate
             </button>
           )}
 
+          {subtaskAssigneeUsers.length > 0 && (
+            <div className="flex -space-x-1">
+              {subtaskAssigneeUsers.slice(0, 3).map((user, index) => (
+                <div
+                  key={user.id}
+                  className="relative"
+                  title={user.display_name || user.email}
+                  style={{ zIndex: subtaskAssigneeUsers.length - index }}
+                >
+                  {user.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.display_name || user.email}
+                      className="w-5 h-5 rounded-full object-cover border-2 border-white"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center">
+                      <UserIcon className="w-3 h-3 text-gray-600" />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {subtaskAssigneeUsers.length > 3 && (
+                <div
+                  className="w-5 h-5 rounded-full bg-gray-400 border-2 border-white flex items-center justify-center text-xs text-white font-medium"
+                  title={`+${subtaskAssigneeUsers.length - 3} dalších`}
+                >
+                  +{subtaskAssigneeUsers.length - 3}
+                </div>
+              )}
+            </div>
+          )}
+
           {category && (
             <div
               className="px-1.5 py-0.5 text-xs font-medium rounded"
@@ -214,8 +252,16 @@ export function TaskItemSimple({ task, category, assignedUser, onClick, onUpdate
 
           {assignedUser && (
             <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
-              <UserIcon className="w-3 h-3" />
-              <span>{assignedUser.email.split('@')[0]}</span>
+              {assignedUser.avatar_url ? (
+                <img
+                  src={assignedUser.avatar_url}
+                  alt={assignedUser.display_name || assignedUser.email}
+                  className="w-4 h-4 rounded-full object-cover"
+                />
+              ) : (
+                <UserIcon className="w-3 h-3" />
+              )}
+              <span>{assignedUser.display_name || assignedUser.email.split('@')[0]}</span>
             </div>
           )}
 
@@ -277,8 +323,16 @@ export function TaskItemSimple({ task, category, assignedUser, onClick, onUpdate
 
                   {subtaskUser && (
                     <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
-                      <UserIcon className="w-3 h-3" />
-                      <span>{subtaskUser.email.split('@')[0]}</span>
+                      {subtaskUser.avatar_url ? (
+                        <img
+                          src={subtaskUser.avatar_url}
+                          alt={subtaskUser.display_name || subtaskUser.email}
+                          className="w-4 h-4 rounded-full object-cover"
+                        />
+                      ) : (
+                        <UserIcon className="w-3 h-3" />
+                      )}
+                      <span>{subtaskUser.display_name || subtaskUser.email.split('@')[0]}</span>
                     </div>
                   )}
 

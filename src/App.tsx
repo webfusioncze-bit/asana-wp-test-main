@@ -8,7 +8,8 @@ import { RequestList } from './components/RequestList';
 import { RequestDetail } from './components/RequestDetail';
 import RequestInfoSidebar from './components/RequestInfoSidebar';
 import { AdminDashboard } from './components/AdminDashboard';
-import { LogOutIcon, ShieldIcon, LayoutDashboardIcon } from 'lucide-react';
+import { UserProfileSettings } from './components/UserProfileSettings';
+import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
 type ViewMode = 'tasks' | 'requests';
@@ -26,6 +27,8 @@ function App() {
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
   const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
   const [hasRequestsPermission, setHasRequestsPermission] = useState(false);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [userProfile, setUserProfile] = useState<User | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -96,7 +99,22 @@ function App() {
     // Zkontroluj oprávnění pro poptávky
     await checkRequestsPermission(userId, data?.role === 'admin');
 
+    // Načti profil uživatele
+    await loadUserProfile(userId);
+
     setLoading(false);
+  }
+
+  async function loadUserProfile(userId: string) {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (data) {
+      setUserProfile(data as User);
+    }
   }
 
   async function checkRequestsPermission(userId: string, isAdmin: boolean) {
@@ -201,7 +219,21 @@ function App() {
                 Admin
               </div>
             )}
-            <span className="text-sm text-gray-300">{user.email}</span>
+            <button
+              onClick={() => setShowProfileSettings(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-dark-light rounded-lg transition-colors"
+            >
+              {userProfile?.avatar_url ? (
+                <img
+                  src={userProfile.avatar_url}
+                  alt="Avatar"
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <UserIcon className="w-4 h-4" />
+              )}
+              <span>{userProfile?.display_name || user.email}</span>
+            </button>
             <button
               onClick={handleSignOut}
               className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-dark-light rounded-lg transition-colors"
@@ -259,6 +291,15 @@ function App() {
           )}
         </div>
       </div>
+
+      {showProfileSettings && (
+        <UserProfileSettings
+          onClose={() => setShowProfileSettings(false)}
+          onUpdated={() => {
+            if (user?.id) loadUserProfile(user.id);
+          }}
+        />
+      )}
     </div>
   );
 }

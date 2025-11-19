@@ -87,6 +87,10 @@ export interface Notification {
 export interface User {
   id: string;
   email: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  display_name?: string;
 }
 
 export interface UserRole {
