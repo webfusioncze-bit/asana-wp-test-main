@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { SubfolderGrid } from './SubfolderGrid';
 import { TaskSectionList } from './TaskSectionList';
 import { FolderDetailHeader } from './FolderDetailHeader';
+import { FolderSettingsModal } from './FolderSettingsModal';
 import type { Folder } from '../types';
 
 interface TaskListNewProps {
@@ -17,6 +18,7 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
   const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
   const [folderPath, setFolderPath] = useState<Folder[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     setCurrentFolderId(folderId);
@@ -132,7 +134,12 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
             </div>
           </div>
         </div>
-        {currentFolder && <FolderDetailHeader folder={currentFolder} />}
+        {currentFolder && (
+          <FolderDetailHeader
+            folder={currentFolder}
+            onOpenSettings={() => setShowSettings(true)}
+          />
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
@@ -165,6 +172,18 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
           />
         )}
       </div>
+
+      {showSettings && currentFolder && (
+        <FolderSettingsModal
+          folder={currentFolder}
+          onClose={() => setShowSettings(false)}
+          onUpdate={() => {
+            loadCurrentFolder();
+            loadFolderPath();
+            setRefreshTrigger(prev => prev + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

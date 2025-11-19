@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { UsersIcon, Edit2Icon } from 'lucide-react';
+import { UsersIcon, SettingsIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Folder, User, UserGroup } from '../types';
 
 interface FolderDetailHeaderProps {
   folder: Folder;
-  onEditSharing?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function FolderDetailHeader({ folder, onEditSharing }: FolderDetailHeaderProps) {
+export function FolderDetailHeader({ folder, onOpenSettings }: FolderDetailHeaderProps) {
   const [sharedUsers, setSharedUsers] = useState<User[]>([]);
   const [sharedGroups, setSharedGroups] = useState<UserGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,26 +63,34 @@ export function FolderDetailHeader({ folder, onEditSharing }: FolderDetailHeader
 
   const hasSharing = sharedUsers.length > 0 || sharedGroups.length > 0;
 
-  if (loading || !hasSharing) return null;
+  if (loading) return null;
 
   return (
     <div className="bg-blue-50 border-b border-blue-100 px-4 py-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-gray-700">
-          <UsersIcon className="w-4 h-4 text-blue-600" />
-          <span className="font-medium">Sdíleno s:</span>
-          <span>
-            {sharedUsers.map(u => u.email).join(', ')}
-            {sharedUsers.length > 0 && sharedGroups.length > 0 && ', '}
-            {sharedGroups.map(g => g.name).join(', ')}
-          </span>
-        </div>
-        {onEditSharing && (
+        {hasSharing ? (
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <UsersIcon className="w-4 h-4 text-blue-600" />
+            <span className="font-medium">Sdíleno s:</span>
+            <span>
+              {sharedUsers.map(u => u.email).join(', ')}
+              {sharedUsers.length > 0 && sharedGroups.length > 0 && ', '}
+              {sharedGroups.map(g => g.name).join(', ')}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span className="font-medium">{folder.name}</span>
+          </div>
+        )}
+        {onOpenSettings && (
           <button
-            onClick={onEditSharing}
-            className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+            onClick={onOpenSettings}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-blue-100 rounded-lg transition-colors"
+            title="Nastavení složky"
           >
-            <Edit2Icon className="w-3 h-3" />
+            <SettingsIcon className="w-4 h-4" />
+            <span>Nastavení</span>
           </button>
         )}
       </div>
