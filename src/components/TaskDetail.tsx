@@ -155,21 +155,12 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Zjisti, zda je uživatel přiřazen k parent tasku
-    const isAssignedToParent = task?.assigned_to === user.id;
-
-    let query = supabase
+    // Načti všechny subtasky, RLS se postará o filtrování podle folder sharing
+    const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .eq('parent_task_id', taskId)
       .order('position', { ascending: true });
-
-    // Pokud není přiřazen k parent tasku, zobraz jen jeho subtasky
-    if (!isAssignedToParent) {
-      query = query.eq('assigned_to', user.id);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       console.error('Error loading subtasks:', error);
