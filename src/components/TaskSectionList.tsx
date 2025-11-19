@@ -256,6 +256,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
                 assignedUser={assignedUser}
                 onClick={() => onTaskClick(task.id)}
                 onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
+                onSubtaskClick={onTaskClick}
               />
             );
           })}
@@ -353,6 +354,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
                     assignedUser={assignedUser}
                     onClick={() => onTaskClick(task.id)}
                     onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
+                    onSubtaskClick={onTaskClick}
                   />
                 );
               })}
