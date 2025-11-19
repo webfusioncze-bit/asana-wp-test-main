@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, TrashIcon, GripVerticalIcon } from 'lucide-react';
+import { PlusIcon, TrashIcon, GripVerticalIcon, Edit2Icon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { TaskItem } from './TaskItem';
-import type { Task, TaskSection } from '../types';
+import { TaskItemSimple } from './TaskItemSimple';
+import type { Task, TaskSection, Category, User } from '../types';
 
 interface TaskSectionListProps {
   folderId: string;
@@ -13,15 +13,20 @@ interface TaskSectionListProps {
 export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskSectionListProps) {
   const [sections, setSections] = useState<TaskSection[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isCreatingSection, setIsCreatingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const [quickAddTaskSection, setQuickAddTaskSection] = useState<string | null>(null);
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editingSectionName, setEditingSectionName] = useState('');
 
   useEffect(() => {
     loadSections();
     loadTasks();
+    loadCategories();
+    loadUsers();
   }, [folderId, refreshTrigger]);
 
   async function loadSections() {
@@ -37,6 +42,34 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
     }
 
     setSections(data || []);
+  }
+
+  async function loadCategories() {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error loading categories:', error);
+      return;
+    }
+
+    setCategories(data || []);
+  }
+
+  async function loadUsers() {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('id, email')
+      .order('email', { ascending: true });
+
+    if (error) {
+      console.error('Error loading users:', error);
+      return;
+    }
+
+    setUsers(data || []);
   }
 
   async function loadTasks() {
@@ -78,6 +111,43 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
     setNewSectionName('');
     setIsCreatingSection(false);
     loadSections();
+  }
+
+  async function updateSectionName(sectionId: string, newName: string) {
+    if (!newName.trim()) return;
+
+    const { error } = await supabase
+      .from('task_sections')
+      .update({ name: newName })
+      .eq('id', sectionId);
+
+    if (error) {
+      console.error('Error updating section:', error);
+      return;
+    }
+
+    setEditingSectionId(null);
+    setEditingSectionName('');
+    loadSections();
+  }
+
+  function startEditingSection(section: TaskSection) {
+    setEditingSectionId(section.id);
+    setEditingSectionName(section.name);
+  }
+
+  async function updateTaskStatus(taskId: string, status: Task['status']) {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status })
+      .eq('id', taskId);
+
+    if (error) {
+      console.error('Error updating task status:', error);
+      return;
+    }
+
+    loadTasks();
   }
 
   async function deleteSection(sectionId: string) {
@@ -166,14 +236,20 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
             <h3 className="text-sm font-medium text-gray-700">Bez sekce</h3>
           </div>
           <div className="p-2 space-y-1">
-            {tasksWithoutSection.map(task => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onClick={() => onTaskClick(task.id)}
-                onUpdate={loadTasks}
-              />
-            ))}
+            {tasksWithoutSection.map(task => {
+              const category = categories.find(c => c.id === task.category_id);
+              const assignedUser = users.find(u => u.id === task.assigned_to);
+              return (
+                <TaskItemSimple
+                  key={task.id}
+                  task={task}
+                  category={category}
+                  assignedUser={assignedUser}
+                  onClick={() => onTaskClick(task.id)}
+                  onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
+                />
+              );
+            })}
             {quickAddTaskSection === null ? (
               <button
                 onClick={() => setQuickAddTaskSection(null)}
@@ -213,27 +289,60 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger }: TaskS
         return (
           <div key={section.id} className="bg-white rounded border border-gray-200">
             <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
                 <GripVerticalIcon className="w-3 h-3 text-gray-400" />
-                <h3 className="text-sm font-medium text-gray-900">{section.name}</h3>
-                <span className="text-xs text-gray-500">({sectionTasks.length})</span>
+                {editingSectionId === section.id ? (
+                  <input
+                    type="text"
+                    value={editingSectionName}
+                    onChange={(e) => setEditingSectionName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') updateSectionName(section.id, editingSectionName);
+                      if (e.key === 'Escape') setEditingSectionId(null);
+                    }}
+                    onBlur={() => updateSectionName(section.id, editingSectionName)}
+                    className="flex-1 px-2 py-1 text-sm font-medium border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    autoFocus
+                  />
+                ) : (
+                  <>
+                    <h3 className="text-sm font-medium text-gray-900">{section.name}</h3>
+                    <span className="text-xs text-gray-500">({sectionTasks.length})</span>
+                  </>
+                )}
               </div>
-              <button
-                onClick={() => deleteSection(section.id)}
-                className="text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <TrashIcon className="w-3 h-3" />
-              </button>
+              <div className="flex items-center gap-1">
+                {editingSectionId !== section.id && (
+                  <button
+                    onClick={() => startEditingSection(section)}
+                    className="text-gray-400 hover:text-blue-500 transition-colors"
+                  >
+                    <Edit2Icon className="w-3 h-3" />
+                  </button>
+                )}
+                <button
+                  onClick={() => deleteSection(section.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <TrashIcon className="w-3 h-3" />
+                </button>
+              </div>
             </div>
             <div className="p-2 space-y-1">
-              {sectionTasks.map(task => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  onClick={() => onTaskClick(task.id)}
-                  onUpdate={loadTasks}
-                />
-              ))}
+              {sectionTasks.map(task => {
+                const category = categories.find(c => c.id === task.category_id);
+                const assignedUser = users.find(u => u.id === task.assigned_to);
+                return (
+                  <TaskItemSimple
+                    key={task.id}
+                    task={task}
+                    category={category}
+                    assignedUser={assignedUser}
+                    onClick={() => onTaskClick(task.id)}
+                    onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
+                  />
+                );
+              })}
               {quickAddTaskSection === section.id ? (
                 <div className="flex gap-1">
                   <input
