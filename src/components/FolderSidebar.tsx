@@ -285,26 +285,34 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     return (
       <div key={folder.id}>
         <div
-          className={`group flex items-start gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors ${
+          className={`group flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-gray-100 transition-colors relative ${
             isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : ''
-          }`}
-          style={{ paddingLeft: `${12 + level * 20}px` }}
+          } ${level > 0 ? 'bg-gray-50/50' : ''}`}
+          style={{ paddingLeft: `${8 + level * 24}px` }}
           onClick={() => onSelectFolder(folder.id)}
         >
-          {hasChildren && (
+          {level > 0 && (
+            <div
+              className="absolute left-0 top-0 bottom-0 w-px bg-gray-300"
+              style={{ left: `${8 + (level - 1) * 24 + 12}px` }}
+            />
+          )}
+          {hasChildren ? (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 toggleFolder(folder.id);
               }}
-              className="p-0.5 hover:bg-gray-200 rounded"
+              className="p-0.5 hover:bg-gray-200 rounded flex-shrink-0"
             >
               {isExpanded ? (
-                <ChevronDownIcon className="w-4 h-4 text-gray-600" />
+                <ChevronDownIcon className="w-3.5 h-3.5 text-gray-600" />
               ) : (
-                <ChevronRightIcon className="w-4 h-4 text-gray-600" />
+                <ChevronRightIcon className="w-3.5 h-3.5 text-gray-600" />
               )}
             </button>
+          ) : (
+            <div className="w-4 flex-shrink-0"></div>
           )}
           <FolderIcon className="w-4 h-4 flex-shrink-0" style={{ color: folder.color }} />
           {folder.is_global && (
@@ -330,17 +338,17 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
             />
           ) : (
             <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="text-[13px] text-gray-700 break-words" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{folder.name}</span>
+              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                <span className={`${level > 0 ? 'text-xs' : 'text-[13px]'} text-gray-700 break-words font-medium`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{folder.name}</span>
                 {folderShares[folder.id] > 0 && (
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded flex-shrink-0" title={`Sdíleno ${folderShares[folder.id]}× (uživatelům/skupinám)`}>
-                    <UsersIcon className="w-3 h-3 text-blue-600" />
-                    <span className="text-xs text-blue-600 font-medium">{folderShares[folder.id]}</span>
+                  <div className="flex items-center gap-0.5 px-1 py-0.5 bg-blue-50 rounded flex-shrink-0" title={`Sdíleno ${folderShares[folder.id]}× (uživatelům/skupinám)`}>
+                    <UsersIcon className="w-2.5 h-2.5 text-blue-600" />
+                    <span className="text-[10px] text-blue-600 font-medium">{folderShares[folder.id]}</span>
                   </div>
                 )}
               </div>
               {folder.item_count !== undefined && (
-                <span className="text-xs text-gray-500 px-2 py-0.5 bg-gray-100 rounded-full flex-shrink-0">
+                <span className={`${level > 0 ? 'text-[10px]' : 'text-xs'} text-gray-500 px-1.5 py-0.5 bg-gray-100 rounded-full flex-shrink-0 font-medium`}>
                   {folder.item_count}
                 </span>
               )}
@@ -433,8 +441,8 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
           <div>
             {creatingSubfolderFor === folder.id && (
               <div
-                className="flex gap-2 py-2 px-3"
-                style={{ paddingLeft: `${32 + (level + 1) * 20}px` }}
+                className="flex gap-2 py-2 px-2 bg-gray-50"
+                style={{ paddingLeft: `${32 + (level + 1) * 24}px` }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <input
@@ -450,12 +458,12 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                     }
                   }}
                   placeholder="Název pod-složky"
-                  className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
                 <button
                   onClick={() => createSubfolder(folder.id)}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                 >
                   OK
                 </button>
@@ -464,7 +472,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                     setCreatingSubfolderFor(null);
                     setNewSubfolderName('');
                   }}
-                  className="px-2 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+                  className="px-1.5 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
                 >
                   ×
                 </button>
