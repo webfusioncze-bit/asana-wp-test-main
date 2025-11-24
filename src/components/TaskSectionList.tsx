@@ -22,6 +22,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editingSectionName, setEditingSectionName] = useState('');
+  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
 
   useEffect(() => {
     loadSections();
@@ -266,15 +267,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
       )}
 
       <div className="mb-3">
-        {quickAddTaskSection === null ? (
-          <button
-            onClick={() => setQuickAddTaskSection(null)}
-            className="w-full py-2 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-blue-400"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Přidat úkol
-          </button>
-        ) : (
+        {quickAddTaskSection === 'no-section' ? (
           <div className="flex gap-2 p-2 bg-white border-2 border-blue-400 rounded">
             <input
               type="text"
@@ -308,6 +301,14 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
               Zrušit
             </button>
           </div>
+        ) : (
+          <button
+            onClick={() => setQuickAddTaskSection('no-section')}
+            className="w-full py-2 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-blue-400"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Přidat úkol
+          </button>
         )}
       </div>
 
@@ -381,7 +382,10 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
                     onChange={(e) => setQuickTaskTitle(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') createQuickTask(section.id);
-                      if (e.key === 'Escape') setQuickAddTaskSection(null);
+                      if (e.key === 'Escape') {
+                        setQuickAddTaskSection(null);
+                        setQuickTaskTitle('');
+                      }
                     }}
                     placeholder="Název úkolu..."
                     className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -389,9 +393,19 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
                   />
                   <button
                     onClick={() => createQuickTask(section.id)}
-                    className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
+                    disabled={!quickTaskTitle.trim()}
+                    className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Přidat
+                  </button>
+                  <button
+                    onClick={() => {
+                      setQuickAddTaskSection(null);
+                      setQuickTaskTitle('');
+                    }}
+                    className="px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-xs"
+                  >
+                    ×
                   </button>
                 </div>
               ) : (
