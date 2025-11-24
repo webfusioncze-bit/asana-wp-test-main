@@ -133,7 +133,7 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
         assigned_to: assignedTo,
         created_by: user.id,
         priority,
-        due_date: dueDate || null,
+        due_date: dueDate ? new Date(dueDate).toISOString() : null,
         position: 0,
       };
 
@@ -141,7 +141,7 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
         taskData.is_recurring = true;
         taskData.recurrence_rule = recurrenceRule;
         taskData.recurrence_interval = recurrenceInterval;
-        taskData.recurrence_end_date = recurrenceEndDate || null;
+        taskData.recurrence_end_date = recurrenceEndDate ? new Date(recurrenceEndDate).toISOString() : null;
 
         if (recurrenceRule === 'weekly' && recurrenceDaysOfWeek.length > 0) {
           taskData.recurrence_days_of_week = recurrenceDaysOfWeek;
