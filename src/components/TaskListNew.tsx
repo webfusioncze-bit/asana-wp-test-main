@@ -165,10 +165,6 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
         ) : (
           <>
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Přehled důležitých úkolů</h2>
-              <TaskOverview onTaskClick={onSelectTask} />
-            </div>
-            <div className="border-t border-gray-200 pt-6">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Všechny složky</h2>
               <SubfolderGrid
                 parentFolderId={null}
@@ -179,6 +175,10 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
                   setRefreshTrigger(prev => prev + 1);
                 }}
               />
+            </div>
+            <div className="border-t border-gray-200 pt-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Přehled důležitých úkolů</h2>
+              <TaskOverview onTaskClick={onSelectTask} />
             </div>
           </>
         )}
