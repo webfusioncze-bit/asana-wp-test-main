@@ -35,7 +35,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     setLoading(true);
     let query = supabase
       .from('requests')
-      .select('*')
+      .select(`
+        *,
+        created_by_user:user_profiles!requests_created_by_fkey(id, email, display_name, first_name, last_name),
+        assigned_user:user_profiles!requests_assigned_to_fkey(id, email, display_name, first_name, last_name)
+      `)
       .order('created_at', { ascending: false });
 
     if (folderId) {
@@ -216,11 +220,14 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                     )}
                   </div>
 
-                  {request.client_name && (
-                    <p className="text-sm text-gray-600 mb-2">
-                      Klient: {request.client_name}
-                    </p>
-                  )}
+                  <div className="text-sm text-gray-600 mb-2 space-y-1">
+                    {request.client_name && (
+                      <p>Klient: {request.client_name}</p>
+                    )}
+                    {(request as any).created_by_user && (
+                      <p>Zadavatel: {(request as any).created_by_user.display_name || (request as any).created_by_user.email}</p>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
                     {requestType && (

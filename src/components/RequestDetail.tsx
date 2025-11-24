@@ -16,6 +16,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   const [requestType, setRequestType] = useState<RequestType | null>(null);
   const [requestStatus, setRequestStatus] = useState<RequestStatusCustom | null>(null);
   const [assignedUser, setAssignedUser] = useState<User | null>(null);
+  const [createdByUser, setCreatedByUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [showStatusSelector, setShowStatusSelector] = useState(false);
@@ -142,15 +143,41 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     if (requestData.assigned_to) {
       const { data: userData } = await supabase
         .from('user_profiles')
-        .select('id, email')
+        .select('id, email, first_name, last_name, display_name')
         .eq('id', requestData.assigned_to)
         .maybeSingle();
 
       if (userData) {
-        setAssignedUser({ id: userData.id, email: userData.email || '' });
+        setAssignedUser({
+          id: userData.id,
+          email: userData.email || '',
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          display_name: userData.display_name
+        });
       }
     } else {
       setAssignedUser(null);
+    }
+
+    if (requestData.created_by) {
+      const { data: creatorData } = await supabase
+        .from('user_profiles')
+        .select('id, email, first_name, last_name, display_name')
+        .eq('id', requestData.created_by)
+        .maybeSingle();
+
+      if (creatorData) {
+        setCreatedByUser({
+          id: creatorData.id,
+          email: creatorData.email || '',
+          first_name: creatorData.first_name,
+          last_name: creatorData.last_name,
+          display_name: creatorData.display_name
+        });
+      }
+    } else {
+      setCreatedByUser(null);
     }
 
     setLoading(false);
@@ -773,13 +800,26 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                         <span className="text-gray-900 font-medium">{new Date(request.deadline).toLocaleDateString('cs-CZ')}</span>
                       </div>
                     )}
+                    {createdByUser && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500 text-sm flex items-center gap-1">
+                          <UserIcon className="w-4 h-4" />
+                          Zadavatel:
+                        </span>
+                        <span className="text-gray-900 font-medium">
+                          {createdByUser.display_name || createdByUser.email}
+                        </span>
+                      </div>
+                    )}
                     {assignedUser && (
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500 text-sm flex items-center gap-1">
                           <UserIcon className="w-4 h-4" />
                           Přiřazeno:
                         </span>
-                        <span className="text-gray-900 font-medium">{assignedUser.email}</span>
+                        <span className="text-gray-900 font-medium">
+                          {assignedUser.display_name || assignedUser.email}
+                        </span>
                       </div>
                     )}
                   </div>
