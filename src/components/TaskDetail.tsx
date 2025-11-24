@@ -582,6 +582,28 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               </div>
             )}
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Zadavatel</label>
+            <div className="flex items-center gap-2">
+              {users.find(u => u.id === task.created_by)?.avatar_url ? (
+                <img
+                  src={users.find(u => u.id === task.created_by)?.avatar_url}
+                  alt="Avatar"
+                  className="w-8 h-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserIcon className="w-4 h-4 text-blue-600" />
+                </div>
+              )}
+              <p className="text-gray-600 text-sm truncate">
+                {users.find(u => u.id === task.created_by)?.display_name ||
+                 users.find(u => u.id === task.created_by)?.email ||
+                 'Neznámý uživatel'}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

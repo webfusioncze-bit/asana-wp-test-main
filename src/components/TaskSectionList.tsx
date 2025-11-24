@@ -248,12 +248,14 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
           {tasksWithoutSection.map(task => {
             const category = categories.find(c => c.id === task.category_id);
             const assignedUser = users.find(u => u.id === task.assigned_to);
+            const createdByUser = users.find(u => u.id === task.created_by);
             return (
               <TaskItemSimple
                 key={task.id}
                 task={task}
                 category={category}
                 assignedUser={assignedUser}
+                createdByUser={createdByUser}
                 onClick={() => onTaskClick(task.id)}
                 onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                 onSubtaskClick={onTaskClick}
@@ -346,12 +348,14 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
               {sectionTasks.map(task => {
                 const category = categories.find(c => c.id === task.category_id);
                 const assignedUser = users.find(u => u.id === task.assigned_to);
+                const createdByUser = users.find(u => u.id === task.created_by);
                 return (
                   <TaskItemSimple
                     key={task.id}
                     task={task}
                     category={category}
                     assignedUser={assignedUser}
+                    createdByUser={createdByUser}
                     onClick={() => onTaskClick(task.id)}
                     onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                     onSubtaskClick={onTaskClick}

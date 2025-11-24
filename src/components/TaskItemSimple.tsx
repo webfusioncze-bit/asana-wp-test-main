@@ -7,12 +7,13 @@ interface TaskItemSimpleProps {
   task: Task;
   category?: Category;
   assignedUser?: User;
+  createdByUser?: User;
   onClick: () => void;
   onUpdateStatus: (status: Task['status']) => void;
   onSubtaskClick?: (taskId: string) => void;
 }
 
-export function TaskItemSimple({ task, category, assignedUser, onClick, onUpdateStatus, onSubtaskClick }: TaskItemSimpleProps) {
+export function TaskItemSimple({ task, category, assignedUser, createdByUser, onClick, onUpdateStatus, onSubtaskClick }: TaskItemSimpleProps) {
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [subtaskCategories, setSubtaskCategories] = useState<Category[]>([]);
@@ -250,8 +251,23 @@ export function TaskItemSimple({ task, category, assignedUser, onClick, onUpdate
             </div>
           )}
 
+          {createdByUser && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded text-xs text-blue-700" title="Zadavatel">
+              {createdByUser.avatar_url ? (
+                <img
+                  src={createdByUser.avatar_url}
+                  alt={createdByUser.display_name || createdByUser.email}
+                  className="w-4 h-4 rounded-full object-cover"
+                />
+              ) : (
+                <UserIcon className="w-3 h-3" />
+              )}
+              <span>{createdByUser.display_name || createdByUser.email.split('@')[0]}</span>
+            </div>
+          )}
+
           {assignedUser && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-700">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-700" title="Přiřazeno">
               {assignedUser.avatar_url ? (
                 <img
                   src={assignedUser.avatar_url}
