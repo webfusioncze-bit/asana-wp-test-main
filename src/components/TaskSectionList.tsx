@@ -151,9 +151,42 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
   }
 
   async function updateTaskStatus(taskId: string, status: Task['status']) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const updateData: any = {
+      status,
+      completed_at: status === 'completed' ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (status === 'completed') {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: completedFolder } = await supabase
+          .from('folders')
+          .select('id')
+          .eq('owner_id', user.id)
+          .eq('name', 'Dokončené')
+          .eq('folder_type', 'tasks')
+          .maybeSingle();
+
+        if (completedFolder) {
+          updateData.previous_folder_id = task.folder_id;
+          updateData.folder_id = completedFolder.id;
+          updateData.section_id = null;
+        }
+      }
+    } else if (task.status === 'completed' && status !== 'completed') {
+      if (task.previous_folder_id) {
+        updateData.folder_id = task.previous_folder_id;
+        updateData.previous_folder_id = null;
+      }
+    }
+
     const { error } = await supabase
       .from('tasks')
-      .update({ status })
+      .update(updateData)
       .eq('id', taskId);
 
     if (error) {
@@ -161,7 +194,13 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
       return;
     }
 
-    loadTasks();
+    if (status === 'completed' && updateData.folder_id && updateData.folder_id !== folderId) {
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
+    } else if (task.status === 'completed' && status !== 'completed' && updateData.folder_id && updateData.folder_id !== folderId) {
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
+    } else {
+      loadTasks();
+    }
   }
 
   async function deleteSection(sectionId: string) {
