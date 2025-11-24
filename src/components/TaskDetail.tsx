@@ -210,7 +210,12 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   }
 
   async function updateTask() {
-    const updateData = { ...editedTask, updated_at: new Date().toISOString() };
+    const updateData = {
+      ...editedTask,
+      updated_at: new Date().toISOString(),
+      due_date: editedTask.due_date ? new Date(editedTask.due_date).toISOString() : null,
+      recurrence_end_date: editedTask.recurrence_end_date ? new Date(editedTask.recurrence_end_date).toISOString() : null
+    };
 
     if (editedTask.status === 'completed' && task.status !== 'completed') {
       updateData.completed_at = new Date().toISOString();
@@ -377,7 +382,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
         folder_id: task.folder_id,
         category_id: task.category_id,
         assigned_to: newSubtask.assigned_to || task.assigned_to,
-        due_date: newSubtask.due_date || null,
+        due_date: newSubtask.due_date ? new Date(newSubtask.due_date).toISOString() : null,
         created_by: user.id,
         priority: task.priority,
         status: 'todo',
@@ -532,8 +537,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             </label>
             {isEditing ? (
               <input
-                type="datetime-local"
-                value={editedTask.due_date ? new Date(editedTask.due_date).toISOString().slice(0, 16) : ''}
+                type="date"
+                value={editedTask.due_date ? new Date(editedTask.due_date).toISOString().slice(0, 10) : ''}
                 onChange={(e) => setEditedTask({ ...editedTask, due_date: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
@@ -910,7 +915,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                     Deadline
                   </label>
                   <input
-                    type="datetime-local"
+                    type="date"
                     value={newSubtask.due_date}
                     onChange={(e) => setNewSubtask({ ...newSubtask, due_date: e.target.value })}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
