@@ -4,12 +4,14 @@ import { Auth } from './components/Auth';
 import { FolderSidebar } from './components/FolderSidebar';
 import { TaskListNew } from './components/TaskListNew';
 import { TaskDetail } from './components/TaskDetail';
+import { TaskCreationPanel } from './components/TaskCreationPanel';
 import { RequestList } from './components/RequestList';
 import { RequestDetail } from './components/RequestDetail';
+import { RequestCreationPanel } from './components/RequestCreationPanel';
 import RequestInfoSidebar from './components/RequestInfoSidebar';
 import { AdminDashboard } from './components/AdminDashboard';
 import { UserProfileSettings } from './components/UserProfileSettings';
-import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon } from 'lucide-react';
+import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
 type ViewMode = 'tasks' | 'requests';
@@ -29,6 +31,8 @@ function App() {
   const [hasRequestsPermission, setHasRequestsPermission] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
+  const [showTaskCreation, setShowTaskCreation] = useState(false);
+  const [showRequestCreation, setShowRequestCreation] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -169,6 +173,15 @@ function App() {
             <h1 className="text-2xl font-bold text-white">
               {showAdmin ? 'Admin Dashboard' : 'Task Manager'}
             </h1>
+            {!showAdmin && (
+              <button
+                onClick={() => viewMode === 'tasks' ? setShowTaskCreation(true) : setShowRequestCreation(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                <PlusIcon className="w-4 h-4" />
+                {viewMode === 'tasks' ? 'Nový úkol' : 'Nová poptávka'}
+              </button>
+            )}
             {!showAdmin && hasRequestsPermission && (
               <div className="flex gap-2 border border-gray-600 rounded-lg p-1">
                 <button
@@ -263,6 +276,16 @@ function App() {
                   }}
                 />
               )}
+              {showTaskCreation && (
+                <TaskCreationPanel
+                  folderId={selectedFolderId}
+                  onClose={() => setShowTaskCreation(false)}
+                  onTaskCreated={() => {
+                    setShowTaskCreation(false);
+                    setTasksRefreshKey(prev => prev + 1);
+                  }}
+                />
+              )}
             </div>
           ) : (
             <div className="flex h-full">
@@ -286,6 +309,16 @@ function App() {
                     <RequestInfoSidebar request={selectedRequest} />
                   )}
                 </>
+              )}
+              {showRequestCreation && (
+                <RequestCreationPanel
+                  folderId={selectedFolderId}
+                  onClose={() => setShowRequestCreation(false)}
+                  onRequestCreated={() => {
+                    setShowRequestCreation(false);
+                    setRequestsRefreshKey(prev => prev + 1);
+                  }}
+                />
               )}
             </div>
           )}

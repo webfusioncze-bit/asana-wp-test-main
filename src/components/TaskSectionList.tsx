@@ -265,40 +265,51 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
         </div>
       )}
 
-      {tasksWithoutSection.length === 0 && sections.length === 0 && (
-        <div className="mb-3">
-          {quickAddTaskSection === null ? (
+      <div className="mb-3">
+        {quickAddTaskSection === null ? (
+          <button
+            onClick={() => setQuickAddTaskSection(null)}
+            className="w-full py-2 text-sm text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 hover:border-blue-400"
+          >
+            <PlusIcon className="w-4 h-4" />
+            Přidat úkol
+          </button>
+        ) : (
+          <div className="flex gap-2 p-2 bg-white border-2 border-blue-400 rounded">
+            <input
+              type="text"
+              value={quickTaskTitle}
+              onChange={(e) => setQuickTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') createQuickTask(null);
+                if (e.key === 'Escape') {
+                  setQuickAddTaskSection(null);
+                  setQuickTaskTitle('');
+                }
+              }}
+              placeholder="Název úkolu..."
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
             <button
-              onClick={() => setQuickAddTaskSection(null)}
-              className="w-full py-1.5 text-xs text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-1"
+              onClick={() => createQuickTask(null)}
+              disabled={!quickTaskTitle.trim()}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <PlusIcon className="w-3 h-3" />
-              Přidat úkol
+              Přidat
             </button>
-          ) : (
-            <div className="flex gap-1">
-              <input
-                type="text"
-                value={quickTaskTitle}
-                onChange={(e) => setQuickTaskTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') createQuickTask(null);
-                  if (e.key === 'Escape') setQuickAddTaskSection(null);
-                }}
-                placeholder="Název úkolu..."
-                className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                autoFocus
-              />
-              <button
-                onClick={() => createQuickTask(null)}
-                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
-              >
-                Přidat
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            <button
+              onClick={() => {
+                setQuickAddTaskSection(null);
+                setQuickTaskTitle('');
+              }}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors text-sm"
+            >
+              Zrušit
+            </button>
+          </div>
+        )}
+      </div>
 
       {sections.map(section => {
         const sectionTasks = tasks.filter(t => t.section_id === section.id);
