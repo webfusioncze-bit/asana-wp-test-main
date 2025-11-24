@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon, UsersIcon, MoreVerticalIcon } from 'lucide-react';
+import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon, UsersIcon, MoreVerticalIcon, GlobeIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Folder, User, FolderShare } from '../types';
 import { FolderSharingManager } from './FolderSharingManager';
@@ -11,8 +11,11 @@ interface FolderSidebarProps {
 }
 
 export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: FolderSidebarProps) {
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [globalFolders, setGlobalFolders] = useState<Folder[]>([]);
+  const [sharedFolders, setSharedFolders] = useState<Folder[]>([]);
+  const [myFolders, setMyFolders] = useState<Folder[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['global', 'shared', 'my']));
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingSubfolderFor, setCreatingSubfolderFor] = useState<string | null>(null);
@@ -21,19 +24,32 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   const [showSharingManager, setShowSharingManager] = useState(false);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
   const [allTasksCount, setAllTasksCount] = useState(0);
   const [folderShares, setFolderShares] = useState<Record<string, number>>({});
   const [openMenuFolderId, setOpenMenuFolderId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadFolders();
-    loadUsers();
-    loadFolderShares();
-  }, [folderType]);
+    loadCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      loadFolders();
+      loadFolderShares();
+    }
+  }, [folderType, currentUserId]);
+
+  async function loadCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  }
 
   async function loadFolders() {
+    if (!currentUserId) return;
+
     if (folderType === 'requests') {
       const { data, error } = await supabase
         .from('request_statuses')
@@ -58,6 +74,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
             owner_id: '',
             position: status.position,
             folder_type: 'requests' as const,
+            is_global: false,
             created_at: '',
             parent_id: null,
             color: status.color,
@@ -66,7 +83,9 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         })
       );
 
-      setFolders(foldersWithCounts);
+      setMyFolders(foldersWithCounts);
+      setGlobalFolders([]);
+      setSharedFolders([]);
     } else {
       const { data, error } = await supabase
         .from('folders')
@@ -79,28 +98,38 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         return;
       }
 
-      const foldersWithCounts = await Promise.all(
-        (data || []).map(async (folder) => {
-          let query = supabase
-            .from('tasks')
-            .select('*', { count: 'exact', head: true })
-            .eq('folder_id', folder.id)
-            .is('parent_task_id', null);
+      const allFolders = data || [];
 
-          if (folder.name !== 'Dokončené') {
-            query = query.neq('status', 'completed');
-          }
+      const global: Folder[] = [];
+      const shared: Folder[] = [];
+      const my: Folder[] = [];
 
-          const { count } = await query;
+      for (const folder of allFolders) {
+        let query = supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('folder_id', folder.id)
+          .is('parent_task_id', null);
 
-          return {
-            ...folder,
-            item_count: count || 0,
-          };
-        })
-      );
+        if (folder.name !== 'Dokončené') {
+          query = query.neq('status', 'completed');
+        }
 
-      setFolders(foldersWithCounts);
+        const { count } = await query;
+        const folderWithCount = { ...folder, item_count: count || 0 };
+
+        if (folder.is_global) {
+          global.push(folderWithCount);
+        } else if (folder.owner_id !== currentUserId) {
+          shared.push(folderWithCount);
+        } else {
+          my.push(folderWithCount);
+        }
+      }
+
+      setGlobalFolders(global);
+      setSharedFolders(shared);
+      setMyFolders(my);
 
       const { count: allCount } = await supabase
         .from('tasks')
@@ -112,18 +141,16 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   }
 
   async function createFolder() {
-    if (!newFolderName.trim()) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!newFolderName.trim() || !currentUserId) return;
 
     const { error } = await supabase
       .from('folders')
       .insert({
         name: newFolderName,
-        owner_id: user.id,
-        position: folders.length,
+        owner_id: currentUserId,
+        position: myFolders.length,
         folder_type: folderType,
+        is_global: false,
       });
 
     if (error) {
@@ -137,22 +164,20 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   }
 
   async function createSubfolder(parentId: string) {
-    if (!newSubfolderName.trim()) return;
+    if (!newSubfolderName.trim() || !currentUserId) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // Počet existujících pod-složek pro určení pozice
-    const siblingFolders = folders.filter(f => f.parent_id === parentId);
+    const allFolders = [...globalFolders, ...sharedFolders, ...myFolders];
+    const siblingFolders = allFolders.filter(f => f.parent_id === parentId);
 
     const { error } = await supabase
       .from('folders')
       .insert({
         name: newSubfolderName,
-        owner_id: user.id,
+        owner_id: currentUserId,
         parent_id: parentId,
         position: siblingFolders.length,
         folder_type: folderType,
+        is_global: false,
       });
 
     if (error) {
@@ -164,25 +189,11 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     setNewSubfolderName('');
     setCreatingSubfolderFor(null);
 
-    // Automaticky rozbal parent složku
     const newExpanded = new Set(expandedFolders);
     newExpanded.add(parentId);
     setExpandedFolders(newExpanded);
 
     loadFolders();
-  }
-
-  async function loadUsers() {
-    const { data: profiles, error } = await supabase
-      .from('user_profiles')
-      .select('id, email');
-
-    if (error) {
-      console.error('Error loading user profiles:', error);
-      return;
-    }
-
-    setUsers((profiles || []).map(p => ({ id: p.id, email: p.email || '' })));
   }
 
   async function loadFolderShares() {
@@ -203,29 +214,6 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     setFolderShares(shareCounts);
   }
 
-  async function shareFolder() {
-    if (!sharingFolderId || !selectedUserId) return;
-
-    const { error } = await supabase
-      .from('folder_permissions')
-      .insert({
-        folder_id: sharingFolderId,
-        user_id: selectedUserId,
-        permission_type: 'view',
-      });
-
-    if (error) {
-      console.error('Error sharing folder:', error);
-      alert('Chyba při sdílení složky: ' + error.message);
-      return;
-    }
-
-    setSharingFolderId(null);
-    setSelectedUserId('');
-    loadFolderShares();
-    alert('Složka byla úspěšně sdílena!');
-  }
-
   function toggleFolder(folderId: string) {
     const newExpanded = new Set(expandedFolders);
     if (newExpanded.has(folderId)) {
@@ -234,6 +222,16 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
       newExpanded.add(folderId);
     }
     setExpandedFolders(newExpanded);
+  }
+
+  function toggleCategory(category: string) {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
   }
 
   async function updateFolder() {
@@ -278,15 +276,17 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   }
 
   function renderFolder(folder: Folder, level: number = 0) {
-    const hasChildren = folders.some(f => f.parent_id === folder.id);
+    const allFolders = [...globalFolders, ...sharedFolders, ...myFolders];
+    const hasChildren = allFolders.some(f => f.parent_id === folder.id);
     const isExpanded = expandedFolders.has(folder.id);
     const isSelected = selectedFolderId === folder.id;
+    const canEdit = folder.owner_id === currentUserId || folder.is_global;
 
     return (
       <div key={folder.id}>
         <div
           className={`group flex items-start gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors ${
-            isSelected ? 'bg-primary/5 border-l-4 border-primary' : ''
+            isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : ''
           }`}
           style={{ paddingLeft: `${12 + level * 20}px` }}
           onClick={() => onSelectFolder(folder.id)}
@@ -306,11 +306,9 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
               )}
             </button>
           )}
-          {folderType === 'requests' && folder.color && (
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
-          )}
-          {folderType === 'tasks' && (
-            <FolderIcon className="w-4 h-4" style={{ color: folder.color }} />
+          <FolderIcon className="w-4 h-4 flex-shrink-0" style={{ color: folder.color }} />
+          {folder.is_global && (
+            <GlobeIcon className="w-3 h-3 text-blue-500 flex-shrink-0" />
           )}
           {editingFolderId === folder.id ? (
             <input
@@ -327,7 +325,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
               }}
               onBlur={updateFolder}
               autoFocus
-              className="flex-1 text-sm px-2 py-1 border border-primary rounded focus:outline-none"
+              className="flex-1 text-sm px-2 py-1 border border-blue-500 rounded focus:outline-none"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
@@ -348,7 +346,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
               )}
             </div>
           )}
-          {folderType === 'tasks' && (
+          {folderType === 'tasks' && canEdit && (
             <div className="relative flex-shrink-0">
               <button
                 onClick={(e) => {
@@ -370,21 +368,23 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                     }}
                   />
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCreatingSubfolderFor(folder.id);
-                        setNewSubfolderName('');
-                        const newExpanded = new Set(expandedFolders);
-                        newExpanded.add(folder.id);
-                        setExpandedFolders(newExpanded);
-                        setOpenMenuFolderId(null);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                    >
-                      <FolderPlusIcon className="w-4 h-4 text-green-600" />
-                      Přidat pod-složku
-                    </button>
+                    {!folder.is_global && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCreatingSubfolderFor(folder.id);
+                          setNewSubfolderName('');
+                          const newExpanded = new Set(expandedFolders);
+                          newExpanded.add(folder.id);
+                          setExpandedFolders(newExpanded);
+                          setOpenMenuFolderId(null);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <FolderPlusIcon className="w-4 h-4 text-green-600" />
+                        Přidat pod-složku
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -397,18 +397,20 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                       <Edit2Icon className="w-4 h-4 text-gray-600" />
                       Upravit složku
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSharingFolderId(folder.id);
-                        setShowSharingManager(true);
-                        setOpenMenuFolderId(null);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                    >
-                      <Share2Icon className="w-4 h-4 text-blue-600" />
-                      Sdílet složku
-                    </button>
+                    {!folder.is_global && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSharingFolderId(folder.id);
+                          setShowSharingManager(true);
+                          setOpenMenuFolderId(null);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <Share2Icon className="w-4 h-4 text-blue-600" />
+                        Sdílet složku
+                      </button>
+                    )}
                     <div className="border-t border-gray-200 my-1"></div>
                     <button
                       onClick={(e) => {
@@ -448,12 +450,12 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                     }
                   }}
                   placeholder="Název pod-složky"
-                  className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
                 <button
                   onClick={() => createSubfolder(folder.id)}
-                  className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                 >
                   OK
                 </button>
@@ -468,7 +470,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                 </button>
               </div>
             )}
-            {hasChildren && folders
+            {hasChildren && [...globalFolders, ...sharedFolders, ...myFolders]
               .filter(f => f.parent_id === folder.id)
               .map(childFolder => renderFolder(childFolder, level + 1))}
           </div>
@@ -477,7 +479,39 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     );
   }
 
-  const rootFolders = folders.filter(f => !f.parent_id);
+  function renderFolderCategory(title: string, folders: Folder[], categoryKey: string, icon: React.ReactNode) {
+    if (folders.length === 0) return null;
+
+    const isExpanded = expandedCategories.has(categoryKey);
+    const rootFolders = folders.filter(f => !f.parent_id);
+
+    return (
+      <div className="border-b border-gray-200">
+        <button
+          onClick={() => toggleCategory(categoryKey)}
+          className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            {icon}
+            <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{title}</span>
+            <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full">
+              {folders.length}
+            </span>
+          </div>
+          {isExpanded ? (
+            <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+          ) : (
+            <ChevronRightIcon className="w-4 h-4 text-gray-500" />
+          )}
+        </button>
+        {isExpanded && (
+          <div>
+            {rootFolders.map(folder => renderFolder(folder))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const folderTypeLabel = folderType === 'tasks' ? 'Úkoly' : 'Poptávky';
 
@@ -502,6 +536,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
             <button
               onClick={() => setIsCreating(true)}
               className="p-1 hover:bg-gray-100 rounded transition-colors"
+              title="Vytvořit novou složku"
             >
               <PlusIcon className="w-5 h-5 text-gray-600" />
             </button>
@@ -521,12 +556,12 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                 }
               }}
               placeholder="Název složky"
-              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
             <button
               onClick={createFolder}
-              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
             >
               OK
             </button>
@@ -536,7 +571,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
       <div className="flex-1 overflow-y-auto">
         <div
           className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors ${
-            selectedFolderId === null ? 'bg-primary/5 border-l-4 border-primary' : ''
+            selectedFolderId === null ? 'bg-blue-50 border-l-4 border-blue-600' : ''
           }`}
           onClick={() => onSelectFolder(null)}
         >
@@ -550,7 +585,31 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
             </span>
           )}
         </div>
-        {rootFolders.map(folder => renderFolder(folder))}
+
+        {folderType === 'tasks' ? (
+          <>
+            {renderFolderCategory(
+              'Globální složky',
+              globalFolders,
+              'global',
+              <GlobeIcon className="w-4 h-4 text-blue-600" />
+            )}
+            {renderFolderCategory(
+              'Sdílené složky',
+              sharedFolders,
+              'shared',
+              <Share2Icon className="w-4 h-4 text-green-600" />
+            )}
+            {renderFolderCategory(
+              'Moje složky',
+              myFolders,
+              'my',
+              <FolderIcon className="w-4 h-4 text-gray-600" />
+            )}
+          </>
+        ) : (
+          myFolders.map(folder => renderFolder(folder))
+        )}
       </div>
 
       {showSharingManager && sharingFolderId && (

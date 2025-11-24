@@ -7,6 +7,7 @@ import { RequestStatusManager } from './RequestStatusManager';
 import { ZapierIntegrationManager } from './ZapierIntegrationManager';
 import { UserPermissionsManager } from './UserPermissionsManager';
 import { UserGroupManager } from './UserGroupManager';
+import { GlobalFolderManager } from './GlobalFolderManager';
 
 interface UserRole {
   id: string;
@@ -304,6 +305,10 @@ export function AdminDashboard() {
 
       <div className="mb-8">
         <UserGroupManager />
+      </div>
+
+      <div className="mb-8">
+        <GlobalFolderManager />
       </div>
 
       <div className="bg-white rounded-lg shadow">

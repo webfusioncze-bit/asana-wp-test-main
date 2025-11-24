@@ -32,10 +32,15 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
   }, [currentFolderId]);
 
   async function loadFolders() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const { data, error } = await supabase
       .from('folders')
       .select('*')
       .eq('folder_type', 'tasks')
+      .eq('owner_id', user.id)
+      .eq('is_global', false)
       .order('position', { ascending: true });
 
     if (error) {
@@ -115,7 +120,7 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
                 onClick={() => navigateToFolder(null)}
                 className="hover:text-blue-500 transition-colors"
               >
-                Všechny složky
+                Moje složky
               </button>
               {folderPath.map((folder, index) => (
                 <span key={folder.id} className="flex items-center gap-2">
@@ -165,7 +170,7 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
         ) : (
           <>
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Všechny složky</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Moje složky</h2>
               <SubfolderGrid
                 parentFolderId={null}
                 folders={folders}

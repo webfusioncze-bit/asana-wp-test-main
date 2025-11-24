@@ -6,6 +6,7 @@ export interface Folder {
   color: string;
   position: number;
   folder_type: 'tasks' | 'requests';
+  is_global: boolean;
   created_at: string;
   updated_at?: string;
   item_count?: number;
