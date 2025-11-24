@@ -92,32 +92,43 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   }
 
   async function loadRequestStats(requestsData: Request[]) {
+    if (requestsData.length === 0) {
+      setRequestStats({});
+      return;
+    }
+
+    const requestIds = requestsData.map(r => r.id);
+
+    const [notesData, tasksData, timeData] = await Promise.all([
+      supabase
+        .from('request_notes')
+        .select('request_id')
+        .in('request_id', requestIds),
+      supabase
+        .from('tasks')
+        .select('request_id')
+        .in('request_id', requestIds),
+      supabase
+        .from('time_entries')
+        .select('request_id, hours')
+        .in('request_id', requestIds)
+    ]);
+
     const stats: Record<string, RequestStats> = {};
 
-    for (const request of requestsData) {
-      const { count: notesCount } = await supabase
-        .from('request_notes')
-        .select('*', { count: 'exact', head: true })
-        .eq('request_id', request.id);
-
-      const { count: tasksCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('request_id', request.id);
-
-      const { data: timeEntries } = await supabase
-        .from('time_entries')
-        .select('hours')
-        .eq('request_id', request.id);
-
-      const totalTime = timeEntries?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0;
+    requestsData.forEach(request => {
+      const notesCount = notesData.data?.filter(n => n.request_id === request.id).length || 0;
+      const tasksCount = tasksData.data?.filter(t => t.request_id === request.id).length || 0;
+      const totalTime = timeData.data
+        ?.filter(t => t.request_id === request.id)
+        .reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0;
 
       stats[request.id] = {
-        notesCount: notesCount || 0,
-        tasksCount: tasksCount || 0,
+        notesCount,
+        tasksCount,
         totalTime: Math.round(totalTime * 10) / 10
       };
-    }
+    });
 
     setRequestStats(stats);
   }
