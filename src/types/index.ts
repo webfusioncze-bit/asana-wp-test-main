@@ -326,7 +326,7 @@ export interface ProjectPhaseAssignment {
 
 export interface ProjectTimeEntry {
   id: string;
-  project_id: string;
+  phase_id: string;
   user_id: string;
   description: string;
   hours: number;
