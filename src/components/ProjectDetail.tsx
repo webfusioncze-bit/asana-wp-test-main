@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeftIcon, PlusIcon, EditIcon, SaveIcon, XIcon, TrashIcon, ClockIcon, UserPlusIcon } from 'lucide-react';
+import { ArrowLeftIcon, PlusIcon, EditIcon, SaveIcon, XIcon, TrashIcon, ClockIcon, UserPlusIcon, RefreshCwIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
@@ -633,6 +633,17 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               }`}>
                 {project.status}
               </span>
+              {project.sync_enabled && (
+                <span className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded font-medium flex items-center gap-1">
+                  <RefreshCwIcon className="w-3 h-3" />
+                  Synchronizace aktivní
+                  {project.last_sync_at && (
+                    <span className="text-green-600 ml-1">
+                      (poslední: {new Date(project.last_sync_at).toLocaleString('cs-CZ')})
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
 
             {(project.client_company_name || project.client_contact_person || project.client_email || project.client_phone || project.client_ico) && (

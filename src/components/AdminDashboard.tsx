@@ -248,6 +248,34 @@ export function AdminDashboard() {
     }
   }
 
+  async function reassignPhasesByExternalIds() {
+    if (!confirm('Tato akce přiřadí uživatele k fázím projektů podle jejich External ID. Pokračovat?')) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('reassign_phases_by_external_ids');
+
+      if (error) {
+        console.error('Error reassigning phases:', error);
+        alert('Chyba při přiřazování: ' + error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const assignedCount = data.filter((p: any) => p.assigned_user_id).length;
+        alert(`Úspěšně přiřazeno: ${assignedCount} fází\n\nDetail:\n${data.map((p: any) =>
+          `- ${p.phase_name}: ${p.assigned_user_id ? p.user_email : 'nebyl nalezen uživatel'}`
+        ).join('\n')}`);
+      } else {
+        alert('Žádné fáze nebyly přiřazeny. Zkontrolujte, zda uživatelé mají nastavené External ID.');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Došlo k chybě při přiřazování');
+    }
+  }
+
   async function createUser() {
     if (!newUserEmail.trim() || !newUserPassword.trim()) {
       alert('Vyplňte email i heslo');
@@ -387,13 +415,23 @@ export function AdminDashboard() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">Správa uživatelů</h2>
-              <button
-                onClick={() => setIsCreatingUser(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <UsersIcon className="w-4 h-4" />
-                Vytvořit uživatele
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={reassignPhasesByExternalIds}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  title="Přiřadí uživatele k fázím projektů podle External ID"
+                >
+                  <UserCog className="w-4 h-4" />
+                  Přiřadit k fázím
+                </button>
+                <button
+                  onClick={() => setIsCreatingUser(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <UsersIcon className="w-4 h-4" />
+                  Vytvořit uživatele
+                </button>
+              </div>
             </div>
 
             {isCreatingUser && (

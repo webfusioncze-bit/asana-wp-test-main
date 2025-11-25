@@ -213,11 +213,8 @@ Deno.serve(async (req: Request) => {
           hours: hours,
           entry_date: entryDate,
           visible_to_client: visibleToClient,
+          user_id: insertedPhase.assigned_user_id || null,
         };
-
-        if (insertedPhase.assigned_user_id) {
-          timeEntryInsert.user_id = insertedPhase.assigned_user_id;
-        }
 
         console.log(`Inserting time entry: ${hours}h on ${entryDate} - user: ${timeEntryInsert.user_id || 'NULL'}`);
 
