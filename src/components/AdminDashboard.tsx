@@ -22,6 +22,10 @@ interface AuthUser {
   id: string;
   email: string;
   created_at: string;
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+  avatar_url?: string;
 }
 
 interface Stats {
@@ -52,7 +56,7 @@ export function AdminDashboard() {
   async function loadUsers() {
     const { data: profiles, error: profilesError } = await supabase
       .from('user_profiles')
-      .select('id, email, role, first_name, last_name, display_name');
+      .select('id, email, role, first_name, last_name, display_name, avatar_url');
 
     if (profilesError) {
       console.error('Error loading profiles:', profilesError);
@@ -65,6 +69,9 @@ export function AdminDashboard() {
       created_at: '',
       role: profile.role || 'user',
       display_name: profile.display_name,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+      avatar_url: profile.avatar_url,
     }));
 
     setUsers(usersWithRoles);
@@ -377,7 +384,7 @@ export function AdminDashboard() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
+                      Uživatel
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
@@ -391,7 +398,31 @@ export function AdminDashboard() {
                   {users.map(user => (
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{user.email}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-shrink-0">
+                            {user.avatar_url ? (
+                              <img
+                                src={user.avatar_url}
+                                alt={user.display_name || user.email}
+                                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                <UsersIcon className="w-5 h-5 text-gray-500" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.first_name || user.last_name
+                                ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                                : user.display_name || user.email}
+                            </div>
+                            {(user.first_name || user.last_name) && (
+                              <div className="text-xs text-gray-500">{user.email}</div>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span
