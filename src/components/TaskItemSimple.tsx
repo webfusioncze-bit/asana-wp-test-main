@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
+import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Task, Category, User } from '../types';
 
@@ -87,6 +87,23 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
   const dueDate = formatDueDate(task.due_date);
   const completedSubtasks = subtasks.filter(s => s.status === 'completed').length;
   const totalSubtasks = subtasks.length;
+
+  const getPriorityInfo = (priority: Task['priority']) => {
+    switch (priority) {
+      case 'urgent':
+        return { text: 'Urgentní', color: 'text-red-600', bgColor: 'bg-red-50' };
+      case 'high':
+        return { text: 'Vysoká', color: 'text-orange-600', bgColor: 'bg-orange-50' };
+      case 'medium':
+        return { text: 'Střední', color: 'text-yellow-600', bgColor: 'bg-yellow-50' };
+      case 'low':
+        return { text: 'Nízká', color: 'text-gray-600', bgColor: 'bg-gray-50' };
+      default:
+        return null;
+    }
+  };
+
+  const priorityInfo = getPriorityInfo(task.priority);
 
   const uniqueSubtaskAssignees = [...new Set(subtasks.map(s => s.assigned_to).filter(Boolean))];
   const subtaskAssigneeUsers = uniqueSubtaskAssignees
@@ -251,18 +268,10 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
             </div>
           )}
 
-          {createdByUser && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded text-xs text-blue-700" title="Zadavatel">
-              {createdByUser.avatar_url ? (
-                <img
-                  src={createdByUser.avatar_url}
-                  alt={createdByUser.display_name || createdByUser.email}
-                  className="w-4 h-4 rounded-full object-cover"
-                />
-              ) : (
-                <UserIcon className="w-3 h-3" />
-              )}
-              <span>{createdByUser.display_name || createdByUser.email.split('@')[0]}</span>
+          {priorityInfo && (
+            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${priorityInfo.color} ${priorityInfo.bgColor}`} title="Priorita">
+              <AlertCircleIcon className="w-3 h-3" />
+              <span>{priorityInfo.text}</span>
             </div>
           )}
 
