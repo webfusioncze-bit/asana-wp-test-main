@@ -271,7 +271,6 @@ function App() {
                   taskId={selectedTaskId}
                   onClose={() => setSelectedTaskId(null)}
                   onTaskUpdated={() => {
-                    setSelectedTaskId(null);
                     setTasksRefreshKey(prev => prev + 1);
                   }}
                 />

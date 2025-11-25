@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon } from 'lucide-react';
+import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon, PaperclipIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Task, Category, User } from '../types';
 
@@ -18,10 +18,24 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
   const [isExpanded, setIsExpanded] = useState(false);
   const [subtaskCategories, setSubtaskCategories] = useState<Category[]>([]);
   const [subtaskUsers, setSubtaskUsers] = useState<User[]>([]);
+  const [hasAttachments, setHasAttachments] = useState(false);
 
   useEffect(() => {
     loadSubtasks();
+    checkAttachments();
   }, [task.id]);
+
+  async function checkAttachments() {
+    const { data, error } = await supabase
+      .from('task_attachments')
+      .select('id')
+      .eq('task_id', task.id)
+      .limit(1);
+
+    if (!error && data && data.length > 0) {
+      setHasAttachments(true);
+    }
+  }
 
   async function loadSubtasks() {
     const { data, error } = await supabase
@@ -272,6 +286,12 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
             <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${priorityInfo.color} ${priorityInfo.bgColor}`} title="Priorita">
               <AlertCircleIcon className="w-3 h-3" />
               <span>{priorityInfo.text}</span>
+            </div>
+          )}
+
+          {hasAttachments && (
+            <div className="flex items-center px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600" title="Má přílohy">
+              <PaperclipIcon className="w-3 h-3" />
             </div>
           )}
 
