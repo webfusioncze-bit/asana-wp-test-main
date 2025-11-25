@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeftIcon, PlusIcon, EditIcon, SaveIcon, XIcon, TrashIcon, ClockIcon, UserPlusIcon, RefreshCwIcon } from 'lucide-react';
+import { ArrowLeft as ArrowLeftIcon, Plus as PlusIcon, Bitcoin as EditIcon, Save as SaveIcon, Bone as XIcon, Trash as TrashIcon, Clock as ClockIcon, UserPlus as UserPlusIcon, RefreshCw as RefreshCwIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
