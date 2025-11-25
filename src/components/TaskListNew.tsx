@@ -39,8 +39,6 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
       .from('folders')
       .select('*')
       .eq('folder_type', 'tasks')
-      .eq('owner_id', user.id)
-      .eq('is_global', false)
       .order('position', { ascending: true });
 
     if (error) {
@@ -81,7 +79,12 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
     let folderId: string | null = currentFolderId;
 
     while (folderId) {
-      const folder = folders.find(f => f.id === folderId);
+      const { data: folder } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('id', folderId)
+        .maybeSingle();
+
       if (!folder) break;
       path.unshift(folder);
       folderId = folder.parent_id;
