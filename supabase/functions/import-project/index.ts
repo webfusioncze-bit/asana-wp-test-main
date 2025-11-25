@@ -25,7 +25,8 @@ Deno.serve(async (req: Request) => {
       throw new Error("Missing authorization header");
     }
 
-    const supabase = createClient(
+    // Ověření uživatele pomocí ANON_KEY
+    const supabaseAuth = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       {
@@ -35,10 +36,30 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
     if (userError || !user) {
       throw new Error("Unauthorized");
     }
+
+    // Ověření oprávnění
+    const { data: permission } = await supabaseAuth
+      .from('user_permissions')
+      .select('permission')
+      .eq('user_id', user.id)
+      .eq('permission', 'manage_projects')
+      .maybeSingle();
+
+    const isAllowed = permission || user.email === 'milan.vodak@webfusion.cz';
+    
+    if (!isAllowed) {
+      throw new Error('Nemáte oprávnění importovat projekty');
+    }
+
+    // Pro samotný import použijeme SERVICE_ROLE_KEY aby se vyhnuli RLS
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
     const { url }: ImportRequest = await req.json();
 
@@ -81,7 +102,7 @@ Deno.serve(async (req: Request) => {
       if (cleanStatus.includes('aktivní')) return 'aktivní';
       if (cleanStatus.includes('dokončen')) return 'dokončen';
       if (cleanStatus.includes('pozastaven')) return 'pozastaven';
-      if (cleanStatus.includes('zruše')) return 'zrušen';
+      if (cleanStatus.includes('zrušě')) return 'zrušen';
       if (cleanStatus.includes('klient')) return 'čeká se na klienta';
       return 'aktivní';
     }
@@ -90,7 +111,7 @@ Deno.serve(async (req: Request) => {
       const cleanStatus = stripHtmlTags(status)?.toLowerCase() || '';
       if (cleanStatus.includes('probíhá')) return 'fáze probíhá';
       if (cleanStatus.includes('dokončen')) return 'dokončena';
-      if (cleanStatus.includes('zruše')) return 'zrušena';
+      if (cleanStatus.includes('zrušě')) return 'zrušena';
       if (cleanStatus.includes('klient')) return 'čeká se na klienta';
       if (cleanStatus.includes('čeká')) return 'čeká na zahájení';
       return 'čeká na zahájení';
@@ -186,6 +207,8 @@ Deno.serve(async (req: Request) => {
 
       if (!insertedPhase.assigned_user_id && insertedPhase.external_operator_id) {
         warnings.push(`Fáze "${insertedPhase.name}" čeká na uživatele s external_id: ${insertedPhase.external_operator_id}`);
+      } else if (insertedPhase.assigned_user_id) {
+        console.log(`Phase ${insertedPhase.name} assigned to user: ${insertedPhase.assigned_user_id}`);
       }
 
       const timeEntries = phase.polozkovy_vykaz || [];
