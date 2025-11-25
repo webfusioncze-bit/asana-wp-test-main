@@ -154,6 +154,7 @@ Deno.serve(async (req: Request) => {
       priority: "medium",
       created_by: adminUsers[0].user_id,
       assigned_to: null,
+      source: "zapier",
     };
 
     for (const [webhookField, requestField] of Object.entries(fieldMapping)) {
