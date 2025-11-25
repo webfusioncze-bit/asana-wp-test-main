@@ -146,7 +146,9 @@ function App() {
 
   async function checkProjectsPermission(userId: string) {
     // Zkontroluj, jestli je uživatel milan.vodak@webfusion.cz
-    if (user?.email === 'milan.vodak@webfusion.cz') {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    if (authUser?.email === 'milan.vodak@webfusion.cz') {
       setHasProjectsPermission(true);
     } else {
       setHasProjectsPermission(false);
