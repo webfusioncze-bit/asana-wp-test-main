@@ -145,14 +145,18 @@ function App() {
   }
 
   async function checkProjectsPermission(userId: string) {
-    // Zkontroluj, jestli je uživatel milan.vodak@webfusion.cz
+    // Zkontroluj, jestli má uživatel oprávnění manage_projects
+    const { data } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('permission', 'manage_projects')
+      .maybeSingle();
+
+    // Nebo je to Milan Vodák
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
-    if (authUser?.email === 'milan.vodak@webfusion.cz') {
-      setHasProjectsPermission(true);
-    } else {
-      setHasProjectsPermission(false);
-    }
+    setHasProjectsPermission(!!data || authUser?.email === 'milan.vodak@webfusion.cz');
   }
 
   async function handleSignOut() {
@@ -351,7 +355,7 @@ function App() {
               )}
             </div>
           ) : (
-            <ProjectList />
+            <ProjectList canManage={hasProjectsPermission} />
           )}
         </div>
       </div>

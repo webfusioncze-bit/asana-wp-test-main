@@ -267,3 +267,52 @@ export interface TaskTag {
   tag_id: string;
   created_at: string;
 }
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  client_name: string | null;
+  budget: number | null;
+  deadline: string | null;
+  priority: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectPhase {
+  id: string;
+  project_id: string;
+  parent_phase_id: string | null;
+  name: string;
+  description: string | null;
+  status: 'pending' | 'in_progress' | 'completed';
+  position: number;
+  estimated_hours: number;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectPhaseAssignment {
+  id: string;
+  phase_id: string;
+  user_id: string;
+  role: string;
+  created_at: string;
+}
+
+export interface ProjectTimeEntry {
+  id: string;
+  phase_id: string;
+  user_id: string;
+  description: string;
+  hours: number;
+  entry_date: string;
+  entry_time: string;
+  created_at: string;
+  updated_at: string;
+}

@@ -1,0 +1,748 @@
+import { useState, useEffect } from 'react';
+import { ChevronDownIcon, ChevronRightIcon, PlusIcon, ClockIcon, UserPlusIcon, XIcon, EditIcon, TrashIcon, SaveIcon } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
+
+interface ProjectDetailProps {
+  project: Project;
+  onClose: () => void;
+  onUpdate: () => void;
+  canManage: boolean;
+}
+
+export function ProjectDetail({ project, onClose, onUpdate, canManage }: ProjectDetailProps) {
+  const [phases, setPhases] = useState<ProjectPhase[]>([]);
+  const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
+  const [assignments, setAssignments] = useState<Record<string, ProjectPhaseAssignment[]>>({});
+  const [timeEntries, setTimeEntries] = useState<Record<string, ProjectTimeEntry[]>>({});
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [showPhaseForm, setShowPhaseForm] = useState(false);
+  const [showTimeEntryForm, setShowTimeEntryForm] = useState<string | null>(null);
+  const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
+  const [newPhaseParentId, setNewPhaseParentId] = useState<string | null>(null);
+
+  const [phaseForm, setPhaseForm] = useState({
+    name: '',
+    description: '',
+    estimated_hours: 0,
+    start_date: '',
+    end_date: ''
+  });
+
+  const [timeEntryForm, setTimeEntryForm] = useState({
+    description: '',
+    hours: 0,
+    entry_date: new Date().toISOString().split('T')[0],
+    entry_time: new Date().toTimeString().split(' ')[0].substring(0, 5)
+  });
+
+  useEffect(() => {
+    loadCurrentUser();
+    loadPhases();
+    loadUsers();
+  }, [project.id]);
+
+  async function loadCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  }
+
+  async function loadPhases() {
+    const { data, error } = await supabase
+      .from('project_phases')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('position', { ascending: true });
+
+    if (error) {
+      console.error('Error loading phases:', error);
+      return;
+    }
+
+    setPhases(data || []);
+
+    for (const phase of data || []) {
+      await loadPhaseAssignments(phase.id);
+      await loadPhaseTimeEntries(phase.id);
+    }
+  }
+
+  async function loadPhaseAssignments(phaseId: string) {
+    const { data, error } = await supabase
+      .from('project_phase_assignments')
+      .select('*')
+      .eq('phase_id', phaseId);
+
+    if (error) {
+      console.error('Error loading assignments:', error);
+      return;
+    }
+
+    setAssignments(prev => ({ ...prev, [phaseId]: data || [] }));
+  }
+
+  async function loadPhaseTimeEntries(phaseId: string) {
+    const { data, error } = await supabase
+      .from('project_time_entries')
+      .select('*')
+      .eq('phase_id', phaseId)
+      .order('entry_date', { ascending: false });
+
+    if (error) {
+      console.error('Error loading time entries:', error);
+      return;
+    }
+
+    setTimeEntries(prev => ({ ...prev, [phaseId]: data || [] }));
+  }
+
+  async function loadUsers() {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .order('email');
+
+    if (error) {
+      console.error('Error loading users:', error);
+      return;
+    }
+
+    setUsers(data || []);
+  }
+
+  async function createPhase() {
+    if (!phaseForm.name.trim()) return;
+
+    const siblings = phases.filter(p => p.parent_phase_id === newPhaseParentId);
+    const position = siblings.length;
+
+    const { error } = await supabase
+      .from('project_phases')
+      .insert({
+        project_id: project.id,
+        parent_phase_id: newPhaseParentId,
+        name: phaseForm.name,
+        description: phaseForm.description,
+        estimated_hours: phaseForm.estimated_hours,
+        start_date: phaseForm.start_date || null,
+        end_date: phaseForm.end_date || null,
+        position,
+        status: 'pending'
+      });
+
+    if (error) {
+      console.error('Error creating phase:', error);
+      alert('Chyba při vytváření fáze');
+      return;
+    }
+
+    setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+    setShowPhaseForm(false);
+    setNewPhaseParentId(null);
+    loadPhases();
+    onUpdate();
+  }
+
+  async function updatePhase(phaseId: string) {
+    if (!phaseForm.name.trim()) return;
+
+    const { error } = await supabase
+      .from('project_phases')
+      .update({
+        name: phaseForm.name,
+        description: phaseForm.description,
+        estimated_hours: phaseForm.estimated_hours,
+        start_date: phaseForm.start_date || null,
+        end_date: phaseForm.end_date || null
+      })
+      .eq('id', phaseId);
+
+    if (error) {
+      console.error('Error updating phase:', error);
+      alert('Chyba při úpravě fáze');
+      return;
+    }
+
+    setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+    setEditingPhaseId(null);
+    loadPhases();
+    onUpdate();
+  }
+
+  async function deletePhase(phaseId: string) {
+    if (!confirm('Opravdu chcete smazat tuto fázi?')) return;
+
+    const { error } = await supabase
+      .from('project_phases')
+      .delete()
+      .eq('id', phaseId);
+
+    if (error) {
+      console.error('Error deleting phase:', error);
+      alert('Chyba při mazání fáze');
+      return;
+    }
+
+    loadPhases();
+    onUpdate();
+  }
+
+  async function updatePhaseStatus(phaseId: string, newStatus: ProjectPhase['status']) {
+    const { error } = await supabase
+      .from('project_phases')
+      .update({ status: newStatus })
+      .eq('id', phaseId);
+
+    if (error) {
+      console.error('Error updating phase status:', error);
+      return;
+    }
+
+    loadPhases();
+    onUpdate();
+  }
+
+  async function addTimeEntry(phaseId: string) {
+    if (!timeEntryForm.description.trim() || timeEntryForm.hours <= 0) {
+      alert('Vyplňte popis a počet hodin');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('project_time_entries')
+      .insert({
+        phase_id: phaseId,
+        user_id: currentUserId,
+        description: timeEntryForm.description,
+        hours: timeEntryForm.hours,
+        entry_date: timeEntryForm.entry_date,
+        entry_time: timeEntryForm.entry_time
+      });
+
+    if (error) {
+      console.error('Error adding time entry:', error);
+      alert('Chyba při přidání časového záznamu');
+      return;
+    }
+
+    setTimeEntryForm({
+      description: '',
+      hours: 0,
+      entry_date: new Date().toISOString().split('T')[0],
+      entry_time: new Date().toTimeString().split(' ')[0].substring(0, 5)
+    });
+    setShowTimeEntryForm(null);
+    loadPhaseTimeEntries(phaseId);
+    onUpdate();
+  }
+
+  async function assignUserToPhase(phaseId: string, userId: string) {
+    const { error } = await supabase
+      .from('project_phase_assignments')
+      .insert({
+        phase_id: phaseId,
+        user_id: userId,
+        role: 'member'
+      });
+
+    if (error) {
+      console.error('Error assigning user:', error);
+      alert('Chyba při přiřazení uživatele');
+      return;
+    }
+
+    loadPhaseAssignments(phaseId);
+    onUpdate();
+  }
+
+  async function removeUserFromPhase(assignmentId: string, phaseId: string) {
+    const { error } = await supabase
+      .from('project_phase_assignments')
+      .delete()
+      .eq('id', assignmentId);
+
+    if (error) {
+      console.error('Error removing assignment:', error);
+      return;
+    }
+
+    loadPhaseAssignments(phaseId);
+    onUpdate();
+  }
+
+  function togglePhase(phaseId: string) {
+    const newExpanded = new Set(expandedPhases);
+    if (newExpanded.has(phaseId)) {
+      newExpanded.delete(phaseId);
+    } else {
+      newExpanded.add(phaseId);
+    }
+    setExpandedPhases(newExpanded);
+  }
+
+  function getTotalHours(phaseId: string): number {
+    const entries = timeEntries[phaseId] || [];
+    return entries.reduce((sum, entry) => sum + Number(entry.hours), 0);
+  }
+
+  function getUserName(userId: string): string {
+    const user = users.find(u => u.id === userId);
+    return user?.display_name || user?.email || 'Neznámý uživatel';
+  }
+
+  function canAddTimeEntry(phaseId: string): boolean {
+    const phaseAssignments = assignments[phaseId] || [];
+    return canManage || phaseAssignments.some(a => a.user_id === currentUserId);
+  }
+
+  function renderPhase(phase: ProjectPhase, level: number = 0) {
+    const childPhases = phases.filter(p => p.parent_phase_id === phase.id);
+    const hasChildren = childPhases.length > 0;
+    const isExpanded = expandedPhases.has(phase.id);
+    const phaseAssignments = assignments[phase.id] || [];
+    const phaseTimeEntries = timeEntries[phase.id] || [];
+    const totalHours = getTotalHours(phase.id);
+    const isEditing = editingPhaseId === phase.id;
+
+    const statusColors = {
+      pending: 'bg-gray-100 text-gray-700',
+      in_progress: 'bg-blue-100 text-blue-700',
+      completed: 'bg-green-100 text-green-700'
+    };
+
+    const statusLabels = {
+      pending: 'Čeká',
+      in_progress: 'Probíhá',
+      completed: 'Dokončeno'
+    };
+
+    return (
+      <div key={phase.id} className="border-b border-gray-200">
+        <div
+          className="flex items-start gap-3 p-4 hover:bg-gray-50"
+          style={{ paddingLeft: `${16 + level * 24}px` }}
+        >
+          {hasChildren && (
+            <button
+              onClick={() => togglePhase(phase.id)}
+              className="mt-1 p-0.5 hover:bg-gray-200 rounded"
+            >
+              {isExpanded ? (
+                <ChevronDownIcon className="w-4 h-4 text-gray-600" />
+              ) : (
+                <ChevronRightIcon className="w-4 h-4 text-gray-600" />
+              )}
+            </button>
+          )}
+          {!hasChildren && <div className="w-5" />}
+
+          <div className="flex-1 min-w-0">
+            {isEditing ? (
+              <div className="space-y-3 mb-4">
+                <input
+                  type="text"
+                  value={phaseForm.name}
+                  onChange={(e) => setPhaseForm({ ...phaseForm, name: e.target.value })}
+                  placeholder="Název fáze"
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <textarea
+                  value={phaseForm.description}
+                  onChange={(e) => setPhaseForm({ ...phaseForm, description: e.target.value })}
+                  placeholder="Popis"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="grid grid-cols-3 gap-3">
+                  <input
+                    type="number"
+                    value={phaseForm.estimated_hours}
+                    onChange={(e) => setPhaseForm({ ...phaseForm, estimated_hours: Number(e.target.value) })}
+                    placeholder="Odhad hodin"
+                    className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="date"
+                    value={phaseForm.start_date}
+                    onChange={(e) => setPhaseForm({ ...phaseForm, start_date: e.target.value })}
+                    className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="date"
+                    value={phaseForm.end_date}
+                    onChange={(e) => setPhaseForm({ ...phaseForm, end_date: e.target.value })}
+                    className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => updatePhase(phase.id)}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1"
+                  >
+                    <SaveIcon className="w-4 h-4" />
+                    Uložit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingPhaseId(null);
+                      setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+                    }}
+                    className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Zrušit
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900">{phase.name}</h4>
+                    {phase.description && (
+                      <p className="text-sm text-gray-600 mt-1">{phase.description}</p>
+                    )}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className={`text-xs px-2 py-1 rounded ${statusColors[phase.status]}`}>
+                        {statusLabels[phase.status]}
+                      </span>
+                      {phase.estimated_hours > 0 && (
+                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                          Odhad: {phase.estimated_hours}h
+                        </span>
+                      )}
+                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                        Vykázáno: {totalHours.toFixed(2)}h
+                      </span>
+                      {phase.start_date && (
+                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                          {new Date(phase.start_date).toLocaleDateString('cs-CZ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {canManage && (
+                    <div className="flex gap-1">
+                      <select
+                        value={phase.status}
+                        onChange={(e) => updatePhaseStatus(phase.id, e.target.value as ProjectPhase['status'])}
+                        className="text-xs px-2 py-1 border border-gray-300 rounded"
+                      >
+                        <option value="pending">Čeká</option>
+                        <option value="in_progress">Probíhá</option>
+                        <option value="completed">Dokončeno</option>
+                      </select>
+                      <button
+                        onClick={() => {
+                          setEditingPhaseId(phase.id);
+                          setPhaseForm({
+                            name: phase.name,
+                            description: phase.description || '',
+                            estimated_hours: phase.estimated_hours,
+                            start_date: phase.start_date || '',
+                            end_date: phase.end_date || ''
+                          });
+                        }}
+                        className="p-1 hover:bg-gray-200 rounded"
+                        title="Upravit"
+                      >
+                        <EditIcon className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button
+                        onClick={() => deletePhase(phase.id)}
+                        className="p-1 hover:bg-red-100 rounded"
+                        title="Smazat"
+                      >
+                        <TrashIcon className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-700">Přiřazení uživatelé:</span>
+                      {canManage && (
+                        <select
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              assignUserToPhase(phase.id, e.target.value);
+                              e.target.value = '';
+                            }
+                          }}
+                          className="text-xs px-2 py-1 border border-gray-300 rounded"
+                        >
+                          <option value="">+ Přidat uživatele</option>
+                          {users
+                            .filter(u => !phaseAssignments.some(a => a.user_id === u.id))
+                            .map(user => (
+                              <option key={user.id} value={user.id}>
+                                {user.display_name || user.email}
+                              </option>
+                            ))}
+                        </select>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {phaseAssignments.map(assignment => (
+                        <div
+                          key={assignment.id}
+                          className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded"
+                        >
+                          <span>{getUserName(assignment.user_id)}</span>
+                          {canManage && (
+                            <button
+                              onClick={() => removeUserFromPhase(assignment.id, phase.id)}
+                              className="hover:bg-blue-100 rounded p-0.5"
+                            >
+                              <XIcon className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {canAddTimeEntry(phase.id) && (
+                    <div>
+                      <button
+                        onClick={() => setShowTimeEntryForm(showTimeEntryForm === phase.id ? null : phase.id)}
+                        className="text-xs px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-1"
+                      >
+                        <ClockIcon className="w-3 h-3" />
+                        {showTimeEntryForm === phase.id ? 'Skrýt formulář' : 'Vykázat čas'}
+                      </button>
+
+                      {showTimeEntryForm === phase.id && (
+                        <div className="mt-2 p-3 bg-gray-50 rounded space-y-2">
+                          <input
+                            type="text"
+                            value={timeEntryForm.description}
+                            onChange={(e) => setTimeEntryForm({ ...timeEntryForm, description: e.target.value })}
+                            placeholder="Popis činnosti"
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                          />
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              type="number"
+                              step="0.25"
+                              value={timeEntryForm.hours}
+                              onChange={(e) => setTimeEntryForm({ ...timeEntryForm, hours: Number(e.target.value) })}
+                              placeholder="Hodiny"
+                              className="px-2 py-1.5 text-sm border border-gray-300 rounded"
+                            />
+                            <input
+                              type="date"
+                              value={timeEntryForm.entry_date}
+                              onChange={(e) => setTimeEntryForm({ ...timeEntryForm, entry_date: e.target.value })}
+                              className="px-2 py-1.5 text-sm border border-gray-300 rounded"
+                            />
+                            <input
+                              type="time"
+                              value={timeEntryForm.entry_time}
+                              onChange={(e) => setTimeEntryForm({ ...timeEntryForm, entry_time: e.target.value })}
+                              className="px-2 py-1.5 text-sm border border-gray-300 rounded"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => addTimeEntry(phase.id)}
+                              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                            >
+                              Přidat
+                            </button>
+                            <button
+                              onClick={() => setShowTimeEntryForm(null)}
+                              className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
+                            >
+                              Zrušit
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {phaseTimeEntries.length > 0 && (
+                    <div>
+                      <span className="text-xs font-semibold text-gray-700 block mb-2">Časové záznamy:</span>
+                      <div className="space-y-1">
+                        {phaseTimeEntries.map(entry => (
+                          <div key={entry.id} className="text-xs p-2 bg-gray-50 rounded flex justify-between">
+                            <div className="flex-1">
+                              <span className="font-medium">{getUserName(entry.user_id)}</span>
+                              <span className="text-gray-600"> - {entry.description}</span>
+                            </div>
+                            <div className="text-gray-500 flex items-center gap-2">
+                              <span>{entry.hours}h</span>
+                              <span>{new Date(entry.entry_date).toLocaleDateString('cs-CZ')}</span>
+                              <span>{entry.entry_time}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {canManage && (
+                    <button
+                      onClick={() => {
+                        setNewPhaseParentId(phase.id);
+                        setShowPhaseForm(true);
+                        const newExpanded = new Set(expandedPhases);
+                        newExpanded.add(phase.id);
+                        setExpandedPhases(newExpanded);
+                      }}
+                      className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center gap-1"
+                    >
+                      <PlusIcon className="w-3 h-3" />
+                      Přidat pod-fázi
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {isExpanded && hasChildren && (
+          <div>
+            {childPhases.map(child => renderPhase(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const rootPhases = phases.filter(p => !p.parent_phase_id);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">{project.name}</h2>
+            {project.description && (
+              <p className="text-gray-600 mt-1">{project.description}</p>
+            )}
+            <div className="flex gap-2 mt-2">
+              {project.client_name && (
+                <span className="text-sm px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                  Klient: {project.client_name}
+                </span>
+              )}
+              {project.budget && (
+                <span className="text-sm px-2 py-1 bg-green-100 text-green-700 rounded">
+                  Budget: {project.budget} Kč
+                </span>
+              )}
+              {project.deadline && (
+                <span className="text-sm px-2 py-1 bg-red-100 text-red-700 rounded">
+                  Deadline: {new Date(project.deadline).toLocaleDateString('cs-CZ')}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded transition-colors"
+          >
+            <XIcon className="w-6 h-6 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {canManage && (
+            <div className="mb-4">
+              {!showPhaseForm ? (
+                <button
+                  onClick={() => {
+                    setShowPhaseForm(true);
+                    setNewPhaseParentId(null);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <PlusIcon className="w-5 h-5" />
+                  Přidat hlavní fázi
+                </button>
+              ) : !editingPhaseId && (
+                <div className="p-4 bg-gray-50 rounded space-y-3">
+                  <h3 className="font-semibold">Nová fáze {newPhaseParentId && '(pod-fáze)'}</h3>
+                  <input
+                    type="text"
+                    value={phaseForm.name}
+                    onChange={(e) => setPhaseForm({ ...phaseForm, name: e.target.value })}
+                    placeholder="Název fáze"
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <textarea
+                    value={phaseForm.description}
+                    onChange={(e) => setPhaseForm({ ...phaseForm, description: e.target.value })}
+                    placeholder="Popis"
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    <input
+                      type="number"
+                      value={phaseForm.estimated_hours}
+                      onChange={(e) => setPhaseForm({ ...phaseForm, estimated_hours: Number(e.target.value) })}
+                      placeholder="Odhad hodin"
+                      className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="date"
+                      value={phaseForm.start_date}
+                      onChange={(e) => setPhaseForm({ ...phaseForm, start_date: e.target.value })}
+                      placeholder="Začátek"
+                      className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="date"
+                      value={phaseForm.end_date}
+                      onChange={(e) => setPhaseForm({ ...phaseForm, end_date: e.target.value })}
+                      placeholder="Konec"
+                      className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={createPhase}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Vytvořit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPhaseForm(false);
+                        setNewPhaseParentId(null);
+                        setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+                      }}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                    >
+                      Zrušit
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            {rootPhases.length > 0 ? (
+              rootPhases.map(phase => renderPhase(phase))
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                Žádné fáze projektu. {canManage && 'Vytvořte první fázi pomocí tlačítka výše.'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
