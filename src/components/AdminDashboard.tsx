@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, HashIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -151,6 +151,49 @@ export function AdminDashboard() {
     } catch (error) {
       console.error('Error:', error);
       alert('Došlo k chybě při resetování hesla');
+    }
+  }
+
+  async function setExternalId(userId: string, email: string) {
+    const newExternalId = prompt(`Zadejte External ID pro uživatele ${email}:\n\n(Nechte prázdné pro odebrání)`);
+    if (newExternalId === null) {
+      return;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Nejste přihlášeni');
+        return;
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-operations`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'set-external-id',
+          userId,
+          externalId: newExternalId.trim() || undefined,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Error setting external ID:', result.error);
+        alert('Chyba při nastavení External ID: ' + result.error);
+        return;
+      }
+
+      alert('External ID bylo úspěšně nastaveno');
+      loadUsers();
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Došlo k chybě při nastavení External ID');
     }
   }
 
@@ -457,6 +500,13 @@ export function AdminDashboard() {
                             }`}
                           >
                             {user.role === 'admin' ? 'Odebrat admin' : 'Admin'}
+                          </button>
+                          <button
+                            onClick={() => setExternalId(user.id, user.email)}
+                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                            title="Nastavit External ID"
+                          >
+                            <HashIcon className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => resetUserPassword(user.id, user.email)}

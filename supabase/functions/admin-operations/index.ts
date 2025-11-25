@@ -7,9 +7,10 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'reset-password' | 'delete-user';
+  action: 'reset-password' | 'delete-user' | 'set-external-id';
   userId: string;
   newPassword?: string;
+  externalId?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -55,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
     if (roleError || userRole?.role !== 'admin') {
       return new Response(
-        JSON.stringify({ error: 'Only admins can perform this action' }),
+        JSON.stringify({ error: 'Only admins can perform these operations' }),
         {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -63,7 +64,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { action, userId, newPassword }: RequestBody = await req.json();
+    const { action, userId, newPassword, externalId }: RequestBody = await req.json();
 
     if (!action || !userId) {
       return new Response(
@@ -103,6 +104,35 @@ Deno.serve(async (req: Request) => {
 
       return new Response(
         JSON.stringify({ success: true, message: 'Password updated successfully' }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    if (action === 'set-external-id') {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        {
+          user_metadata: {
+            external_id: externalId || null
+          }
+        }
+      );
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'External ID updated successfully' }),
         {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
