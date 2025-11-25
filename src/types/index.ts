@@ -250,3 +250,20 @@ export interface FolderWithShares extends Folder {
   shared_groups?: UserGroup[];
   shared_users?: User[];
 }
+
+export interface FolderTag {
+  id: string;
+  folder_id: string;
+  name: string;
+  color: string;
+  position: number;
+  created_at: string;
+  created_by: string;
+}
+
+export interface TaskTag {
+  id: string;
+  task_id: string;
+  tag_id: string;
+  created_at: string;
+}

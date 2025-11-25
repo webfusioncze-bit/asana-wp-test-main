@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon, PaperclipIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Task, Category, User } from '../types';
+import { TaskTagsQuickEdit } from './TaskTagsQuickEdit';
+import type { Task, Category, User, FolderTag } from '../types';
 
 interface TaskItemSimpleProps {
   task: Task;
@@ -19,11 +20,35 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
   const [subtaskCategories, setSubtaskCategories] = useState<Category[]>([]);
   const [subtaskUsers, setSubtaskUsers] = useState<User[]>([]);
   const [hasAttachments, setHasAttachments] = useState(false);
+  const [taskTags, setTaskTags] = useState<FolderTag[]>([]);
+  const [taskTagIds, setTaskTagIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadSubtasks();
     checkAttachments();
+    loadTaskTags();
   }, [task.id]);
+
+  async function loadTaskTags() {
+    if (!task.folder_id) return;
+
+    const { data: taskTagsData, error } = await supabase
+      .from('task_tags')
+      .select('tag_id, folder_tags(*)')
+      .eq('task_id', task.id);
+
+    if (error) {
+      console.error('Error loading task tags:', error);
+      return;
+    }
+
+    const tags = taskTagsData
+      ?.map(tt => tt.folder_tags)
+      .filter(Boolean) as FolderTag[];
+
+    setTaskTags(tags || []);
+    setTaskTagIds(taskTagsData?.map(tt => tt.tag_id) || []);
+  }
 
   async function checkAttachments() {
     const { data, error } = await supabase
@@ -281,6 +306,28 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
               {category.name}
             </div>
           )}
+
+          {taskTags.map((tag) => (
+            <div
+              key={tag.id}
+              className="px-1.5 py-0.5 text-xs font-medium rounded"
+              style={{
+                backgroundColor: tag.color + '20',
+                color: tag.color,
+                borderLeft: `3px solid ${tag.color}`
+              }}
+              title={tag.name}
+            >
+              {tag.name}
+            </div>
+          ))}
+
+          <TaskTagsQuickEdit
+            taskId={task.id}
+            folderId={task.folder_id}
+            selectedTagIds={taskTagIds}
+            onTagsChanged={loadTaskTags}
+          />
 
           {priorityInfo && (
             <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${priorityInfo.color} ${priorityInfo.bgColor}`} title="Priorita">

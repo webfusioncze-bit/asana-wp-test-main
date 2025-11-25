@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Task, TaskComment, Category, Folder, User, TimeEntry } from '../types';
+import type { Task, TaskComment, Category, Folder, User, TimeEntry, FolderTag } from '../types';
 
 interface TaskAttachment {
   id: string;
@@ -33,6 +33,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   const [isUploading, setIsUploading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [availableTags, setAvailableTags] = useState<FolderTag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [editedTask, setEditedTask] = useState<Partial<Task>>({});
   const [isAddingTime, setIsAddingTime] = useState(false);
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
@@ -58,7 +60,14 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     loadSubtasks();
     loadTaskHierarchy();
     loadAttachments();
+    loadTaskTags();
   }, [taskId]);
+
+  useEffect(() => {
+    if (task?.folder_id) {
+      loadAvailableTags();
+    }
+  }, [task?.folder_id]);
 
   async function loadTask() {
     const { data, error } = await supabase
@@ -447,6 +456,69 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     setAttachments(data || []);
   }
 
+  async function loadAvailableTags() {
+    if (!task?.folder_id) return;
+
+    const { data, error } = await supabase
+      .from('folder_tags')
+      .select('*')
+      .eq('folder_id', task.folder_id)
+      .order('position', { ascending: true });
+
+    if (error) {
+      console.error('Error loading available tags:', error);
+      return;
+    }
+
+    setAvailableTags(data || []);
+  }
+
+  async function loadTaskTags() {
+    const { data, error } = await supabase
+      .from('task_tags')
+      .select('tag_id')
+      .eq('task_id', taskId);
+
+    if (error) {
+      console.error('Error loading task tags:', error);
+      return;
+    }
+
+    setSelectedTagIds(data?.map(tt => tt.tag_id) || []);
+  }
+
+  async function toggleTag(tagId: string) {
+    const isSelected = selectedTagIds.includes(tagId);
+
+    if (isSelected) {
+      const { error } = await supabase
+        .from('task_tags')
+        .delete()
+        .eq('task_id', taskId)
+        .eq('tag_id', tagId);
+
+      if (error) {
+        console.error('Error removing tag:', error);
+        return;
+      }
+    } else {
+      const { error } = await supabase
+        .from('task_tags')
+        .insert({
+          task_id: taskId,
+          tag_id: tagId
+        });
+
+      if (error) {
+        console.error('Error adding tag:', error);
+        return;
+      }
+    }
+
+    loadTaskTags();
+    onTaskUpdated();
+  }
+
   async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -756,6 +828,43 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             )}
           </div>
         </div>
+
+        {task.folder_id && availableTags.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <TagIcon className="w-4 h-4 inline mr-2" />
+              Tagy
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {availableTags.map((tag) => {
+                const isSelected = selectedTagIds.includes(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    onClick={() => toggleTag(tag.id)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'ring-2 ring-offset-1'
+                        : 'opacity-50 hover:opacity-100'
+                    }`}
+                    style={{
+                      backgroundColor: tag.color + (isSelected ? '30' : '20'),
+                      color: tag.color,
+                      borderLeft: `3px solid ${tag.color}`,
+                      ringColor: tag.color
+                    }}
+                  >
+                    <div
+                      className="w-3 h-3 rounded"
+                      style={{ backgroundColor: tag.color }}
+                    />
+                    {tag.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>

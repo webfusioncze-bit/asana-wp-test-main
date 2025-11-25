@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
-import { X, Edit2Icon, UsersIcon, CheckIcon } from 'lucide-react';
+import { X, Edit2Icon, UsersIcon, CheckIcon, TagIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { FolderSharingManager } from './FolderSharingManager';
+import { FolderTagsManager } from './FolderTagsManager';
 import type { Folder } from '../types';
 
 interface FolderSettingsModalProps {
   folder: Folder;
   onClose: () => void;
   onUpdate: () => void;
-  initialTab?: 'general' | 'sharing';
+  initialTab?: 'general' | 'sharing' | 'tags';
 }
 
 export function FolderSettingsModal({ folder, onClose, onUpdate, initialTab = 'general' }: FolderSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'sharing'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'general' | 'sharing' | 'tags'>(initialTab);
   const [folderName, setFolderName] = useState(folder.name);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -77,6 +78,19 @@ export function FolderSettingsModal({ folder, onClose, onUpdate, initialTab = 'g
               <div className="flex items-center gap-2">
                 <UsersIcon className="w-4 h-4" />
                 Sdílení
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('tags')}
+              className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'tags'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <TagIcon className="w-4 h-4" />
+                Tagy
               </div>
             </button>
           </div>
@@ -156,6 +170,13 @@ export function FolderSettingsModal({ folder, onClose, onUpdate, initialTab = 'g
             <FolderSharingManager
               folderId={folder.id}
               onUpdate={onUpdate}
+            />
+          )}
+
+          {activeTab === 'tags' && (
+            <FolderTagsManager
+              folderId={folder.id}
+              onTagsUpdated={onUpdate}
             />
           )}
         </div>
