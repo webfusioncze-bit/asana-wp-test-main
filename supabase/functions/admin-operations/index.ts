@@ -112,9 +112,14 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'set-external-id') {
-      const { data: userData, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const { data: userData, error: getUserError } = await supabaseAdmin
+        .from('auth.users')
+        .select('raw_user_meta_data')
+        .eq('id', userId)
+        .single();
       
-      if (getUserError || !userData.user) {
+      if (getUserError) {
+        console.error('Error getting user:', getUserError);
         return new Response(
           JSON.stringify({ error: 'User not found' }),
           {
@@ -124,27 +129,24 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const currentMetadata = userData.user.user_metadata || {};
-      const updatedMetadata = {
-        ...currentMetadata,
-        external_id: externalId || null
-      };
-
-      if (!externalId) {
+      const currentMetadata = userData?.raw_user_meta_data || {};
+      const updatedMetadata = { ...currentMetadata };
+      
+      if (externalId && externalId.trim()) {
+        updatedMetadata.external_id = externalId.trim();
+      } else {
         delete updatedMetadata.external_id;
       }
 
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        {
-          user_metadata: updatedMetadata
-        }
-      );
+      const { error: updateError } = await supabaseAdmin
+        .from('auth.users')
+        .update({ raw_user_meta_data: updatedMetadata })
+        .eq('id', userId);
 
-      if (error) {
-        console.error('Error updating user metadata:', error);
+      if (updateError) {
+        console.error('Error updating user metadata:', updateError);
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ error: updateError.message }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

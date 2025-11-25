@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, HashIcon } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -26,6 +26,7 @@ interface AuthUser {
   last_name?: string;
   display_name?: string;
   avatar_url?: string;
+  external_id?: string;
 }
 
 interface Stats {
@@ -38,6 +39,8 @@ interface Stats {
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [users, setUsers] = useState<(AuthUser & { role?: string })[]>([]);
+  const [editingExternalId, setEditingExternalId] = useState<string | null>(null);
+  const [editingExternalIdValue, setEditingExternalIdValue] = useState<string>('');
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     totalTasks: 0,
@@ -57,7 +60,7 @@ export function AdminDashboard() {
   async function loadUsers() {
     const { data: profiles, error: profilesError } = await supabase
       .from('user_profiles')
-      .select('id, email, role, first_name, last_name, display_name, avatar_url');
+      .select('id, email, role, first_name, last_name, display_name, avatar_url, external_id');
 
     if (profilesError) {
       console.error('Error loading profiles:', profilesError);
@@ -73,6 +76,7 @@ export function AdminDashboard() {
       first_name: profile.first_name,
       last_name: profile.last_name,
       avatar_url: profile.avatar_url,
+      external_id: profile.external_id,
     }));
 
     setUsers(usersWithRoles);
@@ -154,12 +158,17 @@ export function AdminDashboard() {
     }
   }
 
-  async function setExternalId(userId: string, email: string) {
-    const newExternalId = prompt(`Zadejte External ID pro uživatele ${email}:\n\n(Nechte prázdné pro odebrání)`);
-    if (newExternalId === null) {
-      return;
-    }
+  function startEditingExternalId(userId: string, currentValue: string) {
+    setEditingExternalId(userId);
+    setEditingExternalIdValue(currentValue || '');
+  }
 
+  function cancelEditingExternalId() {
+    setEditingExternalId(null);
+    setEditingExternalIdValue('');
+  }
+
+  async function saveExternalId(userId: string) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -177,7 +186,7 @@ export function AdminDashboard() {
         body: JSON.stringify({
           action: 'set-external-id',
           userId,
-          externalId: newExternalId.trim() || undefined,
+          externalId: editingExternalIdValue.trim() || undefined,
         }),
       });
 
@@ -189,7 +198,8 @@ export function AdminDashboard() {
         return;
       }
 
-      alert('External ID bylo úspěšně nastaveno');
+      setEditingExternalId(null);
+      setEditingExternalIdValue('');
       loadUsers();
     } catch (error) {
       console.error('Error:', error);
@@ -441,6 +451,9 @@ export function AdminDashboard() {
                       Uživatel
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      External ID
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -479,6 +492,41 @@ export function AdminDashboard() {
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
+                        {editingExternalId === user.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editingExternalIdValue}
+                              onChange={(e) => setEditingExternalIdValue(e.target.value)}
+                              className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="ID"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => saveExternalId(user.id)}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded"
+                              title="Uložit"
+                            >
+                              <CheckSquareIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={cancelEditingExternalId}
+                              className="p-1 text-gray-600 hover:bg-gray-50 rounded"
+                              title="Zrušit"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => startEditingExternalId(user.id, user.external_id || '')}
+                            className="text-sm text-gray-700 hover:text-blue-600 hover:underline text-left"
+                          >
+                            {user.external_id || <span className="text-gray-400 italic">Nastavit ID</span>}
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span
                           className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             user.role === 'admin'
@@ -500,13 +548,6 @@ export function AdminDashboard() {
                             }`}
                           >
                             {user.role === 'admin' ? 'Odebrat admin' : 'Admin'}
-                          </button>
-                          <button
-                            onClick={() => setExternalId(user.id, user.email)}
-                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                            title="Nastavit External ID"
-                          >
-                            <HashIcon className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => resetUserPassword(user.id, user.email)}
