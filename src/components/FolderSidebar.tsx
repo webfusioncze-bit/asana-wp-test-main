@@ -287,11 +287,14 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
       <div key={folder.id}>
         <div
           className={`group flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-gray-100 transition-colors relative ${
-            isSelected ? 'bg-blue-50 border-l-4 border-blue-600' : ''
+            isSelected ? 'bg-blue-50' : ''
           } ${level > 0 ? 'bg-gray-50/50' : ''}`}
           style={{ paddingLeft: `${8 + level * 24}px` }}
           onClick={() => onSelectFolder(folder.id)}
         >
+          {isSelected && (
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
+          )}
           {level > 0 && (
             <div
               className="absolute left-0 top-0 bottom-0 w-px bg-gray-300"
@@ -580,11 +583,14 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
       </div>
       <div className="flex-1 overflow-y-auto">
         <div
-          className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors ${
-            selectedFolderId === null ? 'bg-blue-50 border-l-4 border-blue-600' : ''
+          className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${
+            selectedFolderId === null ? 'bg-blue-50' : ''
           }`}
           onClick={() => onSelectFolder(null)}
         >
+          {selectedFolderId === null && (
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
+          )}
           <FolderIcon className="w-4 h-4 text-gray-600" />
           <span className="text-[13px] text-gray-700 flex-1">
             {folderType === 'tasks' ? 'Všechny úkoly' : 'Nové poptávky'}
