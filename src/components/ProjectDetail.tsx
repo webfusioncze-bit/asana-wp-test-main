@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon, ClockIcon, UserPlusIcon, XIcon, EditIcon, TrashIcon, SaveIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon, PlusIcon, UserPlusIcon, XIcon, EditIcon, TrashIcon, SaveIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
+import type { Project, ProjectPhase, ProjectPhaseAssignment, User } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
+import { ProjectTimeTracking } from './ProjectTimeTracking';
 
 interface ProjectDetailProps {
   project: Project;
@@ -15,11 +16,9 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [assignments, setAssignments] = useState<Record<string, ProjectPhaseAssignment[]>>({});
-  const [timeEntries, setTimeEntries] = useState<Record<string, ProjectTimeEntry[]>>({});
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showPhaseForm, setShowPhaseForm] = useState(false);
-  const [showTimeEntryForm, setShowTimeEntryForm] = useState<string | null>(null);
   const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
   const [newPhaseParentId, setNewPhaseParentId] = useState<string | null>(null);
 
@@ -33,12 +32,6 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
     end_date: ''
   });
 
-  const [timeEntryForm, setTimeEntryForm] = useState({
-    description: '',
-    hours: 0,
-    entry_date: new Date().toISOString().split('T')[0],
-    entry_time: new Date().toTimeString().split(' ')[0].substring(0, 5)
-  });
 
   useEffect(() => {
     loadCurrentUser();
@@ -69,7 +62,6 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
 
     for (const phase of data || []) {
       await loadPhaseAssignments(phase.id);
-      await loadPhaseTimeEntries(phase.id);
     }
   }
 
@@ -87,20 +79,6 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
     setAssignments(prev => ({ ...prev, [phaseId]: data || [] }));
   }
 
-  async function loadPhaseTimeEntries(phaseId: string) {
-    const { data, error } = await supabase
-      .from('project_time_entries')
-      .select('*')
-      .eq('phase_id', phaseId)
-      .order('entry_date', { ascending: false });
-
-    if (error) {
-      console.error('Error loading time entries:', error);
-      return;
-    }
-
-    setTimeEntries(prev => ({ ...prev, [phaseId]: data || [] }));
-  }
 
   async function loadUsers() {
     const { data, error } = await supabase
@@ -212,39 +190,6 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
     onUpdate();
   }
 
-  async function addTimeEntry(phaseId: string) {
-    if (!timeEntryForm.description.trim() || timeEntryForm.hours <= 0) {
-      alert('Vyplňte popis a počet hodin');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('project_time_entries')
-      .insert({
-        phase_id: phaseId,
-        user_id: currentUserId,
-        description: timeEntryForm.description,
-        hours: timeEntryForm.hours,
-        entry_date: timeEntryForm.entry_date,
-        entry_time: timeEntryForm.entry_time
-      });
-
-    if (error) {
-      console.error('Error adding time entry:', error);
-      alert('Chyba při přidání časového záznamu');
-      return;
-    }
-
-    setTimeEntryForm({
-      description: '',
-      hours: 0,
-      entry_date: new Date().toISOString().split('T')[0],
-      entry_time: new Date().toTimeString().split(' ')[0].substring(0, 5)
-    });
-    setShowTimeEntryForm(null);
-    loadPhaseTimeEntries(phaseId);
-    onUpdate();
-  }
 
   async function assignUserToPhase(phaseId: string, userId: string) {
     const { error } = await supabase
@@ -290,28 +235,18 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
     setExpandedPhases(newExpanded);
   }
 
-  function getTotalHours(phaseId: string): number {
-    const entries = timeEntries[phaseId] || [];
-    return entries.reduce((sum, entry) => sum + Number(entry.hours), 0);
-  }
 
   function getUserName(userId: string): string {
     const user = users.find(u => u.id === userId);
     return user?.display_name || user?.email || 'Neznámý uživatel';
   }
 
-  function canAddTimeEntry(phaseId: string): boolean {
-    const phaseAssignments = assignments[phaseId] || [];
-    return canManage || phaseAssignments.some(a => a.user_id === currentUserId);
-  }
 
   function renderPhase(phase: ProjectPhase, level: number = 0) {
     const childPhases = phases.filter(p => p.parent_phase_id === phase.id);
     const hasChildren = childPhases.length > 0;
     const isExpanded = expandedPhases.has(phase.id);
     const phaseAssignments = assignments[phase.id] || [];
-    const phaseTimeEntries = timeEntries[phase.id] || [];
-    const totalHours = getTotalHours(phase.id);
     const isEditing = editingPhaseId === phase.id;
 
     const statusColors: Record<string, string> = {
@@ -445,9 +380,6 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                           Odhad: {phase.estimated_hours}h
                         </span>
                       )}
-                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                        Vykázáno: {totalHours.toFixed(2)}h
-                      </span>
                       {phase.start_date && (
                         <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
                           {new Date(phase.start_date).toLocaleDateString('cs-CZ')}
@@ -542,87 +474,6 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                       ))}
                     </div>
                   </div>
-
-                  {canAddTimeEntry(phase.id) && (
-                    <div>
-                      <button
-                        onClick={() => setShowTimeEntryForm(showTimeEntryForm === phase.id ? null : phase.id)}
-                        className="text-xs px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-1"
-                      >
-                        <ClockIcon className="w-3 h-3" />
-                        {showTimeEntryForm === phase.id ? 'Skrýt formulář' : 'Vykázat čas'}
-                      </button>
-
-                      {showTimeEntryForm === phase.id && (
-                        <div className="mt-2 p-3 bg-gray-50 rounded space-y-2">
-                          <input
-                            type="text"
-                            value={timeEntryForm.description}
-                            onChange={(e) => setTimeEntryForm({ ...timeEntryForm, description: e.target.value })}
-                            placeholder="Popis činnosti"
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                          />
-                          <div className="grid grid-cols-3 gap-2">
-                            <input
-                              type="number"
-                              step="0.25"
-                              value={timeEntryForm.hours}
-                              onChange={(e) => setTimeEntryForm({ ...timeEntryForm, hours: Number(e.target.value) })}
-                              placeholder="Hodiny"
-                              className="px-2 py-1.5 text-sm border border-gray-300 rounded"
-                            />
-                            <input
-                              type="date"
-                              value={timeEntryForm.entry_date}
-                              onChange={(e) => setTimeEntryForm({ ...timeEntryForm, entry_date: e.target.value })}
-                              className="px-2 py-1.5 text-sm border border-gray-300 rounded"
-                            />
-                            <input
-                              type="time"
-                              value={timeEntryForm.entry_time}
-                              onChange={(e) => setTimeEntryForm({ ...timeEntryForm, entry_time: e.target.value })}
-                              className="px-2 py-1.5 text-sm border border-gray-300 rounded"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => addTimeEntry(phase.id)}
-                              className="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700"
-                            >
-                              Přidat
-                            </button>
-                            <button
-                              onClick={() => setShowTimeEntryForm(null)}
-                              className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
-                            >
-                              Zrušit
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {phaseTimeEntries.length > 0 && (
-                    <div>
-                      <span className="text-xs font-semibold text-gray-700 block mb-2">Časové záznamy:</span>
-                      <div className="space-y-1">
-                        {phaseTimeEntries.map(entry => (
-                          <div key={entry.id} className="text-xs p-2 bg-gray-50 rounded flex justify-between">
-                            <div className="flex-1">
-                              <span className="font-medium">{getUserName(entry.user_id)}</span>
-                              <span className="text-gray-600"> - {entry.description}</span>
-                            </div>
-                            <div className="text-gray-500 flex items-center gap-2">
-                              <span>{entry.hours}h</span>
-                              <span>{new Date(entry.entry_date).toLocaleDateString('cs-CZ')}</span>
-                              <span>{entry.entry_time}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   <ProjectMilestones phaseId={phase.id} canManage={canManage} />
 
@@ -789,7 +640,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
             </div>
           )}
 
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
             {rootPhases.length > 0 ? (
               rootPhases.map(phase => renderPhase(phase))
             ) : (
@@ -798,6 +649,8 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
               </div>
             )}
           </div>
+
+          <ProjectTimeTracking projectId={project.id} />
         </div>
       </div>
     </div>
