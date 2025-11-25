@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -8,6 +8,8 @@ import { ZapierIntegrationManager } from './ZapierIntegrationManager';
 import { UserPermissionsManager } from './UserPermissionsManager';
 import { UserGroupManager } from './UserGroupManager';
 import { GlobalFolderManager } from './GlobalFolderManager';
+
+type TabType = 'overview' | 'users' | 'settings' | 'integrations' | 'permissions' | 'groups' | 'folders';
 
 interface UserRole {
   id: string;
@@ -30,6 +32,7 @@ interface Stats {
 }
 
 export function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [users, setUsers] = useState<(AuthUser & { role?: string })[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
@@ -229,202 +232,228 @@ export function AdminDashboard() {
     }
   }
 
+  const tabs = [
+    { id: 'overview' as TabType, label: 'Přehled', icon: ShieldIcon },
+    { id: 'users' as TabType, label: 'Uživatelé', icon: UsersIcon },
+    { id: 'permissions' as TabType, label: 'Oprávnění', icon: UserCog },
+    { id: 'groups' as TabType, label: 'Skupiny', icon: UsersGroupIcon },
+    { id: 'folders' as TabType, label: 'Globální složky', icon: FolderOpen },
+    { id: 'settings' as TabType, label: 'Nastavení', icon: Settings },
+    { id: 'integrations' as TabType, label: 'Integrace', icon: Webhook },
+  ];
+
   return (
-    <div className="h-full overflow-y-auto p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Admin Dashboard</h1>
-        <p className="text-gray-600">Správa uživatelů a přehled systému</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <UsersIcon className="w-6 h-6 text-primary" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalUsers}</h3>
-          <p className="text-gray-600 text-sm">Uživatelů celkem</p>
+    <div className="h-full overflow-y-auto">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="px-6 py-4">
+          <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+          <p className="text-sm text-gray-600">Správa uživatelů a systému</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckSquareIcon className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalTasks}</h3>
-          <p className="text-gray-600 text-sm">Úkolů celkem</p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <FolderIcon className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalFolders}</h3>
-          <p className="text-gray-600 text-sm">Složek celkem</p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <ShieldIcon className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalCategories}</h3>
-          <p className="text-gray-600 text-sm">Kategorií celkem</p>
+        <div className="px-6">
+          <nav className="flex space-x-1 overflow-x-auto">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <CategoryManager />
-        <RequestTypeManager />
-      </div>
+      <div className="p-6 max-w-7xl mx-auto">
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <UsersIcon className="w-5 h-5 text-blue-600" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalUsers}</h3>
+                <p className="text-gray-600 text-xs">Uživatelů celkem</p>
+              </div>
 
-      <div className="mb-8">
-        <RequestStatusManager />
-      </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-green-50 rounded-lg">
+                    <CheckSquareIcon className="w-5 h-5 text-green-600" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalTasks}</h3>
+                <p className="text-gray-600 text-xs">Úkolů celkem</p>
+              </div>
 
-      <div className="mb-8">
-        <ZapierIntegrationManager />
-      </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-yellow-50 rounded-lg">
+                    <FolderIcon className="w-5 h-5 text-yellow-600" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalFolders}</h3>
+                <p className="text-gray-600 text-xs">Složek celkem</p>
+              </div>
 
-      <div className="mb-8">
-        <UserPermissionsManager />
-      </div>
-
-      <div className="mb-8">
-        <UserGroupManager />
-      </div>
-
-      <div className="mb-8">
-        <GlobalFolderManager />
-      </div>
-
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-800">Správa uživatelů</h2>
-          <button
-            onClick={() => setIsCreatingUser(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-          >
-            <UsersIcon className="w-4 h-4" />
-            Vytvořit uživatele
-          </button>
-        </div>
-
-        {isCreatingUser && (
-          <div className="p-6 bg-gray-50 border-b border-gray-200">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <input
-                type="email"
-                value={newUserEmail}
-                onChange={(e) => setNewUserEmail(e.target.value)}
-                placeholder="Email"
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                type="password"
-                value={newUserPassword}
-                onChange={(e) => setNewUserPassword(e.target.value)}
-                placeholder="Heslo (min. 6 znaků)"
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={createUser}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-              >
-                Vytvořit
-              </button>
-              <button
-                onClick={() => {
-                  setIsCreatingUser(false);
-                  setNewUserEmail('');
-                  setNewUserPassword('');
-                }}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Zrušit
-              </button>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-2 bg-orange-50 rounded-lg">
+                    <ShieldIcon className="w-5 h-5 text-orange-600" />
+                  </div>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-1">{stats.totalCategories}</h3>
+                <p className="text-gray-600 text-xs">Kategorií celkem</p>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vytvořeno
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Akce
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map(user => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.role === 'admin'
-                          ? 'bg-primary/10 text-primary-dark'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {user.role === 'admin' ? 'Admin' : 'Uživatel'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString('cs-CZ')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => toggleUserRole(user.id, user.role || 'user')}
-                        className={`px-3 py-1.5 rounded-lg font-medium transition-colors text-xs ${
-                          user.role === 'admin'
-                            ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            : 'bg-primary text-white hover:bg-primary-dark'
-                        }`}
-                      >
-                        {user.role === 'admin' ? 'Odebrat admin' : 'Povýšit na admin'}
-                      </button>
-                      <button
-                        onClick={() => resetUserPassword(user.id, user.email)}
-                        className="p-1.5 text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                        title="Resetovat heslo"
-                      >
-                        <KeyIcon className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteUser(user.id, user.email)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Smazat uživatele"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {activeTab === 'users' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">Správa uživatelů</h2>
+              <button
+                onClick={() => setIsCreatingUser(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <UsersIcon className="w-4 h-4" />
+                Vytvořit uživatele
+              </button>
+            </div>
+
+            {isCreatingUser && (
+              <div className="p-4 bg-gray-50 border-b border-gray-200">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <input
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    placeholder="Email"
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <input
+                    type="password"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    placeholder="Heslo (min. 6 znaků)"
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={createUser}
+                    className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Vytvořit
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsCreatingUser(false);
+                      setNewUserEmail('');
+                      setNewUserPassword('');
+                    }}
+                    className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Zrušit
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Akce
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {users.map(user => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{user.email}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            user.role === 'admin'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {user.role === 'admin' ? 'Admin' : 'Uživatel'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => toggleUserRole(user.id, user.role || 'user')}
+                            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                              user.role === 'admin'
+                                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                            }`}
+                          >
+                            {user.role === 'admin' ? 'Odebrat admin' : 'Admin'}
+                          </button>
+                          <button
+                            onClick={() => resetUserPassword(user.id, user.email)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Resetovat heslo"
+                          >
+                            <KeyIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteUser(user.id, user.email)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Smazat uživatele"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'permissions' && <UserPermissionsManager />}
+        {activeTab === 'groups' && <UserGroupManager />}
+        {activeTab === 'folders' && <GlobalFolderManager />}
+        {activeTab === 'integrations' && <ZapierIntegrationManager />}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <CategoryManager />
+              <RequestTypeManager />
+            </div>
+            <RequestStatusManager />
+          </div>
+        )}
       </div>
     </div>
   );
