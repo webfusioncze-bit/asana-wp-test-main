@@ -158,54 +158,85 @@ export function UserPermissionsManager() {
           </div>
         </div>
 
-        {/* Seznam uživatelů s oprávněními */}
+        {/* Seznam všech uživatelů s jejich oprávněními */}
         <div>
           <h3 className="text-sm font-medium text-gray-700 mb-3">Přehled oprávnění</h3>
-          <div className="space-y-3">
-            {users.map(user => {
-              const userPerms = getUserPermissions(user.id);
-              if (userPerms.length === 0) return null;
-
-              return (
-                <div key={user.id} className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="font-medium text-sm text-gray-900">{user.email}</div>
-                      <div className="text-xs text-gray-500">
-                        {userPerms.length} {userPerms.length === 1 ? 'oprávnění' : 'oprávnění'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {userPerms.map(perm => {
-                      const permDef = AVAILABLE_PERMISSIONS.find(p => p.value === perm.permission);
+          <div className="space-y-2">
+            {users.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                Žádní uživatelé
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        Uživatel
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        Oprávnění
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        Akce
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {users.map(user => {
+                      const userPerms = getUserPermissions(user.id);
                       return (
-                        <div key={perm.id} className="flex items-center justify-between bg-white rounded p-2 border border-gray-200">
-                          <div className="flex items-center gap-2">
-                            <ShieldCheckIcon className="w-4 h-4 text-green-600" />
-                            <span className="text-sm text-gray-700">{permDef?.label || perm.permission}</span>
-                          </div>
-                          <button
-                            onClick={() => removePermission(perm.id)}
-                            disabled={loading}
-                            className="p-1 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <XIcon className="w-4 h-4 text-red-500" />
-                          </button>
-                        </div>
+                        <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium text-gray-900">{user.email}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {userPerms.length === 0 ? (
+                              <span className="text-sm text-gray-400 italic">Žádná oprávnění</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {userPerms.map(perm => {
+                                  const permDef = AVAILABLE_PERMISSIONS.find(p => p.value === perm.permission);
+                                  return (
+                                    <div
+                                      key={perm.id}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium"
+                                    >
+                                      <ShieldCheckIcon className="w-3 h-3" />
+                                      <span>{permDef?.label || perm.permission}</span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removePermission(perm.id);
+                                        }}
+                                        disabled={loading}
+                                        className="ml-1 hover:text-red-600 transition-colors"
+                                        title="Odebrat oprávnění"
+                                      >
+                                        <XIcon className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setSelectedUser(user.id)}
+                              className="text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                            >
+                              Upravit
+                            </button>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </div>
-                </div>
-              );
-            })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-
-          {permissions.length === 0 && (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              Zatím nebylo přiděleno žádné oprávnění
-            </div>
-          )}
         </div>
       </div>
     </div>
