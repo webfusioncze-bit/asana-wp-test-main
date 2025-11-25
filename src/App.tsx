@@ -153,10 +153,7 @@ function App() {
       .eq('permission', 'manage_projects')
       .maybeSingle();
 
-    // Nebo je to Milan Vodák
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-
-    setHasProjectsPermission(!!data || authUser?.email === 'milan.vodak@webfusion.cz');
+    setHasProjectsPermission(!!data);
   }
 
   async function handleSignOut() {
