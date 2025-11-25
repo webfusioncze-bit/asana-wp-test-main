@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
-import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon } from 'lucide-react';
+import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Task, TaskComment, Category, Folder, User, TimeEntry } from '../types';
+
+interface TaskAttachment {
+  id: string;
+  task_id: string;
+  file_name: string;
+  file_url: string;
+  file_size: number | null;
+  file_type: string | null;
+  uploaded_by: string;
+  created_at: string;
+}
 
 interface TaskDetailProps {
   taskId: string;
@@ -18,6 +29,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [taskHierarchy, setTaskHierarchy] = useState<Task[]>([]);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editedTask, setEditedTask] = useState<Partial<Task>>({});
@@ -44,6 +57,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     loadTimeEntries();
     loadSubtasks();
     loadTaskHierarchy();
+    loadAttachments();
   }, [taskId]);
 
   async function loadTask() {
@@ -418,6 +432,92 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     onTaskUpdated();
   }
 
+  async function loadAttachments() {
+    const { data, error } = await supabase
+      .from('task_attachments')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading attachments:', error);
+      return;
+    }
+
+    setAttachments(data || []);
+  }
+
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setIsUploading(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `task-attachments/${taskId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('attachments')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('attachments')
+        .getPublicUrl(filePath);
+
+      const { error: dbError } = await supabase
+        .from('task_attachments')
+        .insert({
+          task_id: taskId,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_size: file.size,
+          file_type: file.type,
+          uploaded_by: user.id,
+        });
+
+      if (dbError) throw dbError;
+
+      loadAttachments();
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Chyba při nahrávání souboru');
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
+  }
+
+  async function deleteAttachment(attachmentId: string) {
+    if (!confirm('Opravdu chcete smazat tuto přílohu?')) return;
+
+    const { error } = await supabase
+      .from('task_attachments')
+      .delete()
+      .eq('id', attachmentId);
+
+    if (error) {
+      console.error('Error deleting attachment:', error);
+      return;
+    }
+
+    loadAttachments();
+  }
+
+  function formatFileSize(bytes: number | null): string {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
   if (!task) {
     return (
       <div className="w-96 bg-white border-l border-gray-200 flex items-center justify-center">
@@ -453,7 +553,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   };
 
   return (
-    <div className="w-[500px] bg-white border-l border-gray-200 flex flex-col h-screen">
+    <div className="w-[500px] bg-white border-l border-gray-200 flex flex-col h-full">
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-gray-800">Detail úkolu</h2>
@@ -1148,6 +1248,57 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   </div>
                 ))}
               </>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-medium text-gray-700">Přílohy</h4>
+            <label className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer text-sm flex items-center gap-2">
+              <UploadIcon className="w-4 h-4" />
+              {isUploading ? 'Nahrávání...' : 'Nahrát soubor'}
+              <input
+                type="file"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+                className="hidden"
+              />
+            </label>
+          </div>
+          <div className="space-y-2 mb-6">
+            {attachments.length === 0 ? (
+              <p className="text-sm text-gray-500">Zatím žádné přílohy</p>
+            ) : (
+              attachments.map(attachment => (
+                <div key={attachment.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <FileIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{attachment.file_name}</p>
+                      <p className="text-xs text-gray-500">{formatFileSize(attachment.file_size)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={attachment.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 hover:bg-gray-200 rounded transition-colors"
+                      title="Stáhnout"
+                    >
+                      <DownloadIcon className="w-4 h-4 text-gray-600" />
+                    </a>
+                    <button
+                      onClick={() => deleteAttachment(attachment.id)}
+                      className="p-2 hover:bg-red-50 rounded transition-colors"
+                      title="Smazat"
+                    >
+                      <TrashIcon className="w-4 h-4 text-red-500" />
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
