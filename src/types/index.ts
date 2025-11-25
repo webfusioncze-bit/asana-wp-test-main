@@ -288,6 +288,9 @@ export interface Project {
   hour_budget: number | null;
   start_date: string | null;
   delivery_date: string | null;
+  completed_date: string | null;
+  notes: string | null;
+  import_source_url: string | null;
   priority: string;
   created_by: string;
   created_at: string;
@@ -312,6 +315,9 @@ export interface ProjectPhase {
   hour_budget: number;
   start_date: string | null;
   end_date: string | null;
+  completed_date: string | null;
+  notes: string | null;
+  hourly_rate: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -331,6 +337,7 @@ export interface ProjectTimeEntry {
   description: string;
   hours: number;
   entry_date: string;
+  visible_to_client: boolean;
   created_at: string;
   updated_at: string;
 }

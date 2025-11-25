@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIcon } from 'lucide-react';
+import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIcon, DownloadIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project } from '../types';
+import { ProjectImport } from './ProjectImport';
 interface ProjectListProps {
   canManage: boolean;
   onSelectProject: (projectId: string) => void;
@@ -12,6 +13,7 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showImportForm, setShowImportForm] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [projectForm, setProjectForm] = useState({
@@ -149,13 +151,22 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
         </div>
 
         {canManage && (
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Nový projekt
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowImportForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <DownloadIcon className="w-4 h-4" />
+              Import
+            </button>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Nový projekt
+            </button>
+          </div>
         )}
       </header>
 
@@ -494,6 +505,16 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {showImportForm && (
+        <ProjectImport
+          onClose={() => setShowImportForm(false)}
+          onImportComplete={() => {
+            loadProjects();
+            setShowImportForm(false);
+          }}
+        />
       )}
 
     </div>
