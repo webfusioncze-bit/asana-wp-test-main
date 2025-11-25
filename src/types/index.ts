@@ -268,19 +268,36 @@ export interface TaskTag {
   created_at: string;
 }
 
+export type ProjectType = 'vývoj' | 'tvorba webu' | 'grafika' | 'integrace' | 'převzetí do správy';
+export type ProjectCategory = 'interní' | 'klientský';
+export type ProjectStatus = 'aktivní' | 'pozastaven' | 'čeká se na klienta' | 'zrušen' | 'dokončen';
+
 export interface Project {
   id: string;
   name: string;
   description: string | null;
-  status: string;
-  client_name: string | null;
-  budget: number | null;
-  deadline: string | null;
+  project_type: ProjectType;
+  project_category: ProjectCategory;
+  status: ProjectStatus;
+  client_company_name: string | null;
+  client_contact_person: string | null;
+  client_phone: string | null;
+  client_email: string | null;
+  client_ico: string | null;
+  price_offer: number | null;
+  hour_budget: number | null;
+  start_date: string | null;
+  delivery_date: string | null;
   priority: string;
   created_by: string;
   created_at: string;
   updated_at: string;
+  client_name?: string | null;
+  budget?: number | null;
+  deadline?: string | null;
 }
+
+export type PhaseStatus = 'fáze probíhá' | 'čeká na zahájení' | 'čeká se na klienta' | 'zrušena' | 'dokončena';
 
 export interface ProjectPhase {
   id: string;
@@ -288,9 +305,11 @@ export interface ProjectPhase {
   parent_phase_id: string | null;
   name: string;
   description: string | null;
-  status: 'pending' | 'in_progress' | 'completed';
+  status: PhaseStatus;
+  assigned_user_id: string | null;
   position: number;
   estimated_hours: number;
+  hour_budget: number;
   start_date: string | null;
   end_date: string | null;
   created_at: string;
@@ -313,6 +332,21 @@ export interface ProjectTimeEntry {
   hours: number;
   entry_date: string;
   entry_time: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MilestoneStatus = 'čeká' | 'probíhá' | 'dokončeno' | 'zpožděno';
+
+export interface ProjectMilestone {
+  id: string;
+  phase_id: string;
+  name: string;
+  description: string | null;
+  target_date: string | null;
+  completed_date: string | null;
+  status: MilestoneStatus;
+  position: number;
   created_at: string;
   updated_at: string;
 }

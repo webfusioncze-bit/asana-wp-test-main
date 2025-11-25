@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon, ClockIcon, UserPlusIcon, XIcon, EditIcon, TrashIcon, SaveIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
+import { ProjectMilestones } from './ProjectMilestones';
 
 interface ProjectDetailProps {
   project: Project;
@@ -25,7 +26,9 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
   const [phaseForm, setPhaseForm] = useState({
     name: '',
     description: '',
+    assigned_user_id: '',
     estimated_hours: 0,
+    hour_budget: 0,
     start_date: '',
     end_date: ''
   });
@@ -126,11 +129,13 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
         parent_phase_id: newPhaseParentId,
         name: phaseForm.name,
         description: phaseForm.description,
+        assigned_user_id: phaseForm.assigned_user_id || null,
         estimated_hours: phaseForm.estimated_hours,
+        hour_budget: phaseForm.hour_budget,
         start_date: phaseForm.start_date || null,
         end_date: phaseForm.end_date || null,
         position,
-        status: 'pending'
+        status: 'čeká na zahájení'
       });
 
     if (error) {
@@ -139,7 +144,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
       return;
     }
 
-    setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+    setPhaseForm({ name: '', description: '', assigned_user_id: '', estimated_hours: 0, hour_budget: 0, start_date: '', end_date: '' });
     setShowPhaseForm(false);
     setNewPhaseParentId(null);
     loadPhases();
@@ -154,7 +159,9 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
       .update({
         name: phaseForm.name,
         description: phaseForm.description,
+        assigned_user_id: phaseForm.assigned_user_id || null,
         estimated_hours: phaseForm.estimated_hours,
+        hour_budget: phaseForm.hour_budget,
         start_date: phaseForm.start_date || null,
         end_date: phaseForm.end_date || null
       })
@@ -166,7 +173,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
       return;
     }
 
-    setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+    setPhaseForm({ name: '', description: '', assigned_user_id: '', estimated_hours: 0, hour_budget: 0, start_date: '', end_date: '' });
     setEditingPhaseId(null);
     loadPhases();
     onUpdate();
@@ -307,16 +314,20 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
     const totalHours = getTotalHours(phase.id);
     const isEditing = editingPhaseId === phase.id;
 
-    const statusColors = {
-      pending: 'bg-gray-100 text-gray-700',
-      in_progress: 'bg-blue-100 text-blue-700',
-      completed: 'bg-green-100 text-green-700'
+    const statusColors: Record<string, string> = {
+      'čeká na zahájení': 'bg-gray-100 text-gray-700',
+      'fáze probíhá': 'bg-blue-100 text-blue-700',
+      'čeká se na klienta': 'bg-yellow-100 text-yellow-700',
+      'zrušena': 'bg-red-100 text-red-700',
+      'dokončena': 'bg-green-100 text-green-700'
     };
 
-    const statusLabels = {
-      pending: 'Čeká',
-      in_progress: 'Probíhá',
-      completed: 'Dokončeno'
+    const statusLabels: Record<string, string> = {
+      'čeká na zahájení': 'Čeká na zahájení',
+      'fáze probíhá': 'Fáze probíhá',
+      'čeká se na klienta': 'Čeká se na klienta',
+      'zrušena': 'Zrušena',
+      'dokončena': 'Dokončena'
     };
 
     return (
@@ -356,7 +367,19 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <div className="grid grid-cols-3 gap-3">
+                <select
+                  value={phaseForm.assigned_user_id}
+                  onChange={(e) => setPhaseForm({ ...phaseForm, assigned_user_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Operátor fáze (assignee)</option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>
+                      {user.display_name || user.email}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid grid-cols-4 gap-3">
                   <input
                     type="number"
                     value={phaseForm.estimated_hours}
@@ -365,15 +388,24 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                     className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <input
+                    type="number"
+                    value={phaseForm.hour_budget}
+                    onChange={(e) => setPhaseForm({ ...phaseForm, hour_budget: Number(e.target.value) })}
+                    placeholder="Hodinový rozpočet"
+                    className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
                     type="date"
                     value={phaseForm.start_date}
                     onChange={(e) => setPhaseForm({ ...phaseForm, start_date: e.target.value })}
+                    placeholder="Začátek"
                     className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <input
                     type="date"
                     value={phaseForm.end_date}
                     onChange={(e) => setPhaseForm({ ...phaseForm, end_date: e.target.value })}
+                    placeholder="Konec"
                     className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -388,7 +420,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                   <button
                     onClick={() => {
                       setEditingPhaseId(null);
-                      setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+                      setPhaseForm({ name: '', description: '', assigned_user_id: '', estimated_hours: 0, hour_budget: 0, start_date: '', end_date: '' });
                     }}
                     className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                   >
@@ -431,9 +463,11 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                         onChange={(e) => updatePhaseStatus(phase.id, e.target.value as ProjectPhase['status'])}
                         className="text-xs px-2 py-1 border border-gray-300 rounded"
                       >
-                        <option value="pending">Čeká</option>
-                        <option value="in_progress">Probíhá</option>
-                        <option value="completed">Dokončeno</option>
+                        <option value="čeká na zahájení">Čeká na zahájení</option>
+                        <option value="fáze probíhá">Fáze probíhá</option>
+                        <option value="čeká se na klienta">Čeká se na klienta</option>
+                        <option value="zrušena">Zrušena</option>
+                        <option value="dokončena">Dokončena</option>
                       </select>
                       <button
                         onClick={() => {
@@ -441,7 +475,9 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                           setPhaseForm({
                             name: phase.name,
                             description: phase.description || '',
+                            assigned_user_id: phase.assigned_user_id || '',
                             estimated_hours: phase.estimated_hours,
+                            hour_budget: phase.hour_budget,
                             start_date: phase.start_date || '',
                             end_date: phase.end_date || ''
                           });
@@ -588,6 +624,8 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                     </div>
                   )}
 
+                  <ProjectMilestones phaseId={phase.id} canManage={canManage} />
+
                   {canManage && (
                     <button
                       onClick={() => {
@@ -686,12 +724,31 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                     rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <div className="grid grid-cols-3 gap-3">
+                  <select
+                    value={phaseForm.assigned_user_id}
+                    onChange={(e) => setPhaseForm({ ...phaseForm, assigned_user_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Operátor fáze (assignee)</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.display_name || user.email}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="grid grid-cols-4 gap-3">
                     <input
                       type="number"
                       value={phaseForm.estimated_hours}
                       onChange={(e) => setPhaseForm({ ...phaseForm, estimated_hours: Number(e.target.value) })}
                       placeholder="Odhad hodin"
+                      className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      value={phaseForm.hour_budget}
+                      onChange={(e) => setPhaseForm({ ...phaseForm, hour_budget: Number(e.target.value) })}
+                      placeholder="Hodinový rozpočet"
                       className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <input
@@ -720,7 +777,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
                       onClick={() => {
                         setShowPhaseForm(false);
                         setNewPhaseParentId(null);
-                        setPhaseForm({ name: '', description: '', estimated_hours: 0, start_date: '', end_date: '' });
+                        setPhaseForm({ name: '', description: '', assigned_user_id: '', estimated_hours: 0, hour_budget: 0, start_date: '', end_date: '' });
                       }}
                       className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                     >

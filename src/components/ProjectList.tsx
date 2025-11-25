@@ -19,11 +19,18 @@ export function ProjectList({ canManage }: ProjectListProps) {
   const [projectForm, setProjectForm] = useState({
     name: '',
     description: '',
-    client_name: '',
-    budget: '',
-    deadline: '',
-    priority: 'medium',
-    status: 'active'
+    project_type: 'vývoj' as const,
+    project_category: 'klientský' as const,
+    client_company_name: '',
+    client_contact_person: '',
+    client_phone: '',
+    client_email: '',
+    client_ico: '',
+    price_offer: '',
+    hour_budget: '',
+    start_date: '',
+    delivery_date: '',
+    status: 'aktivní' as const
   });
 
   useEffect(() => {
@@ -65,11 +72,19 @@ export function ProjectList({ canManage }: ProjectListProps) {
       .insert({
         name: projectForm.name,
         description: projectForm.description || null,
-        client_name: projectForm.client_name || null,
-        budget: projectForm.budget ? Number(projectForm.budget) : null,
-        deadline: projectForm.deadline || null,
-        priority: projectForm.priority,
+        project_type: projectForm.project_type,
+        project_category: projectForm.project_category,
+        client_company_name: projectForm.client_company_name || null,
+        client_contact_person: projectForm.client_contact_person || null,
+        client_phone: projectForm.client_phone || null,
+        client_email: projectForm.client_email || null,
+        client_ico: projectForm.client_ico || null,
+        price_offer: projectForm.price_offer ? Number(projectForm.price_offer) : null,
+        hour_budget: projectForm.hour_budget ? Number(projectForm.hour_budget) : null,
+        start_date: projectForm.start_date || null,
+        delivery_date: projectForm.delivery_date || null,
         status: projectForm.status,
+        priority: 'medium',
         created_by: currentUserId
       });
 
@@ -82,11 +97,18 @@ export function ProjectList({ canManage }: ProjectListProps) {
     setProjectForm({
       name: '',
       description: '',
-      client_name: '',
-      budget: '',
-      deadline: '',
-      priority: 'medium',
-      status: 'active'
+      project_type: 'vývoj',
+      project_category: 'klientský',
+      client_company_name: '',
+      client_contact_person: '',
+      client_phone: '',
+      client_email: '',
+      client_ico: '',
+      price_offer: '',
+      hour_budget: '',
+      start_date: '',
+      delivery_date: '',
+      status: 'aktivní'
     });
     setShowCreateForm(false);
     loadProjects();
@@ -95,7 +117,8 @@ export function ProjectList({ canManage }: ProjectListProps) {
   const filteredProjects = projects.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (project.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-    (project.client_name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+    (project.client_company_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (project.client_contact_person?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -204,24 +227,29 @@ export function ProjectList({ canManage }: ProjectListProps) {
                   </p>
                 )}
 
-                {project.client_name && (
+                {project.client_company_name && (
                   <div className="text-sm text-gray-700 mb-2">
-                    <span className="font-medium">Klient:</span> {project.client_name}
+                    <span className="font-medium">Klient:</span> {project.client_company_name}
                   </div>
                 )}
 
                 <div className="flex items-center gap-3 text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
-                  {project.budget && (
+                  {(project.price_offer || project.budget) && (
                     <div className="flex items-center gap-1">
                       <DollarSignIcon className="w-3 h-3" />
-                      {project.budget.toLocaleString('cs-CZ')} Kč
+                      {(project.price_offer || project.budget || 0).toLocaleString('cs-CZ')} Kč
                     </div>
                   )}
-                  {project.deadline && (
+                  {(project.delivery_date || project.deadline) && (
                     <div className="flex items-center gap-1">
                       <CalendarIcon className="w-3 h-3" />
-                      {new Date(project.deadline).toLocaleDateString('cs-CZ')}
+                      {new Date(project.delivery_date || project.deadline!).toLocaleDateString('cs-CZ')}
                     </div>
+                  )}
+                  {project.project_type && (
+                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                      {project.project_type}
+                    </span>
                   )}
                 </div>
               </div>
@@ -243,7 +271,40 @@ export function ProjectList({ canManage }: ProjectListProps) {
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Typ zakázky *
+                  </label>
+                  <select
+                    value={projectForm.project_type}
+                    onChange={(e) => setProjectForm({ ...projectForm, project_type: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="vývoj">Vývoj</option>
+                    <option value="tvorba webu">Tvorba webu</option>
+                    <option value="grafika">Grafika</option>
+                    <option value="integrace">Integrace</option>
+                    <option value="převzetí do správy">Převzetí do správy</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Zařazení projektu *
+                  </label>
+                  <select
+                    value={projectForm.project_category}
+                    onChange={(e) => setProjectForm({ ...projectForm, project_category: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  >
+                    <option value="interní">Interní</option>
+                    <option value="klientský">Klientský</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Název projektu *
@@ -257,75 +318,165 @@ export function ProjectList({ canManage }: ProjectListProps) {
                 />
               </div>
 
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Údaje o zadavateli (klientovi)</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Název firmy
+                    </label>
+                    <input
+                      type="text"
+                      value={projectForm.client_company_name}
+                      onChange={(e) => setProjectForm({ ...projectForm, client_company_name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="Název firmy klienta"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Kontaktní osoba
+                      </label>
+                      <input
+                        type="text"
+                        value={projectForm.client_contact_person}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_contact_person: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        placeholder="Jméno a příjmení"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        IČO
+                      </label>
+                      <input
+                        type="text"
+                        value={projectForm.client_ico}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_ico: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        placeholder="IČO"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Telefon
+                      </label>
+                      <input
+                        type="tel"
+                        value={projectForm.client_phone}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_phone: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        placeholder="+420 123 456 789"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={projectForm.client_email}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_email: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        placeholder="email@klient.cz"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Rozpočet a termíny</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cenová nabídka (Kč)
+                    </label>
+                    <input
+                      type="number"
+                      value={projectForm.price_offer}
+                      onChange={(e) => setProjectForm({ ...projectForm, price_offer: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hodinový rozpočet (h)
+                    </label>
+                    <input
+                      type="number"
+                      value={projectForm.hour_budget}
+                      onChange={(e) => setProjectForm({ ...projectForm, hour_budget: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Datum zahájení
+                    </label>
+                    <input
+                      type="date"
+                      value={projectForm.start_date}
+                      onChange={(e) => setProjectForm({ ...projectForm, start_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Datum dodání
+                    </label>
+                    <input
+                      type="date"
+                      value={projectForm.delivery_date}
+                      onChange={(e) => setProjectForm({ ...projectForm, delivery_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Popis
+                  Stav projektu
+                </label>
+                <select
+                  value={projectForm.status}
+                  onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="aktivní">Aktivní</option>
+                  <option value="pozastaven">Pozastaven</option>
+                  <option value="čeká se na klienta">Čeká se na klienta</option>
+                  <option value="zrušen">Zrušen</option>
+                  <option value="dokončen">Dokončen</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Popis projektu
                 </label>
                 <textarea
                   value={projectForm.description}
                   onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                  rows={3}
+                  rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  placeholder="Popis projektu"
+                  placeholder="Podrobný popis projektu..."
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Klient
-                  </label>
-                  <input
-                    type="text"
-                    value={projectForm.client_name}
-                    onChange={(e) => setProjectForm({ ...projectForm, client_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    placeholder="Název klienta"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Budget (Kč)
-                  </label>
-                  <input
-                    type="number"
-                    value={projectForm.budget}
-                    onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Deadline
-                  </label>
-                  <input
-                    type="date"
-                    value={projectForm.deadline}
-                    onChange={(e) => setProjectForm({ ...projectForm, deadline: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Priorita
-                  </label>
-                  <select
-                    value={projectForm.priority}
-                    onChange={(e) => setProjectForm({ ...projectForm, priority: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  >
-                    <option value="low">Nízká</option>
-                    <option value="medium">Střední</option>
-                    <option value="high">Vysoká</option>
-                    <option value="urgent">Urgentní</option>
-                  </select>
-                </div>
               </div>
             </div>
 
