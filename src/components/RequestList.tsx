@@ -236,12 +236,12 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap mb-3">
                     {requestType && (
                       <span
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
                         style={{
-                          backgroundColor: requestType.color + '20',
+                          backgroundColor: requestType.color + '15',
                           color: requestType.color
                         }}
                       >
@@ -250,41 +250,31 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                     )}
                     {requestStatus ? (
                       <span
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
                         style={{
-                          backgroundColor: requestStatus.color + '20',
+                          backgroundColor: requestStatus.color + '15',
                           color: requestStatus.color
                         }}
                       >
                         {requestStatus.name}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                        Nová poptávka
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                        Nová
                       </span>
                     )}
                     {!request.assigned_to ? (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">
                         Nepřevzata
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
                         Převzata
-                      </span>
-                    )}
-                    {request.estimated_hours > 0 && (
-                      <span className="text-xs text-gray-500">
-                        ~{request.estimated_hours}h
-                      </span>
-                    )}
-                    {request.budget && (
-                      <span className="text-xs text-gray-500">
-                        {request.budget}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
                     <div className="flex items-center gap-1 text-gray-600" title="Počet poznámek">
                       <MessageSquareIcon className="w-3.5 h-3.5" />
                       <span className="text-xs font-medium">{stats.notesCount}</span>
@@ -297,11 +287,18 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       <ClockIcon className="w-3.5 h-3.5" />
                       <span className="text-xs font-medium">{stats.totalTime}h</span>
                     </div>
-                    {request.deadline && (
-                      <div className="ml-auto text-xs text-gray-500">
-                        Termín: {new Date(request.deadline).toLocaleDateString('cs-CZ')}
-                      </div>
-                    )}
+                    <div className="ml-auto flex items-center gap-2">
+                      {request.budget && (
+                        <span className="text-xs font-medium text-gray-700">
+                          {request.budget}
+                        </span>
+                      )}
+                      {request.deadline && (
+                        <span className="text-xs text-gray-500">
+                          {new Date(request.deadline).toLocaleDateString('cs-CZ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
