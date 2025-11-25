@@ -8,10 +8,11 @@ interface FolderSettingsModalProps {
   folder: Folder;
   onClose: () => void;
   onUpdate: () => void;
+  initialTab?: 'general' | 'sharing';
 }
 
-export function FolderSettingsModal({ folder, onClose, onUpdate }: FolderSettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'sharing'>('general');
+export function FolderSettingsModal({ folder, onClose, onUpdate, initialTab = 'general' }: FolderSettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<'general' | 'sharing'>(initialTab);
   const [folderName, setFolderName] = useState(folder.name);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);

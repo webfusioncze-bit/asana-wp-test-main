@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon, UsersIcon, MoreVerticalIcon, GlobeIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Folder, User, FolderShare } from '../types';
-import { FolderSharingManager } from './FolderSharingManager';
+import { FolderSettingsModal } from './FolderSettingsModal';
 
 interface FolderSidebarProps {
   selectedFolderId: string | null;
@@ -20,8 +20,9 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingSubfolderFor, setCreatingSubfolderFor] = useState<string | null>(null);
   const [newSubfolderName, setNewSubfolderName] = useState('');
-  const [sharingFolderId, setSharingFolderId] = useState<string | null>(null);
-  const [showSharingManager, setShowSharingManager] = useState(false);
+  const [settingsFolderId, setSettingsFolderId] = useState<string | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsModalTab, setSettingsModalTab] = useState<'general' | 'sharing'>('general');
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
   const [allTasksCount, setAllTasksCount] = useState(0);
@@ -409,8 +410,9 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSharingFolderId(folder.id);
-                          setShowSharingManager(true);
+                          setSettingsFolderId(folder.id);
+                          setSettingsModalTab('sharing');
+                          setShowSettingsModal(true);
                           setOpenMenuFolderId(null);
                         }}
                         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
@@ -620,14 +622,19 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         )}
       </div>
 
-      {showSharingManager && sharingFolderId && (
-        <FolderSharingManager
-          folderId={sharingFolderId}
+      {showSettingsModal && settingsFolderId && (
+        <FolderSettingsModal
+          folder={[...globalFolders, ...sharedFolders, ...myFolders].find(f => f.id === settingsFolderId)!}
           onClose={() => {
-            setShowSharingManager(false);
-            setSharingFolderId(null);
+            setShowSettingsModal(false);
+            setSettingsFolderId(null);
+            setSettingsModalTab('general');
+          }}
+          onUpdate={() => {
+            loadFolders();
             loadFolderShares();
           }}
+          initialTab={settingsModalTab}
         />
       )}
     </div>
