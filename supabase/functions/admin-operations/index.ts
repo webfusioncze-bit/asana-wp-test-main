@@ -112,16 +112,37 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'set-external-id') {
+      const { data: userData, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      
+      if (getUserError || !userData.user) {
+        return new Response(
+          JSON.stringify({ error: 'User not found' }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      const currentMetadata = userData.user.user_metadata || {};
+      const updatedMetadata = {
+        ...currentMetadata,
+        external_id: externalId || null
+      };
+
+      if (!externalId) {
+        delete updatedMetadata.external_id;
+      }
+
       const { error } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
         {
-          user_metadata: {
-            external_id: externalId || null
-          }
+          user_metadata: updatedMetadata
         }
       );
 
       if (error) {
+        console.error('Error updating user metadata:', error);
         return new Response(
           JSON.stringify({ error: error.message }),
           {
@@ -170,8 +191,9 @@ Deno.serve(async (req: Request) => {
       },
     );
   } catch (error) {
+    console.error('Admin operations error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message || 'Unknown error' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
