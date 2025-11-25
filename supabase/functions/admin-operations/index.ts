@@ -112,41 +112,15 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'set-external-id') {
-      const { data: userData, error: getUserError } = await supabaseAdmin
-        .from('auth.users')
-        .select('raw_user_meta_data')
-        .eq('id', userId)
-        .single();
-      
-      if (getUserError) {
-        console.error('Error getting user:', getUserError);
+      const { data, error: rpcError } = await supabaseClient.rpc('update_user_external_id', {
+        target_user_id: userId,
+        new_external_id: externalId || null
+      });
+
+      if (rpcError) {
+        console.error('Error updating external ID:', rpcError);
         return new Response(
-          JSON.stringify({ error: 'User not found' }),
-          {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          },
-        );
-      }
-
-      const currentMetadata = userData?.raw_user_meta_data || {};
-      const updatedMetadata = { ...currentMetadata };
-      
-      if (externalId && externalId.trim()) {
-        updatedMetadata.external_id = externalId.trim();
-      } else {
-        delete updatedMetadata.external_id;
-      }
-
-      const { error: updateError } = await supabaseAdmin
-        .from('auth.users')
-        .update({ raw_user_meta_data: updatedMetadata })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error('Error updating user metadata:', updateError);
-        return new Response(
-          JSON.stringify({ error: updateError.message }),
+          JSON.stringify({ error: rpcError.message }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -155,7 +129,7 @@ Deno.serve(async (req: Request) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: 'External ID updated successfully' }),
+        JSON.stringify({ success: true, message: 'External ID updated successfully', data }),
         {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
