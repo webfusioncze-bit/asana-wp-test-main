@@ -105,19 +105,33 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
       const shared: Folder[] = [];
       const my: Folder[] = [];
 
-      for (const folder of allFolders) {
+      const getFolderTaskCount = async (folderId: string, includeCompleted: boolean): Promise<number> => {
+        const childFolderIds = allFolders.filter(f => f.parent_id === folderId).map(f => f.id);
+
         let query = supabase
           .from('tasks')
           .select('*', { count: 'exact', head: true })
-          .eq('folder_id', folder.id)
+          .eq('folder_id', folderId)
           .is('parent_task_id', null);
 
-        if (folder.name !== 'Dokončené') {
+        if (!includeCompleted) {
           query = query.neq('status', 'completed');
         }
 
         const { count } = await query;
-        const folderWithCount = { ...folder, item_count: count || 0 };
+        let totalCount = count || 0;
+
+        for (const childId of childFolderIds) {
+          totalCount += await getFolderTaskCount(childId, includeCompleted);
+        }
+
+        return totalCount;
+      };
+
+      for (const folder of allFolders) {
+        const includeCompleted = folder.name === 'Dokončené';
+        const itemCount = await getFolderTaskCount(folder.id, includeCompleted);
+        const folderWithCount = { ...folder, item_count: itemCount };
 
         if (folder.is_global) {
           global.push(folderWithCount);
