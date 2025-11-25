@@ -2,17 +2,15 @@ import { useState, useEffect } from 'react';
 import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project } from '../types';
-import { ProjectDetail } from './ProjectDetail';
-
 interface ProjectListProps {
   canManage: boolean;
+  onSelectProject: (projectId: string) => void;
 }
 
-export function ProjectList({ canManage }: ProjectListProps) {
+export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -188,7 +186,7 @@ export function ProjectList({ canManage }: ProjectListProps) {
             {filteredProjects.map((project) => (
               <div
                 key={project.id}
-                onClick={() => setSelectedProject(project)}
+                onClick={() => onSelectProject(project.id)}
                 className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-3">
@@ -498,14 +496,6 @@ export function ProjectList({ canManage }: ProjectListProps) {
         </div>
       )}
 
-      {selectedProject && (
-        <ProjectDetail
-          project={selectedProject}
-          onClose={() => setSelectedProject(null)}
-          onUpdate={loadProjects}
-          canManage={canManage}
-        />
-      )}
     </div>
   );
 }

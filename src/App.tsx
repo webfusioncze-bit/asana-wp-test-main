@@ -12,6 +12,7 @@ import RequestInfoSidebar from './components/RequestInfoSidebar';
 import { AdminDashboard } from './components/AdminDashboard';
 import { UserProfileSettings } from './components/UserProfileSettings';
 import { ProjectList } from './components/ProjectList';
+import { ProjectDetail } from './components/ProjectDetail';
 import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
@@ -25,6 +26,7 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('tasks');
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
@@ -351,8 +353,17 @@ function App() {
                 />
               )}
             </div>
+          ) : selectedProjectId ? (
+            <ProjectDetail
+              projectId={selectedProjectId}
+              onClose={() => setSelectedProjectId(null)}
+              canManage={hasProjectsPermission}
+            />
           ) : (
-            <ProjectList canManage={hasProjectsPermission} />
+            <ProjectList
+              canManage={hasProjectsPermission}
+              onSelectProject={setSelectedProjectId}
+            />
           )}
         </div>
       </div>

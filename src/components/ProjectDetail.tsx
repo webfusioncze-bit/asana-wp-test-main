@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon, UserPlusIcon, XIcon, EditIcon, TrashIcon, SaveIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronRightIcon, PlusIcon, UserPlusIcon, XIcon, EditIcon, TrashIcon, SaveIcon, ArrowLeftIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project, ProjectPhase, ProjectPhaseAssignment, User } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
 import { ProjectTimeTracking } from './ProjectTimeTracking';
 
 interface ProjectDetailProps {
-  project: Project;
+  projectId: string;
   onClose: () => void;
-  onUpdate: () => void;
   canManage: boolean;
 }
 
-export function ProjectDetail({ project, onClose, onUpdate, canManage }: ProjectDetailProps) {
+export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailProps) {
+  const [project, setProject] = useState<Project | null>(null);
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [assignments, setAssignments] = useState<Record<string, ProjectPhaseAssignment[]>>({});
@@ -21,6 +21,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
   const [showPhaseForm, setShowPhaseForm] = useState(false);
   const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
   const [newPhaseParentId, setNewPhaseParentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [phaseForm, setPhaseForm] = useState({
     name: '',
@@ -34,10 +35,28 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
 
 
   useEffect(() => {
+    loadProject();
     loadCurrentUser();
     loadPhases();
     loadUsers();
-  }, [project.id]);
+  }, [projectId]);
+
+  async function loadProject() {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error loading project:', error);
+      setLoading(false);
+      return;
+    }
+
+    setProject(data);
+    setLoading(false);
+  }
 
   async function loadCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -50,7 +69,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
     const { data, error } = await supabase
       .from('project_phases')
       .select('*')
-      .eq('project_id', project.id)
+      .eq('project_id', projectId)
       .order('position', { ascending: true });
 
     if (error) {
@@ -103,7 +122,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
     const { error } = await supabase
       .from('project_phases')
       .insert({
-        project_id: project.id,
+        project_id: projectId,
         parent_phase_id: newPhaseParentId,
         name: phaseForm.name,
         description: phaseForm.description,
@@ -509,42 +528,79 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
 
   const rootPhases = phases.filter(p => !p.parent_phase_id);
 
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">Načítání projektu...</div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="text-gray-500">Projekt nenalezen</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{project.name}</h2>
+    <div className="flex-1 flex flex-col bg-gray-50 h-full overflow-hidden">
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center gap-4 mb-3">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
             {project.description && (
               <p className="text-gray-600 mt-1">{project.description}</p>
             )}
-            <div className="flex gap-2 mt-2">
-              {project.client_name && (
-                <span className="text-sm px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                  Klient: {project.client_name}
-                </span>
-              )}
-              {project.budget && (
-                <span className="text-sm px-2 py-1 bg-green-100 text-green-700 rounded">
-                  Budget: {project.budget} Kč
-                </span>
-              )}
-              {project.deadline && (
-                <span className="text-sm px-2 py-1 bg-red-100 text-red-700 rounded">
-                  Deadline: {new Date(project.deadline).toLocaleDateString('cs-CZ')}
-                </span>
-              )}
-            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded transition-colors"
-          >
-            <XIcon className="w-6 h-6 text-gray-500" />
-          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex flex-wrap gap-2">
+          {project.project_type && (
+            <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+              {project.project_type}
+            </span>
+          )}
+          {project.client_company_name && (
+            <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+              <span className="font-medium">Klient:</span> {project.client_company_name}
+            </span>
+          )}
+          {project.price_offer && (
+            <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+              <span className="font-medium">Nabídka:</span> {project.price_offer.toLocaleString('cs-CZ')} Kč
+            </span>
+          )}
+          {project.hour_budget && (
+            <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded">
+              <span className="font-medium">Rozpočet:</span> {project.hour_budget}h
+            </span>
+          )}
+          {project.delivery_date && (
+            <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
+              <span className="font-medium">Dodání:</span> {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
+            </span>
+          )}
+          <span className={`text-xs px-2 py-1 rounded font-medium ${
+            project.status === 'aktivní' ? 'bg-green-100 text-green-700' :
+            project.status === 'dokončen' ? 'bg-gray-100 text-gray-700' :
+            project.status === 'pozastaven' ? 'bg-yellow-100 text-yellow-700' :
+            project.status === 'čeká se na klienta' ? 'bg-blue-100 text-blue-700' :
+            'bg-red-100 text-red-700'
+          }`}>
+            {project.status}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6">
           {canManage && (
             <div className="mb-4">
               {!showPhaseForm ? (
@@ -650,8 +706,7 @@ export function ProjectDetail({ project, onClose, onUpdate, canManage }: Project
             )}
           </div>
 
-          <ProjectTimeTracking projectId={project.id} />
-        </div>
+        <ProjectTimeTracking projectId={projectId} />
       </div>
     </div>
   );
