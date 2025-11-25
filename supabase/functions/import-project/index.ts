@@ -88,13 +88,57 @@ Deno.serve(async (req: Request) => {
 
     function parseDate(dateStr: string | null): string | null {
       if (!dateStr) return null;
-      if (dateStr.length === 8) {
-        const year = dateStr.substring(0, 4);
-        const month = dateStr.substring(4, 6);
-        const day = dateStr.substring(6, 8);
+      
+      // Odstranit HTML tagy
+      const cleanDate = stripHtmlTags(dateStr);
+      if (!cleanDate) return null;
+      
+      // Formát YYYYMMDD (8 číslic)
+      if (/^\d{8}$/.test(cleanDate)) {
+        const year = cleanDate.substring(0, 4);
+        const month = cleanDate.substring(4, 6);
+        const day = cleanDate.substring(6, 8);
         return `${year}-${month}-${day}`;
       }
-      return dateStr;
+      
+      // Formát DD.MM.YYYY nebo D.M.YYYY
+      const ddmmyyyyMatch = cleanDate.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+      if (ddmmyyyyMatch) {
+        const day = ddmmyyyyMatch[1].padStart(2, '0');
+        const month = ddmmyyyyMatch[2].padStart(2, '0');
+        const year = ddmmyyyyMatch[3];
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Formát DD/MM/YYYY nebo D/M/YYYY
+      const ddmmyyyySlashMatch = cleanDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (ddmmyyyySlashMatch) {
+        const day = ddmmyyyySlashMatch[1].padStart(2, '0');
+        const month = ddmmyyyySlashMatch[2].padStart(2, '0');
+        const year = ddmmyyyySlashMatch[3];
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Formát YYYY-MM-DD (už správný)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+        return cleanDate;
+      }
+      
+      // Zkusit parsovat jako ISO datum
+      try {
+        const date = new Date(cleanDate);
+        if (!isNaN(date.getTime())) {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+      } catch {
+        // Pokud selže parsování, pokračujeme
+      }
+      
+      console.warn(`Unable to parse date: ${cleanDate}`);
+      return null;
     }
 
     function normalizeStatus(status: string): string {
@@ -171,6 +215,7 @@ Deno.serve(async (req: Request) => {
     let totalTimeEntriesImported = 0;
     let totalTimeEntriesFailed = 0;
     const warnings: string[] = [];
+    const failedEntries: any[] = [];
 
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
@@ -225,7 +270,8 @@ Deno.serve(async (req: Request) => {
         }
 
         if (!entryDate) {
-          console.log(`Skipping entry with invalid date: ${entry.datum}`);
+          console.warn(`Skipping entry with invalid date '${entry.datum}': ${entry.cinnost}`);
+          failedEntries.push({ reason: 'invalid_date', date: entry.datum, activity: entry.cinnost });
           totalTimeEntriesFailed++;
           continue;
         }
@@ -248,6 +294,7 @@ Deno.serve(async (req: Request) => {
         if (timeError) {
           console.error('Time entry insert error:', timeError);
           console.error('Failed entry data:', timeEntryInsert);
+          failedEntries.push({ reason: 'db_error', error: timeError.message, data: timeEntryInsert });
           totalTimeEntriesFailed++;
         } else {
           totalTimeEntriesImported++;
@@ -283,6 +330,9 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`Import complete. Time entries: ${totalTimeEntriesImported} imported, ${totalTimeEntriesFailed} failed`);
+    if (failedEntries.length > 0) {
+      console.log('Failed entries sample:', failedEntries.slice(0, 5));
+    }
 
     return new Response(
       JSON.stringify({
@@ -297,6 +347,7 @@ Deno.serve(async (req: Request) => {
           timeEntriesFailed: totalTimeEntriesFailed,
         },
         warnings: warnings.length > 0 ? warnings : undefined,
+        failedEntriesSample: failedEntries.length > 0 ? failedEntries.slice(0, 10) : undefined,
       }),
       {
         status: 200,
