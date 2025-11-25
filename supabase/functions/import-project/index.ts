@@ -145,10 +145,14 @@ Deno.serve(async (req: Request) => {
     const phases = acf.faze_projektu || [];
     console.log(`Importing ${phases.length} phases`);
 
+    let totalTimeEntriesImported = 0;
+    let totalTimeEntriesFailed = 0;
+    const warnings: string[] = [];
+
     for (let i = 0; i < phases.length; i++) {
       const phase = phases[i];
       
-      const phaseInsert = {
+      const phaseInsert: any = {
         project_id: project.id,
         name: phase.nazev_faze || `Fáze ${i + 1}`,
         description: stripHtmlTags(phase.popis_faze),
@@ -160,7 +164,11 @@ Deno.serve(async (req: Request) => {
         position: i + 1,
       };
 
-      console.log(`Inserting phase ${i + 1}:`, phaseInsert.name);
+      if (phase.operator_faze) {
+        phaseInsert.assigned_user_id = String(phase.operator_faze);
+      }
+
+      console.log(`Inserting phase ${i + 1}:`, phaseInsert.name, `assigned_user_id: ${phaseInsert.assigned_user_id || 'NOT SET'}`);
       const { data: insertedPhase, error: phaseError } = await supabase
         .from('project_phases')
         .insert(phaseInsert)
@@ -169,7 +177,12 @@ Deno.serve(async (req: Request) => {
 
       if (phaseError) {
         console.error(`Phase ${i + 1} insert error:`, phaseError);
+        warnings.push(`Fáze "${phaseInsert.name}" nebyla vytvořena: ${phaseError.message}`);
         continue;
+      }
+
+      if (!insertedPhase.assigned_user_id) {
+        warnings.push(`Fáze "${insertedPhase.name}" nemá přiřazeného uživatele - musíte přiřadit ručně`);
       }
 
       const timeEntries = phase.polozkovy_vykaz || [];
@@ -180,23 +193,41 @@ Deno.serve(async (req: Request) => {
         const hours = Number(entry.pocet_hodin) || 0;
         const visibleToClient = !entry.vidi_klient || !entry.vidi_klient.includes('nevidi');
 
-        if (hours > 0 && entryDate) {
-          const timeEntryInsert = {
-            phase_id: insertedPhase.id,
-            user_id: user.id,
-            description: entry.cinnost || 'Importovaná činnost',
-            hours: hours,
-            entry_date: entryDate,
-            visible_to_client: visibleToClient,
-          };
+        if (hours === 0) {
+          console.log(`Skipping entry with 0 hours: ${entry.cinnost}`);
+          continue;
+        }
 
-          const { error: timeError } = await supabase
-            .from('project_time_entries')
-            .insert(timeEntryInsert);
+        if (!entryDate) {
+          console.log(`Skipping entry with invalid date: ${entry.datum}`);
+          totalTimeEntriesFailed++;
+          continue;
+        }
 
-          if (timeError) {
-            console.error('Time entry insert error:', timeError);
-          }
+        const timeEntryInsert: any = {
+          phase_id: insertedPhase.id,
+          description: entry.cinnost || 'Importovaná činnost',
+          hours: hours,
+          entry_date: entryDate,
+          visible_to_client: visibleToClient,
+        };
+
+        if (insertedPhase.assigned_user_id) {
+          timeEntryInsert.user_id = insertedPhase.assigned_user_id;
+        }
+
+        console.log(`Inserting time entry: ${hours}h on ${entryDate} - user: ${timeEntryInsert.user_id || 'NULL'}`);
+
+        const { error: timeError } = await supabase
+          .from('project_time_entries')
+          .insert(timeEntryInsert);
+
+        if (timeError) {
+          console.error('Time entry insert error:', timeError);
+          console.error('Failed entry data:', timeEntryInsert);
+          totalTimeEntriesFailed++;
+        } else {
+          totalTimeEntriesImported++;
         }
       }
 
@@ -228,6 +259,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    console.log(`Import complete. Time entries: ${totalTimeEntriesImported} imported, ${totalTimeEntriesFailed} failed`);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -237,8 +270,10 @@ Deno.serve(async (req: Request) => {
         },
         stats: {
           phases: phases.length,
-          timeEntries: phases.reduce((sum, p) => sum + (p.polozkovy_vykaz?.length || 0), 0),
+          timeEntriesImported: totalTimeEntriesImported,
+          timeEntriesFailed: totalTimeEntriesFailed,
         },
+        warnings: warnings.length > 0 ? warnings : undefined,
       }),
       {
         status: 200,

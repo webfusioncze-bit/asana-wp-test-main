@@ -14,7 +14,8 @@ export function ProjectImport({ onClose, onImportComplete }: ProjectImportProps)
     success: boolean;
     message: string;
     projectName?: string;
-    stats?: { phases: number; timeEntries: number };
+    stats?: { phases: number; timeEntriesImported?: number; timeEntriesFailed?: number };
+    warnings?: string[];
   } | null>(null);
 
   async function handleImport() {
@@ -51,11 +52,12 @@ export function ProjectImport({ onClose, onImportComplete }: ProjectImportProps)
           message: 'Import byl úspěšně dokončen!',
           projectName: data.project?.name,
           stats: data.stats,
+          warnings: data.warnings,
         });
         setTimeout(() => {
           onImportComplete();
           onClose();
-        }, 2000);
+        }, data.warnings && data.warnings.length > 0 ? 5000 : 2000);
       } else {
         setResult({
           success: false,
@@ -138,9 +140,27 @@ export function ProjectImport({ onClose, onImportComplete }: ProjectImportProps)
                         <span className="inline-block mr-3">
                           Fází: {result.stats.phases}
                         </span>
-                        <span className="inline-block">
-                          Časových záznamů: {result.stats.timeEntries}
+                        <span className="inline-block mr-3">
+                          Importováno záznamů: {result.stats.timeEntriesImported || 0}
                         </span>
+                        {result.stats.timeEntriesFailed > 0 && (
+                          <span className="inline-block text-yellow-700">
+                            Selhalo: {result.stats.timeEntriesFailed}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {result.warnings && result.warnings.length > 0 && (
+                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                        <p className="font-semibold text-yellow-900 mb-2">Upozornění:</p>
+                        <ul className="text-xs text-yellow-800 space-y-1">
+                          {result.warnings.map((warning, idx) => (
+                            <li key={idx} className="flex items-start gap-1">
+                              <span className="text-yellow-600 mt-0.5">⚠</span>
+                              <span>{warning}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
