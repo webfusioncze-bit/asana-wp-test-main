@@ -11,10 +11,11 @@ import { RequestCreationPanel } from './components/RequestCreationPanel';
 import RequestInfoSidebar from './components/RequestInfoSidebar';
 import { AdminDashboard } from './components/AdminDashboard';
 import { UserProfileSettings } from './components/UserProfileSettings';
+import { ProjectList } from './components/ProjectList';
 import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
-type ViewMode = 'tasks' | 'requests';
+type ViewMode = 'tasks' | 'requests' | 'projects';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -29,6 +30,7 @@ function App() {
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
   const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
   const [hasRequestsPermission, setHasRequestsPermission] = useState(false);
+  const [hasProjectsPermission, setHasProjectsPermission] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [showTaskCreation, setShowTaskCreation] = useState(false);
@@ -103,6 +105,9 @@ function App() {
     // Zkontroluj oprávnění pro poptávky
     await checkRequestsPermission(userId, data?.role === 'admin');
 
+    // Zkontroluj oprávnění pro projekty
+    await checkProjectsPermission(userId);
+
     // Načti profil uživatele
     await loadUserProfile(userId);
 
@@ -139,6 +144,15 @@ function App() {
     setHasRequestsPermission(!!data);
   }
 
+  async function checkProjectsPermission(userId: string) {
+    // Zkontroluj, jestli je uživatel milan.vodak@webfusion.cz
+    if (user?.email === 'milan.vodak@webfusion.cz') {
+      setHasProjectsPermission(true);
+    } else {
+      setHasProjectsPermission(false);
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
   }
@@ -173,7 +187,7 @@ function App() {
             <h1 className="text-2xl font-bold text-white">
               {showAdmin ? 'Admin Dashboard' : 'Task Manager'}
             </h1>
-            {!showAdmin && (
+            {!showAdmin && viewMode !== 'projects' && (
               <button
                 onClick={() => viewMode === 'tasks' ? setShowTaskCreation(true) : setShowRequestCreation(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -182,7 +196,7 @@ function App() {
                 {viewMode === 'tasks' ? 'Nový úkol' : 'Nová poptávka'}
               </button>
             )}
-            {!showAdmin && hasRequestsPermission && (
+            {!showAdmin && (hasRequestsPermission || hasProjectsPermission) && (
               <div className="flex gap-2 border border-gray-600 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('tasks')}
@@ -194,16 +208,30 @@ function App() {
                 >
                   Úkoly
                 </button>
-                <button
-                  onClick={() => setViewMode('requests')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    viewMode === 'requests'
-                      ? 'bg-primary text-white'
-                      : 'text-gray-300 hover:bg-dark-light'
-                  }`}
-                >
-                  Poptávky
-                </button>
+                {hasRequestsPermission && (
+                  <button
+                    onClick={() => setViewMode('requests')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'requests'
+                        ? 'bg-primary text-white'
+                        : 'text-gray-300 hover:bg-dark-light'
+                    }`}
+                  >
+                    Poptávky
+                  </button>
+                )}
+                {hasProjectsPermission && (
+                  <button
+                    onClick={() => setViewMode('projects')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'projects'
+                        ? 'bg-primary text-white'
+                        : 'text-gray-300 hover:bg-dark-light'
+                    }`}
+                  >
+                    Projekty
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -286,7 +314,7 @@ function App() {
                 />
               )}
             </div>
-          ) : (
+          ) : viewMode === 'requests' ? (
             <div className="flex h-full">
               <RequestList
                 key={requestsRefreshKey}
@@ -320,6 +348,8 @@ function App() {
                 />
               )}
             </div>
+          ) : (
+            <ProjectList />
           )}
         </div>
       </div>
