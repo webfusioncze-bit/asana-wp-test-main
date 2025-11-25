@@ -182,6 +182,7 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
                   loadFolders();
                   setRefreshTrigger(prev => prev + 1);
                 }}
+                excludeGlobal={true}
               />
             </div>
             <div className="border-t border-gray-200 pt-6">

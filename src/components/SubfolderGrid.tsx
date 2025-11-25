@@ -8,6 +8,7 @@ interface SubfolderGridProps {
   folders: Folder[];
   onFolderSelect: (folderId: string) => void;
   onFolderCreated: () => void;
+  excludeGlobal?: boolean;
 }
 
 interface FolderWithSharing extends Folder {
@@ -16,14 +17,18 @@ interface FolderWithSharing extends Folder {
   isShared?: boolean;
 }
 
-export function SubfolderGrid({ parentFolderId, folders, onFolderSelect, onFolderCreated }: SubfolderGridProps) {
+export function SubfolderGrid({ parentFolderId, folders, onFolderSelect, onFolderCreated, excludeGlobal = false }: SubfolderGridProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderColor, setNewFolderColor] = useState('#3b82f6');
   const [foldersWithSharing, setFoldersWithSharing] = useState<FolderWithSharing[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const subfolders = folders.filter(f => f.parent_id === parentFolderId);
+  const subfolders = folders.filter(f => {
+    if (f.parent_id !== parentFolderId) return false;
+    if (excludeGlobal && f.is_global) return false;
+    return true;
+  });
 
   useEffect(() => {
     loadFolderSharingInfo();
