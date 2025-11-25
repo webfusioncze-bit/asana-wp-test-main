@@ -49,27 +49,19 @@ export function AdminDashboard() {
   async function loadUsers() {
     const { data: profiles, error: profilesError } = await supabase
       .from('user_profiles')
-      .select('id, email, created_at');
+      .select('id, email, role, first_name, last_name, display_name');
 
     if (profilesError) {
       console.error('Error loading profiles:', profilesError);
       return;
     }
 
-    const { data: roles, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('user_id, role');
-
-    if (rolesError) {
-      console.error('Error loading roles:', rolesError);
-      return;
-    }
-
     const usersWithRoles = (profiles || []).map(profile => ({
       id: profile.id,
       email: profile.email || '',
-      created_at: profile.created_at,
-      role: roles?.find(r => r.user_id === profile.id)?.role || 'user',
+      created_at: '',
+      role: profile.role || 'user',
+      display_name: profile.display_name,
     }));
 
     setUsers(usersWithRoles);
