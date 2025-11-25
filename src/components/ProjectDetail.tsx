@@ -27,9 +27,15 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
     name: '',
     description: '',
     project_type: '',
+    project_category: '',
     client_company_name: '',
+    client_contact_person: '',
+    client_phone: '',
+    client_email: '',
+    client_ico: '',
     price_offer: 0,
     hour_budget: 0,
+    start_date: '',
     delivery_date: '',
     status: 'aktivní'
   });
@@ -74,9 +80,15 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
       name: data?.name || '',
       description: data?.description || '',
       project_type: data?.project_type || '',
+      project_category: data?.project_category || '',
       client_company_name: data?.client_company_name || '',
+      client_contact_person: data?.client_contact_person || '',
+      client_phone: data?.client_phone || '',
+      client_email: data?.client_email || '',
+      client_ico: data?.client_ico || '',
       price_offer: data?.price_offer || 0,
       hour_budget: data?.hour_budget || 0,
+      start_date: data?.start_date || '',
       delivery_date: data?.delivery_date || '',
       status: data?.status || 'aktivní'
     });
@@ -164,9 +176,15 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
         name: projectForm.name,
         description: projectForm.description,
         project_type: projectForm.project_type,
+        project_category: projectForm.project_category,
         client_company_name: projectForm.client_company_name,
+        client_contact_person: projectForm.client_contact_person || null,
+        client_phone: projectForm.client_phone || null,
+        client_email: projectForm.client_email || null,
+        client_ico: projectForm.client_ico || null,
         price_offer: projectForm.price_offer || null,
         hour_budget: projectForm.hour_budget || null,
+        start_date: projectForm.start_date || null,
         delivery_date: projectForm.delivery_date || null,
         status: projectForm.status
       })
@@ -412,52 +430,146 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
                   placeholder="Popis projektu"
                   rows={2}
                 />
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <input
-                    type="text"
-                    value={projectForm.project_type}
-                    onChange={(e) => setProjectForm({ ...projectForm, project_type: e.target.value })}
-                    className="px-3 py-2 border border-gray-300 rounded text-sm"
-                    placeholder="Typ projektu"
-                  />
-                  <input
-                    type="text"
-                    value={projectForm.client_company_name}
-                    onChange={(e) => setProjectForm({ ...projectForm, client_company_name: e.target.value })}
-                    className="px-3 py-2 border border-gray-300 rounded text-sm"
-                    placeholder="Klient"
-                  />
-                  <input
-                    type="number"
-                    value={projectForm.price_offer}
-                    onChange={(e) => setProjectForm({ ...projectForm, price_offer: Number(e.target.value) })}
-                    className="px-3 py-2 border border-gray-300 rounded text-sm"
-                    placeholder="Nabídka (Kč)"
-                  />
-                  <input
-                    type="number"
-                    value={projectForm.hour_budget}
-                    onChange={(e) => setProjectForm({ ...projectForm, hour_budget: Number(e.target.value) })}
-                    className="px-3 py-2 border border-gray-300 rounded text-sm"
-                    placeholder="Rozpočet (h)"
-                  />
-                  <input
-                    type="date"
-                    value={projectForm.delivery_date}
-                    onChange={(e) => setProjectForm({ ...projectForm, delivery_date: e.target.value })}
-                    className="px-3 py-2 border border-gray-300 rounded text-sm"
-                  />
-                  <select
-                    value={projectForm.status}
-                    onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
-                    className="px-3 py-2 border border-gray-300 rounded text-sm"
-                  >
-                    <option value="aktivní">Aktivní</option>
-                    <option value="dokončen">Dokončen</option>
-                    <option value="pozastaven">Pozastaven</option>
-                    <option value="čeká se na klienta">Čeká se na klienta</option>
-                    <option value="zrušen">Zrušen</option>
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Typ projektu</label>
+                    <select
+                      value={projectForm.project_type}
+                      onChange={(e) => setProjectForm({ ...projectForm, project_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    >
+                      <option value="vývoj">Vývoj</option>
+                      <option value="údržba">Údržba</option>
+                      <option value="konzultace">Konzultace</option>
+                      <option value="jiné">Jiné</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Kategorie</label>
+                    <select
+                      value={projectForm.project_category}
+                      onChange={(e) => setProjectForm({ ...projectForm, project_category: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    >
+                      <option value="klientský">Klientský</option>
+                      <option value="interní">Interní</option>
+                      <option value="open-source">Open-source</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Stav</label>
+                    <select
+                      value={projectForm.status}
+                      onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                    >
+                      <option value="aktivní">Aktivní</option>
+                      <option value="dokončen">Dokončen</option>
+                      <option value="pozastaven">Pozastaven</option>
+                      <option value="čeká se na klienta">Čeká se na klienta</option>
+                      <option value="zrušen">Zrušen</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="border-t pt-3">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Informace o klientovi</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Název firmy</label>
+                      <input
+                        type="text"
+                        value={projectForm.client_company_name}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_company_name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        placeholder="Název firmy klienta"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Kontaktní osoba</label>
+                      <input
+                        type="text"
+                        value={projectForm.client_contact_person}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_contact_person: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        placeholder="Jméno kontaktní osoby"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">IČO</label>
+                      <input
+                        type="text"
+                        value={projectForm.client_ico}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_ico: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        placeholder="12345678"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Telefon</label>
+                      <input
+                        type="tel"
+                        value={projectForm.client_phone}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_phone: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        placeholder="+420 123 456 789"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={projectForm.client_email}
+                        onChange={(e) => setProjectForm({ ...projectForm, client_email: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        placeholder="email@klient.cz"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-3">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Rozpočet a termíny</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Cenová nabídka (Kč)</label>
+                      <input
+                        type="number"
+                        value={projectForm.price_offer}
+                        onChange={(e) => setProjectForm({ ...projectForm, price_offer: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Hodinový rozpočet (h)</label>
+                      <input
+                        type="number"
+                        value={projectForm.hour_budget}
+                        onChange={(e) => setProjectForm({ ...projectForm, hour_budget: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Datum zahájení</label>
+                      <input
+                        type="date"
+                        value={projectForm.start_date}
+                        onChange={(e) => setProjectForm({ ...projectForm, start_date: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Datum dodání</label>
+                      <input
+                        type="date"
+                        value={projectForm.delivery_date}
+                        onChange={(e) => setProjectForm({ ...projectForm, delivery_date: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -500,41 +612,89 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
         </div>
 
         {!editingProject && (
-          <div className="flex flex-wrap gap-2">
-            {project.project_type && (
-              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
-                {project.project_type}
+          <div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {project.project_type && (
+                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+                  {project.project_type}
+                </span>
+              )}
+              {project.project_category && (
+                <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-medium">
+                  {project.project_category}
+                </span>
+              )}
+              <span className={`text-xs px-2 py-1 rounded font-medium ${
+                project.status === 'aktivní' ? 'bg-green-100 text-green-700' :
+                project.status === 'dokončen' ? 'bg-gray-100 text-gray-700' :
+                project.status === 'pozastaven' ? 'bg-yellow-100 text-yellow-700' :
+                project.status === 'čeká se na klienta' ? 'bg-blue-100 text-blue-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                {project.status}
               </span>
+            </div>
+
+            {(project.client_company_name || project.client_contact_person || project.client_email || project.client_phone || project.client_ico) && (
+              <div className="bg-gray-50 rounded p-3 mb-3">
+                <h4 className="text-xs font-semibold text-gray-700 mb-2">Klient</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                  {project.client_company_name && (
+                    <div>
+                      <span className="text-gray-500">Firma:</span>
+                      <span className="ml-1 text-gray-900 font-medium">{project.client_company_name}</span>
+                    </div>
+                  )}
+                  {project.client_contact_person && (
+                    <div>
+                      <span className="text-gray-500">Kontakt:</span>
+                      <span className="ml-1 text-gray-900">{project.client_contact_person}</span>
+                    </div>
+                  )}
+                  {project.client_ico && (
+                    <div>
+                      <span className="text-gray-500">IČO:</span>
+                      <span className="ml-1 text-gray-900">{project.client_ico}</span>
+                    </div>
+                  )}
+                  {project.client_phone && (
+                    <div>
+                      <span className="text-gray-500">Tel:</span>
+                      <span className="ml-1 text-gray-900">{project.client_phone}</span>
+                    </div>
+                  )}
+                  {project.client_email && (
+                    <div className="md:col-span-2">
+                      <span className="text-gray-500">Email:</span>
+                      <a href={`mailto:${project.client_email}`} className="ml-1 text-blue-600 hover:underline">{project.client_email}</a>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
-            {project.client_company_name && (
-              <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
-                <span className="font-medium">Klient:</span> {project.client_company_name}
-              </span>
-            )}
-            {project.price_offer && (
-              <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
-                <span className="font-medium">Nabídka:</span> {project.price_offer.toLocaleString('cs-CZ')} Kč
-              </span>
-            )}
-            {project.hour_budget && (
-              <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded">
-                <span className="font-medium">Rozpočet:</span> {project.hour_budget}h
-              </span>
-            )}
-            {project.delivery_date && (
-              <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
-                <span className="font-medium">Dodání:</span> {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
-              </span>
-            )}
-            <span className={`text-xs px-2 py-1 rounded font-medium ${
-              project.status === 'aktivní' ? 'bg-green-100 text-green-700' :
-              project.status === 'dokončen' ? 'bg-gray-100 text-gray-700' :
-              project.status === 'pozastaven' ? 'bg-yellow-100 text-yellow-700' :
-              project.status === 'čeká se na klienta' ? 'bg-blue-100 text-blue-700' :
-              'bg-red-100 text-red-700'
-            }`}>
-              {project.status}
-            </span>
+
+            <div className="flex flex-wrap gap-2">
+              {project.price_offer && (
+                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                  <span className="font-medium">Nabídka:</span> {project.price_offer.toLocaleString('cs-CZ')} Kč
+                </span>
+              )}
+              {project.hour_budget && (
+                <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded">
+                  <span className="font-medium">Rozpočet:</span> {project.hour_budget}h
+                </span>
+              )}
+              {project.start_date && (
+                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
+                  <span className="font-medium">Zahájení:</span> {new Date(project.start_date).toLocaleDateString('cs-CZ')}
+                </span>
+              )}
+              {project.delivery_date && (
+                <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
+                  <span className="font-medium">Dodání:</span> {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>
