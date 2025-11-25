@@ -47,6 +47,7 @@ export function AdminDashboard() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserExternalId, setNewUserExternalId] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -217,6 +218,7 @@ export function AdminDashboard() {
         body: JSON.stringify({
           email: newUserEmail,
           password: newUserPassword,
+          externalId: newUserExternalId || undefined,
         }),
       });
 
@@ -230,6 +232,7 @@ export function AdminDashboard() {
 
       setNewUserEmail('');
       setNewUserPassword('');
+      setNewUserExternalId('');
       setIsCreatingUser(false);
       loadUsers();
       alert('Uživatel byl úspěšně vytvořen');
@@ -342,7 +345,7 @@ export function AdminDashboard() {
 
             {isCreatingUser && (
               <div className="p-4 bg-gray-50 border-b border-gray-200">
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-3 gap-3 mb-3">
                   <input
                     type="email"
                     value={newUserEmail}
@@ -355,6 +358,13 @@ export function AdminDashboard() {
                     value={newUserPassword}
                     onChange={(e) => setNewUserPassword(e.target.value)}
                     placeholder="Heslo (min. 6 znaků)"
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                  <input
+                    type="text"
+                    value={newUserExternalId}
+                    onChange={(e) => setNewUserExternalId(e.target.value)}
+                    placeholder="External ID (volitelné)"
                     className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -370,6 +380,7 @@ export function AdminDashboard() {
                       setIsCreatingUser(false);
                       setNewUserEmail('');
                       setNewUserPassword('');
+                      setNewUserExternalId('');
                     }}
                     className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                   >

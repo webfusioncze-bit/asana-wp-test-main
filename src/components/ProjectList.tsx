@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIcon, DownloadIcon } from 'lucide-react';
+import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIcon, DownloadIcon, Trash2Icon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project } from '../types';
 import { ProjectImport } from './ProjectImport';
@@ -114,6 +114,27 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
     loadProjects();
   }
 
+  async function deleteProject(projectId: string, projectName: string, e: React.MouseEvent) {
+    e.stopPropagation();
+
+    if (!confirm(`Opravdu chcete smazat projekt "${projectName}"?\n\nTato akce je nevratná a smaže i všechny fáze, časové záznamy a milestones.`)) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (error) {
+      console.error('Error deleting project:', error);
+      alert('Chyba při mazání projektu: ' + error.message);
+      return;
+    }
+
+    loadProjects();
+  }
+
   const filteredProjects = projects.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (project.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -198,8 +219,17 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
               <div
                 key={project.id}
                 onClick={() => onSelectProject(project.id)}
-                className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer relative group"
               >
+                {canManage && (
+                  <button
+                    onClick={(e) => deleteProject(project.id, project.name, e)}
+                    className="absolute top-3 right-3 p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Smazat projekt"
+                  >
+                    <Trash2Icon className="w-4 h-4" />
+                  </button>
+                )}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 mb-1">{project.name}</h3>

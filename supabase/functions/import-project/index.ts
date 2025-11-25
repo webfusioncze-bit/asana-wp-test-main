@@ -125,6 +125,8 @@ Deno.serve(async (req: Request) => {
       completed_date: parseDate(acf.datum_dokonceni),
       notes: stripHtmlTags(acf.zapisky),
       import_source_url: url,
+      sync_enabled: true,
+      last_sync_at: new Date().toISOString(),
       created_by: user.id,
     };
 
@@ -165,10 +167,11 @@ Deno.serve(async (req: Request) => {
       };
 
       if (phase.operator_faze) {
-        phaseInsert.assigned_user_id = String(phase.operator_faze);
+        phaseInsert.external_operator_id = String(phase.operator_faze);
+        console.log(`Phase ${i + 1} has external_operator_id: ${phaseInsert.external_operator_id}`);
       }
 
-      console.log(`Inserting phase ${i + 1}:`, phaseInsert.name, `assigned_user_id: ${phaseInsert.assigned_user_id || 'NOT SET'}`);
+      console.log(`Inserting phase ${i + 1}:`, phaseInsert.name);
       const { data: insertedPhase, error: phaseError } = await supabase
         .from('project_phases')
         .insert(phaseInsert)
@@ -181,8 +184,8 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      if (!insertedPhase.assigned_user_id) {
-        warnings.push(`Fáze "${insertedPhase.name}" nemá přiřazeného uživatele - musíte přiřadit ručně`);
+      if (!insertedPhase.assigned_user_id && insertedPhase.external_operator_id) {
+        warnings.push(`Fáze "${insertedPhase.name}" čeká na uživatele s external_id: ${insertedPhase.external_operator_id}`);
       }
 
       const timeEntries = phase.polozkovy_vykaz || [];

@@ -291,6 +291,8 @@ export interface Project {
   completed_date: string | null;
   notes: string | null;
   import_source_url: string | null;
+  sync_enabled: boolean;
+  last_sync_at: string | null;
   priority: string;
   created_by: string;
   created_at: string;
@@ -318,6 +320,7 @@ export interface ProjectPhase {
   completed_date: string | null;
   notes: string | null;
   hourly_rate: number | null;
+  external_operator_id: string | null;
   created_at: string;
   updated_at: string;
 }

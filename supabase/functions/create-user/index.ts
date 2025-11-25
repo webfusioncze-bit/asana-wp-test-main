@@ -9,6 +9,7 @@ const corsHeaders = {
 interface CreateUserRequest {
   email: string;
   password: string;
+  externalId?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -62,7 +63,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { email, password }: CreateUserRequest = await req.json();
+    const { email, password, externalId }: CreateUserRequest = await req.json();
 
     if (!email || !password) {
       return new Response(
@@ -74,10 +75,16 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    const userMetadata: any = {};
+    if (externalId) {
+      userMetadata.external_id = externalId;
+    }
+
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
+      user_metadata: userMetadata,
     });
 
     if (error) {
@@ -102,9 +109,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('User created successfully:', data.user.id);
+    console.log('User created successfully:', data.user.id, 'with external_id:', externalId || 'none');
 
-    // Insert user role manually
     const { error: roleInsertError } = await supabaseAdmin
       .from('user_roles')
       .insert({
@@ -114,7 +120,6 @@ Deno.serve(async (req: Request) => {
 
     if (roleInsertError) {
       console.error('Role insertion error:', roleInsertError);
-      // Don't fail - user is already created, just log the error
     } else {
       console.log('User role created successfully');
     }
@@ -146,6 +151,7 @@ Deno.serve(async (req: Request) => {
                   <li>Email: <strong>${email}</strong></li>
                   <li>Dočasné heslo: <strong>${password}</strong></li>
                 </ul>
+                ${externalId ? `<p><strong>Váš ID:</strong> ${externalId}</p>` : ''}
                 <p>Pro přihlášení použijte odkaz níže:</p>
                 <div style="text-align: center;">
                   <a href="${Deno.env.get('SUPABASE_URL')?.replace('//', '//').replace(':54321', '')}" class="button">Přihlásit se</a>
