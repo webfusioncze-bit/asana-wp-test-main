@@ -1090,7 +1090,7 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
                               <p className="text-sm text-gray-600">{phase.description}</p>
                             )}
                           </div>
-                          {assignedUser && (
+                          {assignedUser ? (
                             <div className="ml-4 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-2 rounded-lg border border-blue-200">
                               {assignedUser.avatar_url ? (
                                 <img
@@ -1107,6 +1107,23 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
                                 <span className="text-xs font-medium text-blue-900">Operátor fáze</span>
                                 <span className="text-sm font-semibold text-blue-700">{assignedUser.display_name || assignedUser.email}</span>
                               </div>
+                            </div>
+                          ) : canManage && (
+                            <div className="ml-4">
+                              <select
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    updatePhaseField(phase.id, 'assigned_user_id', e.target.value);
+                                    updatePhase(phase.id);
+                                  }
+                                }}
+                                className="text-sm px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition-colors"
+                              >
+                                <option value="">+ Přiřadit operátora</option>
+                                {users.map(u => (
+                                  <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
+                                ))}
+                              </select>
                             </div>
                           )}
                         </div>
@@ -1147,49 +1164,6 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
                   </div>
 
                   <div className="p-4 space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-semibold text-gray-700">Přiřazení uživatelé</h4>
-                        {canManage && (
-                          <select
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                assignUserToPhase(phase.id, e.target.value);
-                                e.target.value = '';
-                              }
-                            }}
-                            className="text-xs px-2 py-1 border border-gray-300 rounded"
-                          >
-                            <option value="">+ Přidat uživatele</option>
-                            {users
-                              .filter(u => !phaseAssignments.some(a => a.user_id === u.id))
-                              .map(u => (
-                                <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
-                              ))}
-                          </select>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {phaseAssignments.length === 0 ? (
-                          <span className="text-xs text-gray-500">Žádní přiřazení uživatelé</span>
-                        ) : (
-                          phaseAssignments.map(assignment => (
-                            <div key={assignment.id} className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">
-                              <span>{getUserName(assignment.user_id)}</span>
-                              {canManage && (
-                                <button
-                                  onClick={() => removeAssignment(assignment.id, phase.id)}
-                                  className="hover:bg-blue-200 rounded"
-                                >
-                                  <XIcon className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
                     <ProjectMilestones phaseId={phase.id} canManage={canManage} />
 
                     <div>
