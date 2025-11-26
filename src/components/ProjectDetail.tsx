@@ -812,6 +812,7 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               const phaseTimeEntries = timeEntries[phase.id] || [];
               const totalHours = getTotalHours(phase.id);
               const isEditing = editingPhaseId === phase.id;
+              const assignedUser = phase.assigned_user_id ? users.find(u => u.id === phase.assigned_user_id) : null;
 
               return (
                 <div key={phase.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -908,6 +909,25 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
                               <p className="text-sm text-gray-600">{phase.description}</p>
                             )}
                           </div>
+                          {assignedUser && (
+                            <div className="ml-4 flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-2 rounded-lg border border-blue-200">
+                              {assignedUser.avatar_url ? (
+                                <img
+                                  src={assignedUser.avatar_url}
+                                  alt={assignedUser.display_name || assignedUser.email}
+                                  className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm border-2 border-white shadow-sm">
+                                  {(assignedUser.display_name || assignedUser.email).charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="flex flex-col">
+                                <span className="text-xs font-medium text-blue-900">Operátor fáze</span>
+                                <span className="text-sm font-semibold text-blue-700">{assignedUser.display_name || assignedUser.email}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <span className={`text-xs px-2 py-1 rounded font-medium ${statusColors[phase.status] || 'bg-gray-100 text-gray-700'}`}>
