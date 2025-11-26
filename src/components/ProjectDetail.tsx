@@ -375,6 +375,40 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
     return canManage || phaseAssignments.some(a => a.user_id === currentUserId);
   }
 
+  function calculateProjectStats() {
+    let totalSpentHours = 0;
+    let totalEstimatedHours = 0;
+    let phasesOverBudget = 0;
+
+    phases.forEach(phase => {
+      const phaseSpent = getTotalHours(phase.id);
+      totalSpentHours += phaseSpent;
+
+      if (phase.estimated_hours) {
+        totalEstimatedHours += phase.estimated_hours;
+        if (phaseSpent > phase.estimated_hours) {
+          phasesOverBudget++;
+        }
+      }
+    });
+
+    const budgetPercentage = project?.hour_budget ? (totalSpentHours / project.hour_budget) * 100 : 0;
+    const estimatedPercentage = totalEstimatedHours > 0 ? (totalSpentHours / totalEstimatedHours) * 100 : 0;
+
+    const daysToDeadline = project?.delivery_date
+      ? Math.ceil((new Date(project.delivery_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    return {
+      totalSpentHours,
+      totalEstimatedHours,
+      budgetPercentage,
+      estimatedPercentage,
+      phasesOverBudget,
+      daysToDeadline
+    };
+  }
+
   function updatePhaseField(phaseId: string, field: string, value: any) {
     setPhases(phases.map(p => p.id === phaseId ? { ...p, [field]: value } : p));
   }
@@ -684,25 +718,120 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               </div>
             )}
 
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+              {project.hour_budget && (() => {
+                const stats = calculateProjectStats();
+                const isOverBudget = stats.budgetPercentage > 100;
+                return (
+                  <div className={`rounded-lg p-3 border-2 ${
+                    isOverBudget
+                      ? 'bg-red-50 border-red-200'
+                      : stats.budgetPercentage > 80
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="text-xs font-medium text-gray-600 mb-1">Vyčerpání rozpočtu</div>
+                    <div className={`text-2xl font-bold ${
+                      isOverBudget
+                        ? 'text-red-700'
+                        : stats.budgetPercentage > 80
+                          ? 'text-yellow-700'
+                          : 'text-green-700'
+                    }`}>
+                      {stats.budgetPercentage.toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {stats.totalSpentHours.toFixed(1)}h / {project.hour_budget}h
+                    </div>
+                    {isOverBudget && (
+                      <div className="text-xs font-semibold text-red-700 mt-1">
+                        Přečerpáno o {(stats.totalSpentHours - project.hour_budget).toFixed(1)}h
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {(() => {
+                const stats = calculateProjectStats();
+                if (stats.totalEstimatedHours > 0) {
+                  return (
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
+                      <div className="text-xs font-medium text-gray-600 mb-1">Odhad fází</div>
+                      <div className="text-2xl font-bold text-blue-700">
+                        {stats.estimatedPercentage.toFixed(0)}%
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {stats.totalSpentHours.toFixed(1)}h / {stats.totalEstimatedHours.toFixed(1)}h
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
+
+              {(() => {
+                const stats = calculateProjectStats();
+                if (stats.daysToDeadline !== null) {
+                  const isOverdue = stats.daysToDeadline < 0;
+                  const isUrgent = stats.daysToDeadline >= 0 && stats.daysToDeadline <= 7;
+                  return (
+                    <div className={`rounded-lg p-3 border-2 ${
+                      isOverdue
+                        ? 'bg-red-50 border-red-200'
+                        : isUrgent
+                          ? 'bg-orange-50 border-orange-200'
+                          : 'bg-blue-50 border-blue-200'
+                    }`}>
+                      <div className="text-xs font-medium text-gray-600 mb-1">Do dodání</div>
+                      <div className={`text-2xl font-bold ${
+                        isOverdue
+                          ? 'text-red-700'
+                          : isUrgent
+                            ? 'text-orange-700'
+                            : 'text-blue-700'
+                      }`}>
+                        {isOverdue ? '!' : Math.abs(stats.daysToDeadline)}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {isOverdue ? `Po termínu ${Math.abs(stats.daysToDeadline)} dní` : `${stats.daysToDeadline} dní`}
+                      </div>
+                      {project.delivery_date && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+              })()}
+
+              {(() => {
+                const stats = calculateProjectStats();
+                if (stats.phasesOverBudget > 0) {
+                  return (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3">
+                      <div className="text-xs font-medium text-gray-600 mb-1">Fáze přes rozpočet</div>
+                      <div className="text-2xl font-bold text-red-700">
+                        {stats.phasesOverBudget}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        {stats.phasesOverBudget === 1 ? 'fáze' : stats.phasesOverBudget < 5 ? 'fáze' : 'fází'} přečerpána
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
+            </div>
+
             <div className="flex flex-wrap gap-2">
               {project.price_offer && (
                 <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
                   <span className="font-medium">Nabídka:</span> {project.price_offer.toLocaleString('cs-CZ')} Kč
                 </span>
               )}
-              {project.hour_budget && (
-                <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded">
-                  <span className="font-medium">Rozpočet:</span> {project.hour_budget}h
-                </span>
-              )}
               {project.start_date && (
                 <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
                   <span className="font-medium">Zahájení:</span> {new Date(project.start_date).toLocaleDateString('cs-CZ')}
-                </span>
-              )}
-              {project.delivery_date && (
-                <span className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded">
-                  <span className="font-medium">Dodání:</span> {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
                 </span>
               )}
             </div>
