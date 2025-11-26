@@ -7,11 +7,13 @@ import { ProjectMilestones } from './ProjectMilestones';
 interface ProjectDetailProps {
   projectId: string;
   onClose: () => void;
+  onProjectChange: (projectId: string) => void;
   canManage: boolean;
 }
 
-export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailProps) {
+export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }: ProjectDetailProps) {
   const [project, setProject] = useState<Project | null>(null);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [phases, setPhases] = useState<ProjectPhase[]>([]);
   const [assignments, setAssignments] = useState<Record<string, ProjectPhaseAssignment[]>>({});
   const [timeEntries, setTimeEntries] = useState<Record<string, ProjectTimeEntry[]>>({});
@@ -62,6 +64,7 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
     loadCurrentUser();
     loadPhases();
     loadUsers();
+    loadAllProjects();
   }, [projectId]);
 
   useEffect(() => {
@@ -202,6 +205,17 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
       console.error('Error loading users:', error);
     } else {
       setUsers(data || []);
+    }
+  }
+
+  async function loadAllProjects() {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, name, status')
+      .order('name');
+
+    if (!error && data) {
+      setAllProjects(data);
     }
   }
 
@@ -492,11 +506,49 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
 
         <div className="flex-1 overflow-y-auto p-3">
           <div className="mb-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2 px-2">
-              <FolderOpenIcon className="w-4 h-4 text-blue-600" />
-              <span className="truncate">{project?.name}</span>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+              Projekty
+            </div>
+            <div className="space-y-1 mb-4">
+              {allProjects.map((proj) => (
+                <button
+                  key={proj.id}
+                  onClick={() => onProjectChange(proj.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
+                    proj.id === projectId
+                      ? 'bg-blue-50 border border-blue-200'
+                      : 'hover:bg-gray-50 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderIcon className={`w-4 h-4 flex-shrink-0 ${
+                      proj.id === projectId ? 'text-blue-600' : 'text-gray-400'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium truncate ${
+                        proj.id === projectId ? 'text-blue-900' : 'text-gray-900'
+                      }`}>
+                        {proj.name}
+                      </div>
+                      {proj.status && (
+                        <div className="text-xs text-gray-500 truncate mt-0.5">
+                          {proj.status}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
+
+          {project && phases.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+                Fáze projektu
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1">
             {phases.map((phase) => {

@@ -359,6 +359,7 @@ function App() {
             <ProjectDetail
               projectId={selectedProjectId}
               onClose={() => setSelectedProjectId(null)}
+              onProjectChange={setSelectedProjectId}
               canManage={hasProjectsPermission}
             />
           ) : (
