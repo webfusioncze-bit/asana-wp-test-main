@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ArrowLeft as ArrowLeftIcon, Plus as PlusIcon, Bitcoin as EditIcon, Save as SaveIcon, Bone as XIcon, Trash as TrashIcon, Clock as ClockIcon, UserPlus as UserPlusIcon, RefreshCw as RefreshCwIcon, FolderOpen as FolderOpenIcon, Folder as FolderIcon } from 'lucide-react';
+import { ArrowLeft as ArrowLeftIcon, Plus as PlusIcon, Bitcoin as EditIcon, Save as SaveIcon, Bone as XIcon, Trash as TrashIcon, Clock as ClockIcon, UserPlus as UserPlusIcon, RefreshCw as RefreshCwIcon, FolderOpen as FolderOpenIcon, Folder as FolderIcon, CheckCircle2 as CheckCircle2Icon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
@@ -457,6 +457,25 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
     };
   }
 
+  function formatRelativeTime(dateString: string | null): string {
+    if (!dateString) return '';
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return 'právě teď';
+    if (diffMinutes < 60) return `před ${diffMinutes} min`;
+    if (diffHours < 24) return `před ${diffHours} h`;
+    if (diffDays < 7) return `před ${diffDays} dny`;
+    if (diffDays < 30) return `před ${Math.floor(diffDays / 7)} týdny`;
+    if (diffDays < 365) return `před ${Math.floor(diffDays / 30)} měsíci`;
+    return `před ${Math.floor(diffDays / 365)} roky`;
+  }
+
   function isPhaseOverBudget(phaseId: string): boolean {
     const phase = phases.find(p => p.id === phaseId);
     if (!phase || !phase.estimated_hours) return false;
@@ -512,7 +531,19 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
               </div>
               <div className="text-sm font-bold text-gray-900 mb-1">{project.name}</div>
               {project.status && (
-                <div className="text-xs text-gray-500">{project.status}</div>
+                <div className="text-xs text-gray-500 mb-2">{project.status}</div>
+              )}
+              {project.sync_enabled && project.import_source_url && (
+                <div className="flex items-center gap-1.5 text-xs text-green-600 bg-green-50 rounded px-2 py-1.5 mt-2">
+                  <CheckCircle2Icon className="w-3 h-3 flex-shrink-0" />
+                  <span className="text-xs">Synchronizováno</span>
+                </div>
+              )}
+              {project.last_sync_at && (
+                <div className="flex items-center gap-1 text-xs text-gray-400 mt-1.5">
+                  <RefreshCwIcon className="w-3 h-3" />
+                  <span>{formatRelativeTime(project.last_sync_at)}</span>
+                </div>
               )}
             </div>
           )}

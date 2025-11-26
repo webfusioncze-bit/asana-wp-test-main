@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIcon, DownloadIcon, Trash2Icon } from 'lucide-react';
+import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIcon, DownloadIcon, Trash2Icon, RefreshCwIcon, CheckCircle2Icon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project } from '../types';
 import { ProjectImport } from './ProjectImport';
@@ -136,6 +136,25 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
     loadProjects();
   }
 
+  function formatRelativeTime(dateString: string | null): string {
+    if (!dateString) return '';
+
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) return 'právě teď';
+    if (diffMinutes < 60) return `před ${diffMinutes} min`;
+    if (diffHours < 24) return `před ${diffHours} h`;
+    if (diffDays < 7) return `před ${diffDays} dny`;
+    if (diffDays < 30) return `před ${Math.floor(diffDays / 7)} týdny`;
+    if (diffDays < 365) return `před ${Math.floor(diffDays / 30)} měsíci`;
+    return `před ${Math.floor(diffDays / 365)} roky`;
+  }
+
   const filteredProjects = projects.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (project.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -229,7 +248,17 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
                 )}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">{project.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-gray-900">{project.name}</h3>
+                      {project.sync_enabled && project.import_source_url && (
+                        <div
+                          className="flex items-center gap-1 text-xs text-green-600"
+                          title={`Synchronizováno ${formatRelativeTime(project.last_sync_at)}`}
+                        >
+                          <CheckCircle2Icon className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${
@@ -269,23 +298,31 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 text-xs text-gray-500 mt-3 pt-3 border-t border-gray-200">
-                  {(project.price_offer || project.budget) && (
-                    <div className="flex items-center gap-1">
-                      <DollarSignIcon className="w-3 h-3" />
-                      {(project.price_offer || project.budget || 0).toLocaleString('cs-CZ')} Kč
+                <div className="space-y-2 mt-3 pt-3 border-t border-gray-200">
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
+                    {(project.price_offer || project.budget) && (
+                      <div className="flex items-center gap-1">
+                        <DollarSignIcon className="w-3 h-3" />
+                        {(project.price_offer || project.budget || 0).toLocaleString('cs-CZ')} Kč
+                      </div>
+                    )}
+                    {(project.delivery_date || project.deadline) && (
+                      <div className="flex items-center gap-1">
+                        <CalendarIcon className="w-3 h-3" />
+                        {new Date(project.delivery_date || project.deadline!).toLocaleDateString('cs-CZ')}
+                      </div>
+                    )}
+                    {project.project_type && (
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
+                        {project.project_type}
+                      </span>
+                    )}
+                  </div>
+                  {project.sync_enabled && project.last_sync_at && (
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <RefreshCwIcon className="w-3 h-3" />
+                      <span>Synchronizováno {formatRelativeTime(project.last_sync_at)}</span>
                     </div>
-                  )}
-                  {(project.delivery_date || project.deadline) && (
-                    <div className="flex items-center gap-1">
-                      <CalendarIcon className="w-3 h-3" />
-                      {new Date(project.delivery_date || project.deadline!).toLocaleDateString('cs-CZ')}
-                    </div>
-                  )}
-                  {project.project_type && (
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded">
-                      {project.project_type}
-                    </span>
                   )}
                 </div>
               </div>
