@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon, PaperclipIcon } from 'lucide-react';
+import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon, PaperclipIcon, GripVerticalIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TaskTagsQuickEdit } from './TaskTagsQuickEdit';
 import type { Task, Category, User, FolderTag } from '../types';
@@ -227,26 +227,32 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
   return (
     <div className="group">
       <div
-        onClick={(e) => {
-          if (!isDragging) {
-            onClick();
-          }
-        }}
-        draggable={draggable}
-        onDragStart={(e) => {
-          if (draggable && onDragStart) {
-            setIsDragging(true);
-            onDragStart(task);
-          }
-        }}
-        onDragEnd={() => {
-          setTimeout(() => setIsDragging(false), 100);
-        }}
-        className={`bg-white border border-gray-200 rounded hover:border-blue-300 hover:shadow-sm transition-all p-2 ${
-          draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
-        } ${isDragging ? 'opacity-50' : ''}`}
+        onClick={onClick}
+        className={`bg-white border border-gray-200 rounded hover:border-blue-300 hover:shadow-sm transition-all p-2 cursor-pointer ${
+          isDragging ? 'opacity-50' : ''
+        }`}
       >
         <div className="flex items-center gap-2">
+        {draggable && (
+          <div
+            draggable
+            onDragStart={(e) => {
+              e.stopPropagation();
+              setIsDragging(true);
+              if (onDragStart) {
+                onDragStart(task);
+              }
+            }}
+            onDragEnd={() => {
+              setTimeout(() => setIsDragging(false), 100);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+            title="Přetáhnout úkol"
+          >
+            <GripVerticalIcon className="w-4 h-4" />
+          </div>
+        )}
         <button
           onClick={handleStatusClick}
           className="hover:scale-110 transition-transform flex-shrink-0"
