@@ -12,9 +12,11 @@ interface TaskItemSimpleProps {
   onClick: () => void;
   onUpdateStatus: (status: Task['status']) => void;
   onSubtaskClick?: (taskId: string) => void;
+  onDragStart?: (task: Task) => void;
+  draggable?: boolean;
 }
 
-export function TaskItemSimple({ task, category, assignedUser, createdByUser, onClick, onUpdateStatus, onSubtaskClick }: TaskItemSimpleProps) {
+export function TaskItemSimple({ task, category, assignedUser, createdByUser, onClick, onUpdateStatus, onSubtaskClick, onDragStart, draggable = false }: TaskItemSimpleProps) {
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [subtaskCategories, setSubtaskCategories] = useState<Category[]>([]);
@@ -22,6 +24,7 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
   const [hasAttachments, setHasAttachments] = useState(false);
   const [taskTags, setTaskTags] = useState<FolderTag[]>([]);
   const [taskTagIds, setTaskTagIds] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     loadSubtasks();
@@ -224,8 +227,24 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
   return (
     <div className="group">
       <div
-        onClick={onClick}
-        className="bg-white border border-gray-200 rounded hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer p-2"
+        onClick={(e) => {
+          if (!isDragging) {
+            onClick();
+          }
+        }}
+        draggable={draggable}
+        onDragStart={(e) => {
+          if (draggable && onDragStart) {
+            setIsDragging(true);
+            onDragStart(task);
+          }
+        }}
+        onDragEnd={() => {
+          setTimeout(() => setIsDragging(false), 100);
+        }}
+        className={`bg-white border border-gray-200 rounded hover:border-blue-300 hover:shadow-sm transition-all p-2 ${
+          draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+        } ${isDragging ? 'opacity-50' : ''}`}
       >
         <div className="flex items-center gap-2">
         <button

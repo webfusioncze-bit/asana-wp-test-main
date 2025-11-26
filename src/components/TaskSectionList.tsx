@@ -23,6 +23,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editingSectionName, setEditingSectionName] = useState('');
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null);
 
   useEffect(() => {
     loadSections();
@@ -267,8 +268,13 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
     setDraggedTask(task);
   }
 
-  function handleDragOver(e: React.DragEvent) {
+  function handleDragOver(e: React.DragEvent, sectionId: string | null) {
     e.preventDefault();
+    setDragOverSection(sectionId);
+  }
+
+  function handleDragLeave() {
+    setDragOverSection(null);
   }
 
   function handleDrop(e: React.DragEvent, sectionId: string | null) {
@@ -277,33 +283,46 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
       moveTaskToSection(draggedTask.id, sectionId);
       setDraggedTask(null);
     }
+    setDragOverSection(null);
   }
 
   const tasksWithoutSection = tasks.filter(t => !t.section_id);
 
   return (
     <div className="space-y-3">
-      {tasksWithoutSection.length > 0 && (
-        <div className="space-y-1 mb-3">
-          {tasksWithoutSection.map(task => {
-            const category = categories.find(c => c.id === task.category_id);
-            const assignedUser = users.find(u => u.id === task.assigned_to);
-            const createdByUser = users.find(u => u.id === task.created_by);
-            return (
-              <TaskItemSimple
-                key={task.id}
-                task={task}
-                category={category}
-                assignedUser={assignedUser}
-                createdByUser={createdByUser}
-                onClick={() => onTaskClick(task.id)}
-                onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
-                onSubtaskClick={onTaskClick}
-              />
-            );
-          })}
-        </div>
-      )}
+      <div
+        className={`space-y-1 mb-3 min-h-[40px] rounded p-1 transition-colors ${
+          dragOverSection === 'no-section' ? 'bg-blue-50 border-2 border-blue-300 border-dashed' : ''
+        } ${tasksWithoutSection.length === 0 && draggedTask ? 'border-2 border-dashed border-gray-300' : ''}`}
+        onDragOver={(e) => handleDragOver(e, 'no-section')}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, null)}
+      >
+        {tasksWithoutSection.map(task => {
+          const category = categories.find(c => c.id === task.category_id);
+          const assignedUser = users.find(u => u.id === task.assigned_to);
+          const createdByUser = users.find(u => u.id === task.created_by);
+          return (
+            <TaskItemSimple
+              key={task.id}
+              task={task}
+              category={category}
+              assignedUser={assignedUser}
+              createdByUser={createdByUser}
+              onClick={() => onTaskClick(task.id)}
+              onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
+              onSubtaskClick={onTaskClick}
+              draggable={true}
+              onDragStart={handleDragStart}
+            />
+          );
+        })}
+        {tasksWithoutSection.length === 0 && dragOverSection === 'no-section' && (
+          <div className="text-center text-sm text-gray-400 py-2">
+            Pusťte sem pro odebrání ze sekce
+          </div>
+        )}
+      </div>
 
       <div className="mb-3">
         {quickAddTaskSection === 'no-section' ? (
@@ -395,7 +414,14 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
                 </button>
               </div>
             </div>
-            <div className="p-2 space-y-1">
+            <div
+              className={`p-2 space-y-1 min-h-[60px] transition-colors ${
+                dragOverSection === section.id ? 'bg-blue-50 border-2 border-blue-300 border-dashed' : ''
+              }`}
+              onDragOver={(e) => handleDragOver(e, section.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, section.id)}
+            >
               {sectionTasks.map(task => {
                 const category = categories.find(c => c.id === task.category_id);
                 const assignedUser = users.find(u => u.id === task.assigned_to);
@@ -410,6 +436,8 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
                     onClick={() => onTaskClick(task.id)}
                     onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                     onSubtaskClick={onTaskClick}
+                    draggable={true}
+                    onDragStart={handleDragStart}
                   />
                 );
               })}
