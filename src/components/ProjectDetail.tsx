@@ -64,6 +64,45 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
     loadUsers();
   }, [projectId]);
 
+  useEffect(() => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      let closestPhase: string | null = null;
+      let closestDistance = Infinity;
+
+      Object.entries(phaseRefs.current).forEach(([phaseId, element]) => {
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          const distance = Math.abs(rect.top - 100);
+          if (distance < closestDistance && rect.top < window.innerHeight / 2) {
+            closestDistance = distance;
+            closestPhase = phaseId;
+          }
+        }
+      });
+
+      if (closestPhase) {
+        setActivePhaseId(closestPhase);
+      }
+    };
+
+    const scrollContainer = document.querySelector('.project-detail-content');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [phases]);
+
+  function scrollToPhase(phaseId: string) {
+    const element = phaseRefs.current[phaseId];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActivePhaseId(phaseId);
+    }
+  }
+
   async function loadProject() {
     const { data, error } = await supabase
       .from('projects')
@@ -437,45 +476,6 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
       </div>
     );
   }
-
-  function scrollToPhase(phaseId: string) {
-    const element = phaseRefs.current[phaseId];
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setActivePhaseId(phaseId);
-    }
-  }
-
-  useEffect(() => {
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (!target) return;
-
-      let closestPhase: string | null = null;
-      let closestDistance = Infinity;
-
-      Object.entries(phaseRefs.current).forEach(([phaseId, element]) => {
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          const distance = Math.abs(rect.top - 100);
-          if (distance < closestDistance && rect.top < window.innerHeight / 2) {
-            closestDistance = distance;
-            closestPhase = phaseId;
-          }
-        }
-      });
-
-      if (closestPhase) {
-        setActivePhaseId(closestPhase);
-      }
-    };
-
-    const scrollContainer = document.querySelector('.project-detail-content');
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
-      return () => scrollContainer.removeEventListener('scroll', handleScroll);
-    }
-  }, [phases]);
 
   return (
     <div className="flex-1 flex bg-gray-50 h-full overflow-hidden">
