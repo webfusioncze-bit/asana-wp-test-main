@@ -249,7 +249,7 @@ export function AdminDashboard() {
   }
 
   async function reassignPhasesByExternalIds() {
-    if (!confirm('Tato akce přiřadí uživatele k fázím projektů podle jejich External ID. Pokračovat?')) {
+    if (!confirm('Tato akce přiřadí uživatele k fázím projektů podle jejich External ID a aktualizuje vykázané hodiny. Pokračovat?')) {
       return;
     }
 
@@ -264,8 +264,10 @@ export function AdminDashboard() {
 
       if (data && data.length > 0) {
         const assignedCount = data.filter((p: any) => p.assigned_user_id).length;
-        alert(`Úspěšně přiřazeno: ${assignedCount} fází\n\nDetail:\n${data.map((p: any) =>
-          `- ${p.phase_name}: ${p.assigned_user_id ? p.user_email : 'nebyl nalezen uživatel'}`
+        const totalTimeEntries = data.reduce((sum: number, p: any) => sum + (p.time_entries_updated || 0), 0);
+
+        alert(`Úspěšně přiřazeno: ${assignedCount} fází\nAktualizováno: ${totalTimeEntries} vykázaných hodin\n\nDetail:\n${data.map((p: any) =>
+          `- ${p.phase_name}: ${p.assigned_user_id ? `${p.user_email} (${p.time_entries_updated || 0} hodin)` : 'nebyl nalezen uživatel'}`
         ).join('\n')}`);
       } else {
         alert('Žádné fáze nebyly přiřazeny. Zkontrolujte, zda uživatelé mají nastavené External ID.');

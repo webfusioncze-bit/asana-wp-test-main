@@ -1,108 +1,73 @@
 /*
-  # Fix Task Sections RLS for Global Folders
+  # Oprava funkce pro zpětné přiřazení - aktualizace time entries
 
-  1. Updates to Existing Policies
-    - Update task_sections INSERT policy to allow sections in global folders
-    - Update task_sections UPDATE policy to allow updates in global folders
-    - Update task_sections DELETE policy to allow deletes in global folders
-    - Update task_sections SELECT policy to allow viewing sections in global folders
+  1. Změny
+    - Funkce reassign_phases_by_external_ids nyní TAKÉ aktualizuje user_id u time entries
+    - Time entries s NULL user_id se nastaví na assigned_user_id z fáze
+    - Vrací i počet aktualizovaných time entries
 
-  2. Security
-    - All authenticated users can create sections in global folders
-    - All authenticated users can update/delete sections in global folders
-    - Maintains existing security for personal folders
-
-  3. Important Notes
-    - This enables full section management in global folders
-    - Global folders are identified by is_global = true
-    - Also checks if folder is in global hierarchy (subfolders of global folders)
+  2. Důvod
+    - Když importujeme projekt bez přiřazených uživatelů, time entries mají user_id = NULL
+    - Po přiřazení uživatele k fázi je potřeba aktualizovat i všechny jeho time entries
+    - Pak se v UI zobrazí správný uživatel místo "Neznámý uživatel"
 */
 
--- Drop existing policies
-DROP POLICY IF EXISTS "Users can view sections in accessible folders" ON task_sections;
-DROP POLICY IF EXISTS "Users can insert sections in accessible folders" ON task_sections;
-DROP POLICY IF EXISTS "Users can update sections in accessible folders" ON task_sections;
-DROP POLICY IF EXISTS "Users can delete sections they created" ON task_sections;
+-- Rozšířit návratový typ o počet aktualizovaných time entries
+CREATE OR REPLACE FUNCTION reassign_phases_by_external_ids()
+RETURNS TABLE (
+  phase_id uuid,
+  phase_name text,
+  external_operator_id text,
+  assigned_user_id uuid,
+  user_email text,
+  time_entries_updated integer
+) AS $$
+DECLARE
+  v_phase record;
+  v_time_entries_count integer;
+BEGIN
+  -- Projít všechny fáze s external_operator_id, které ještě nemají přiřazeného uživatele
+  FOR v_phase IN
+    SELECT 
+      pp.id,
+      pp.name,
+      pp.external_operator_id,
+      au.id as new_user_id,
+      au.email
+    FROM project_phases pp
+    LEFT JOIN auth.users au ON au.raw_user_meta_data->>'external_id' = pp.external_operator_id
+    WHERE pp.external_operator_id IS NOT NULL
+    AND pp.assigned_user_id IS NULL
+  LOOP
+    -- Aktualizovat fázi
+    UPDATE project_phases
+    SET assigned_user_id = v_phase.new_user_id
+    WHERE id = v_phase.id;
 
--- SELECT policy: Allow viewing sections in global folders and accessible folders
-CREATE POLICY "Users can view sections in accessible folders"
-  ON task_sections
-  FOR SELECT
-  TO authenticated
-  USING (
-    is_admin()
-    OR has_folder_access(auth.uid(), folder_id)
-    OR EXISTS (
-      SELECT 1 FROM folders f
-      WHERE f.id = task_sections.folder_id
-      AND (
-        f.is_global = true
-        OR is_folder_in_global_hierarchy(f.id) = true
-      )
-    )
-  );
+    -- Aktualizovat time entries pro tuto fázi (pouze ty s NULL user_id)
+    UPDATE project_time_entries
+    SET user_id = v_phase.new_user_id
+    WHERE phase_id = v_phase.id
+    AND user_id IS NULL
+    AND v_phase.new_user_id IS NOT NULL;
 
--- INSERT policy: Allow creating sections in global folders and accessible folders
-CREATE POLICY "Users can insert sections in accessible folders"
-  ON task_sections
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM folders f
-      WHERE f.id = task_sections.folder_id
-      AND (
-        (created_by = auth.uid() AND has_folder_access(auth.uid(), f.id))
-        OR f.is_global = true
-        OR is_folder_in_global_hierarchy(f.id) = true
-      )
-    )
-  );
+    -- Spočítat kolik time entries bylo aktualizováno
+    GET DIAGNOSTICS v_time_entries_count = ROW_COUNT;
 
--- UPDATE policy: Allow updating sections in global folders and accessible folders
-CREATE POLICY "Users can update sections in accessible folders"
-  ON task_sections
-  FOR UPDATE
-  TO authenticated
-  USING (
-    is_admin()
-    OR has_folder_access(auth.uid(), folder_id)
-    OR EXISTS (
-      SELECT 1 FROM folders f
-      WHERE f.id = task_sections.folder_id
-      AND (
-        f.is_global = true
-        OR is_folder_in_global_hierarchy(f.id) = true
-      )
-    )
-  )
-  WITH CHECK (
-    is_admin()
-    OR has_folder_access(auth.uid(), folder_id)
-    OR EXISTS (
-      SELECT 1 FROM folders f
-      WHERE f.id = task_sections.folder_id
-      AND (
-        f.is_global = true
-        OR is_folder_in_global_hierarchy(f.id) = true
-      )
-    )
-  );
+    -- Vrátit výsledek pro tuto fázi
+    RETURN QUERY
+    SELECT 
+      v_phase.id::uuid,
+      v_phase.name::text,
+      v_phase.external_operator_id::text,
+      v_phase.new_user_id::uuid,
+      COALESCE(v_phase.email::text, '')::text,
+      v_time_entries_count::integer;
+  END LOOP;
 
--- DELETE policy: Allow deleting sections in global folders and accessible folders
-CREATE POLICY "Users can delete sections in accessible folders"
-  ON task_sections
-  FOR DELETE
-  TO authenticated
-  USING (
-    created_by = auth.uid()
-    OR is_admin()
-    OR EXISTS (
-      SELECT 1 FROM folders f
-      WHERE f.id = task_sections.folder_id
-      AND (
-        f.is_global = true
-        OR is_folder_in_global_hierarchy(f.id) = true
-      )
-    )
-  );
+  RETURN;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Povolit authenticated uživatelům volat tuto funkci
+GRANT EXECUTE ON FUNCTION reassign_phases_by_external_ids() TO authenticated;
