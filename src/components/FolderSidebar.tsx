@@ -3,6 +3,8 @@ import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Ed
 import { supabase } from '../lib/supabase';
 import type { Folder, User, FolderShare } from '../types';
 import { FolderSettingsModal } from './FolderSettingsModal';
+import { FolderSidebarSkeleton } from './LoadingSkeleton';
+import { useDataCache } from '../contexts/DataCacheContext';
 
 interface FolderSidebarProps {
   selectedFolderId: string | null;
@@ -29,6 +31,8 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   const [folderShares, setFolderShares] = useState<Record<string, number>>({});
   const [openMenuFolderId, setOpenMenuFolderId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { loadFolders: loadCachedFolders, invalidateFolders, isLoading: cacheLoading } = useDataCache();
 
   useEffect(() => {
     loadCurrentUser();
@@ -36,10 +40,18 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
 
   useEffect(() => {
     if (currentUserId) {
-      loadFolders();
-      loadFolderShares();
+      loadData();
     }
   }, [folderType, currentUserId]);
+
+  async function loadData() {
+    setLoading(true);
+    await Promise.all([
+      loadFolders(),
+      loadFolderShares()
+    ]);
+    setLoading(false);
+  }
 
   async function loadCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -541,6 +553,10 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   }
 
   const folderTypeLabel = folderType === 'tasks' ? 'Úkoly' : 'Poptávky';
+
+  if (loading || cacheLoading.folders) {
+    return <FolderSidebarSkeleton />;
+  }
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen">

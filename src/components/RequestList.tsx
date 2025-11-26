@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
+import { RequestListSkeleton } from './LoadingSkeleton';
+import { useDataCache } from '../contexts/DataCacheContext';
 import type { Request, RequestType, RequestStatusCustom } from '../types';
 
 interface RequestListProps {
@@ -24,15 +26,23 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const [loading, setLoading] = useState(true);
   const [showCreationPanel, setShowCreationPanel] = useState(false);
   const [requestStats, setRequestStats] = useState<Record<string, RequestStats>>({});
+  const { loadRequests: loadCachedRequests, invalidateRequests, isLoading: cacheLoading } = useDataCache();
 
   useEffect(() => {
-    loadRequestsAndStats();
-    loadRequestTypes();
-    loadRequestStatuses();
+    loadData();
   }, [folderId]);
 
-  async function loadRequestsAndStats() {
+  async function loadData() {
     setLoading(true);
+    await Promise.all([
+      loadRequestsAndStats(),
+      loadRequestTypes(),
+      loadRequestStatuses()
+    ]);
+    setLoading(false);
+  }
+
+  async function loadRequestsAndStats() {
     let query = supabase
       .from('requests')
       .select(`
@@ -51,7 +61,6 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
     if (error) {
       console.error('Error loading requests:', error);
-      setLoading(false);
       return;
     }
 
@@ -61,8 +70,6 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     if (requestsData.length > 0) {
       await loadRequestStats(requestsData);
     }
-
-    setLoading(false);
   }
 
   async function loadRequestTypes() {
@@ -167,6 +174,10 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     high: 'Vysoká',
     urgent: 'Urgentní',
   };
+
+  if (loading || cacheLoading.requests) {
+    return <RequestListSkeleton />;
+  }
 
   return (
     <div className="w-96 border-r border-gray-200 bg-white flex flex-col">

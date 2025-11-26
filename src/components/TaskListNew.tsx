@@ -6,6 +6,8 @@ import { TaskSectionList } from './TaskSectionList';
 import { TaskOverview } from './TaskOverview';
 import { FolderDetailHeader } from './FolderDetailHeader';
 import { FolderSettingsModal } from './FolderSettingsModal';
+import { TaskListSkeleton } from './LoadingSkeleton';
+import { useDataCache } from '../contexts/DataCacheContext';
 import type { Folder } from '../types';
 
 interface TaskListNewProps {
@@ -20,16 +22,26 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
   const [folderPath, setFolderPath] = useState<Folder[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { loadFolders: loadCachedFolders, invalidateFolders, invalidateTasks, isLoading: cacheLoading } = useDataCache();
 
   useEffect(() => {
     setCurrentFolderId(folderId);
   }, [folderId]);
 
   useEffect(() => {
-    loadFolders();
-    loadCurrentFolder();
-    loadFolderPath();
+    loadData();
   }, [currentFolderId]);
+
+  async function loadData() {
+    setLoading(true);
+    await Promise.all([
+      loadFolders(),
+      loadCurrentFolder(),
+      loadFolderPath()
+    ]);
+    setLoading(false);
+  }
 
   async function loadFolders() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -103,6 +115,10 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
     } else {
       navigateToFolder(null);
     }
+  }
+
+  if (loading || cacheLoading.folders) {
+    return <TaskListSkeleton />;
   }
 
   return (

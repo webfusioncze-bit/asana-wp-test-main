@@ -3,6 +3,7 @@ import { BriefcaseIcon, PlusIcon, SearchIcon, XIcon, CalendarIcon, DollarSignIco
 import { supabase } from '../lib/supabase';
 import type { Project } from '../types';
 import { ProjectImport } from './ProjectImport';
+import { ProjectListSkeleton } from './LoadingSkeleton';
 interface ProjectListProps {
   canManage: boolean;
   onSelectProject: (projectId: string) => void;
@@ -143,11 +144,7 @@ export function ProjectList({ canManage, onSelectProject }: ProjectListProps) {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Načítání projektů...</div>
-      </div>
-    );
+    return <ProjectListSkeleton />;
   }
 
   return (

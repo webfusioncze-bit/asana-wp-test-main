@@ -13,6 +13,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { UserProfileSettings } from './components/UserProfileSettings';
 import { ProjectList } from './components/ProjectList';
 import { ProjectDetail } from './components/ProjectDetail';
+import { DataCacheProvider } from './contexts/DataCacheContext';
 import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
@@ -177,7 +178,8 @@ function App() {
   const isAdmin = userRole?.role === 'admin';
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <DataCacheProvider>
+      <div className="flex h-screen bg-gray-50">
       {!showAdmin && (
         <FolderSidebar
           key={`${viewMode}-${tasksRefreshKey}-${requestsRefreshKey}`}
@@ -376,7 +378,8 @@ function App() {
           }}
         />
       )}
-    </div>
+      </div>
+    </DataCacheProvider>
   );
 }
 
