@@ -438,11 +438,11 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50 h-full overflow-hidden">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center gap-4 mb-3">
+      <div className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center gap-3 mb-2">
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
           </button>
@@ -625,19 +625,19 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
                   {canManage && (
                     <button
                       onClick={() => setEditingProject(true)}
                       className="p-1 hover:bg-gray-100 rounded"
                     >
-                      <EditIcon className="w-4 h-4 text-gray-600" />
+                      <EditIcon className="w-3.5 h-3.5 text-gray-600" />
                     </button>
                   )}
                 </div>
                 {project.description && (
-                  <p className="text-gray-600 mt-1">{project.description}</p>
+                  <p className="text-sm text-gray-600 mt-0.5">{project.description}</p>
                 )}
               </>
             )}
@@ -645,19 +645,19 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
         </div>
 
         {!editingProject && (
-          <div>
-            <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-wrap gap-1.5">
               {project.project_type && (
-                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
                   {project.project_type}
                 </span>
               )}
               {project.project_category && (
-                <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded font-medium">
+                <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-700 rounded font-medium">
                   {project.project_category}
                 </span>
               )}
-              <span className={`text-xs px-2 py-1 rounded font-medium ${
+              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
                 project.status === 'aktivní' ? 'bg-green-100 text-green-700' :
                 project.status === 'dokončen' ? 'bg-gray-100 text-gray-700' :
                 project.status === 'pozastaven' ? 'bg-yellow-100 text-yellow-700' :
@@ -666,86 +666,27 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               }`}>
                 {project.status}
               </span>
-              {project.sync_enabled && (
-                <span className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded font-medium flex items-center gap-1">
-                  <RefreshCwIcon className="w-3 h-3" />
-                  Synchronizace aktivní
-                  {project.last_sync_at && (
-                    <span className="text-green-600 ml-1">
-                      (poslední: {new Date(project.last_sync_at).toLocaleString('cs-CZ')})
-                    </span>
-                  )}
-                </span>
-              )}
             </div>
 
-            {(project.client_company_name || project.client_contact_person || project.client_email || project.client_phone || project.client_ico) && (
-              <div className="bg-gray-50 rounded p-3 mb-3">
-                <h4 className="text-xs font-semibold text-gray-700 mb-2">Klient</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                  {project.client_company_name && (
-                    <div>
-                      <span className="text-gray-500">Firma:</span>
-                      <span className="ml-1 text-gray-900 font-medium">{project.client_company_name}</span>
-                    </div>
-                  )}
-                  {project.client_contact_person && (
-                    <div>
-                      <span className="text-gray-500">Kontakt:</span>
-                      <span className="ml-1 text-gray-900">{project.client_contact_person}</span>
-                    </div>
-                  )}
-                  {project.client_ico && (
-                    <div>
-                      <span className="text-gray-500">IČO:</span>
-                      <span className="ml-1 text-gray-900">{project.client_ico}</span>
-                    </div>
-                  )}
-                  {project.client_phone && (
-                    <div>
-                      <span className="text-gray-500">Tel:</span>
-                      <span className="ml-1 text-gray-900">{project.client_phone}</span>
-                    </div>
-                  )}
-                  {project.client_email && (
-                    <div className="md:col-span-2">
-                      <span className="text-gray-500">Email:</span>
-                      <a href={`mailto:${project.client_email}`} className="ml-1 text-blue-600 hover:underline">{project.client_email}</a>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            <div className="flex-1" />
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+            <div className="flex items-center gap-2">
               {project.hour_budget && (() => {
                 const stats = calculateProjectStats();
                 const isOverBudget = stats.budgetPercentage > 100;
                 return (
-                  <div className={`rounded-lg p-2 border ${
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs ${
                     isOverBudget
-                      ? 'bg-red-50 border-red-300'
+                      ? 'bg-red-50 border-red-300 text-red-700'
                       : stats.budgetPercentage > 80
-                        ? 'bg-yellow-50 border-yellow-300'
-                        : 'bg-green-50 border-green-300'
+                        ? 'bg-yellow-50 border-yellow-300 text-yellow-700'
+                        : 'bg-green-50 border-green-300 text-green-700'
                   }`}>
-                    <div className="text-xs font-medium text-gray-600 mb-0.5">Vyčerpání rozpočtu</div>
-                    <div className={`text-lg font-bold ${
-                      isOverBudget
-                        ? 'text-red-700'
-                        : stats.budgetPercentage > 80
-                          ? 'text-yellow-700'
-                          : 'text-green-700'
-                    }`}>
-                      {stats.budgetPercentage.toFixed(0)}%
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {stats.totalSpentHours.toFixed(1)}h / {project.hour_budget}h
-                    </div>
+                    <span className="font-medium">Vyčerpání rozpočtu</span>
+                    <span className="font-bold">{stats.budgetPercentage.toFixed(0)}%</span>
+                    <span className="text-gray-600">({stats.totalSpentHours.toFixed(1)}h / {project.hour_budget}h)</span>
                     {isOverBudget && (
-                      <div className="text-xs font-semibold text-red-700">
-                        +{(stats.totalSpentHours - project.hour_budget).toFixed(1)}h
-                      </div>
+                      <span className="font-semibold">+{(stats.totalSpentHours - project.hour_budget).toFixed(1)}h</span>
                     )}
                   </div>
                 );
@@ -757,46 +698,27 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
                   const isOverdue = stats.daysToDeadline < 0;
                   const isUrgent = stats.daysToDeadline >= 0 && stats.daysToDeadline <= 7;
                   return (
-                    <div className={`rounded-lg p-2 border ${
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs ${
                       isOverdue
-                        ? 'bg-red-50 border-red-300'
+                        ? 'bg-red-50 border-red-300 text-red-700'
                         : isUrgent
-                          ? 'bg-orange-50 border-orange-300'
-                          : 'bg-blue-50 border-blue-300'
+                          ? 'bg-orange-50 border-orange-300 text-orange-700'
+                          : 'bg-blue-50 border-blue-300 text-blue-700'
                     }`}>
-                      <div className="text-xs font-medium text-gray-600 mb-0.5">Do dodání</div>
-                      <div className={`text-lg font-bold ${
-                        isOverdue
-                          ? 'text-red-700'
-                          : isUrgent
-                            ? 'text-orange-700'
-                            : 'text-blue-700'
-                      }`}>
-                        {Math.abs(stats.daysToDeadline)}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {isOverdue ? `po termínu` : `dní`}
-                      </div>
+                      <span className="font-medium">Do dodání</span>
+                      <span className="font-bold">{Math.abs(stats.daysToDeadline)}</span>
+                      <span className="text-gray-600">{isOverdue ? 'po termínu' : 'dní'}</span>
                       {project.delivery_date && (
-                        <div className="text-xs text-gray-500">
-                          {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
-                        </div>
+                        <span className="text-gray-500">({new Date(project.delivery_date).toLocaleDateString('cs-CZ')})</span>
                       )}
                     </div>
                   );
                 }
               })()}
-            </div>
 
-            <div className="flex flex-wrap gap-2">
               {project.price_offer && (
-                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded">
+                <span className="text-xs px-2 py-1 bg-green-50 border border-green-300 text-green-700 rounded">
                   <span className="font-medium">Nabídka:</span> {project.price_offer.toLocaleString('cs-CZ')} Kč
-                </span>
-              )}
-              {project.start_date && (
-                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">
-                  <span className="font-medium">Zahájení:</span> {new Date(project.start_date).toLocaleDateString('cs-CZ')}
                 </span>
               )}
             </div>
