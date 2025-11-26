@@ -184,6 +184,39 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'delete-user') {
+      // Kontrola globálních dat před smazáním
+      const { data: globalFolders } = await supabaseClient
+        .from('folders')
+        .select('id, name')
+        .eq('owner_id', userId)
+        .eq('is_global', true);
+
+      if (globalFolders && globalFolders.length > 0) {
+        const folderNames = globalFolders.map(f => f.name).join(', ');
+        console.warn(`User ${userId} has global folders that will become ownerless: ${folderNames}`);
+      }
+
+      // Kontrola kategorií
+      const { data: categories } = await supabaseClient
+        .from('categories')
+        .select('id, name')
+        .eq('owner_id', userId);
+
+      if (categories && categories.length > 0) {
+        console.warn(`User ${userId} has ${categories.length} categories that will become ownerless`);
+      }
+
+      // Kontrola request types
+      const { data: requestTypes } = await supabaseClient
+        .from('request_types')
+        .select('id, name')
+        .eq('created_by', userId);
+
+      if (requestTypes && requestTypes.length > 0) {
+        console.warn(`User ${userId} has ${requestTypes.length} request types that will become ownerless`);
+      }
+
+      // Smazat uživatele - jeho globální data zůstanou s owner_id = NULL
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
       if (error) {
@@ -196,8 +229,20 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+      const message = globalFolders && globalFolders.length > 0
+        ? `Uživatel byl smazán. ${globalFolders.length} globálních složek zůstalo bez vlastníka a může je spravovat pouze admin.`
+        : 'Uživatel byl úspěšně smazán';
+
       return new Response(
-        JSON.stringify({ success: true, message: 'User deleted successfully' }),
+        JSON.stringify({
+          success: true,
+          message,
+          orphanedData: {
+            globalFolders: globalFolders?.length || 0,
+            categories: categories?.length || 0,
+            requestTypes: requestTypes?.length || 0,
+          }
+        }),
         {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

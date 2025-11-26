@@ -246,7 +246,21 @@ export function AdminDashboard() {
         return;
       }
 
-      alert('Uživatel byl úspěšně smazán');
+      let message = result.message || 'Uživatel byl úspěšně smazán';
+
+      if (result.orphanedData) {
+        const { globalFolders, categories, requestTypes } = result.orphanedData;
+        const details = [];
+        if (globalFolders > 0) details.push(`${globalFolders} globálních složek`);
+        if (categories > 0) details.push(`${categories} kategorií`);
+        if (requestTypes > 0) details.push(`${requestTypes} typů požadavků`);
+
+        if (details.length > 0) {
+          message += `\n\nData bez vlastníka (spravuje admin):\n- ${details.join('\n- ')}`;
+        }
+      }
+
+      alert(message);
       loadUsers();
     } catch (error) {
       console.error('Error:', error);
