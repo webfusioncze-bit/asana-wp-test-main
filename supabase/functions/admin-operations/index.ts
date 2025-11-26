@@ -67,7 +67,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { action, userId, newPassword, externalId, firstName, lastName, avatarUrl }: RequestBody = await req.json();
+    const body: RequestBody = await req.json();
+    const { action, userId, newPassword, externalId, firstName, lastName, avatarUrl } = body;
 
     if (!action || !userId) {
       return new Response(
@@ -141,6 +142,8 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'update-user-profile') {
+      console.log('Updating user profile:', { userId, firstName, lastName, avatarUrl });
+
       const updateData: any = {};
       if (firstName !== undefined) updateData.first_name = firstName;
       if (lastName !== undefined) updateData.last_name = lastName;
@@ -151,7 +154,9 @@ Deno.serve(async (req: Request) => {
         updateData.display_name = displayName;
       }
 
-      const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
+      console.log('Update data:', updateData);
+
+      const { data: updateResult, error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
         userId,
         { user_metadata: updateData }
       );
@@ -166,6 +171,8 @@ Deno.serve(async (req: Request) => {
           },
         );
       }
+
+      console.log('User metadata updated successfully:', updateResult);
 
       return new Response(
         JSON.stringify({ success: true, message: 'User profile updated successfully' }),
