@@ -378,7 +378,6 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
   function calculateProjectStats() {
     let totalSpentHours = 0;
     let totalEstimatedHours = 0;
-    let phasesOverBudget = 0;
 
     phases.forEach(phase => {
       const phaseSpent = getTotalHours(phase.id);
@@ -386,14 +385,10 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
 
       if (phase.estimated_hours) {
         totalEstimatedHours += phase.estimated_hours;
-        if (phaseSpent > phase.estimated_hours) {
-          phasesOverBudget++;
-        }
       }
     });
 
     const budgetPercentage = project?.hour_budget ? (totalSpentHours / project.hour_budget) * 100 : 0;
-    const estimatedPercentage = totalEstimatedHours > 0 ? (totalSpentHours / totalEstimatedHours) * 100 : 0;
 
     const daysToDeadline = project?.delivery_date
       ? Math.ceil((new Date(project.delivery_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
@@ -403,10 +398,14 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
       totalSpentHours,
       totalEstimatedHours,
       budgetPercentage,
-      estimatedPercentage,
-      phasesOverBudget,
       daysToDeadline
     };
+  }
+
+  function isPhaseOverBudget(phaseId: string): boolean {
+    const phase = phases.find(p => p.id === phaseId);
+    if (!phase || !phase.estimated_hours) return false;
+    return getTotalHours(phaseId) > phase.estimated_hours;
   }
 
   function updatePhaseField(phaseId: string, field: string, value: any) {
@@ -718,20 +717,20 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
               {project.hour_budget && (() => {
                 const stats = calculateProjectStats();
                 const isOverBudget = stats.budgetPercentage > 100;
                 return (
-                  <div className={`rounded-lg p-3 border-2 ${
+                  <div className={`rounded-lg p-2 border ${
                     isOverBudget
-                      ? 'bg-red-50 border-red-200'
+                      ? 'bg-red-50 border-red-300'
                       : stats.budgetPercentage > 80
-                        ? 'bg-yellow-50 border-yellow-200'
-                        : 'bg-green-50 border-green-200'
+                        ? 'bg-yellow-50 border-yellow-300'
+                        : 'bg-green-50 border-green-300'
                   }`}>
-                    <div className="text-xs font-medium text-gray-600 mb-1">Vyčerpání rozpočtu</div>
-                    <div className={`text-2xl font-bold ${
+                    <div className="text-xs font-medium text-gray-600 mb-0.5">Vyčerpání rozpočtu</div>
+                    <div className={`text-lg font-bold ${
                       isOverBudget
                         ? 'text-red-700'
                         : stats.budgetPercentage > 80
@@ -740,12 +739,12 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
                     }`}>
                       {stats.budgetPercentage.toFixed(0)}%
                     </div>
-                    <div className="text-xs text-gray-600 mt-1">
+                    <div className="text-xs text-gray-600">
                       {stats.totalSpentHours.toFixed(1)}h / {project.hour_budget}h
                     </div>
                     {isOverBudget && (
-                      <div className="text-xs font-semibold text-red-700 mt-1">
-                        Přečerpáno o {(stats.totalSpentHours - project.hour_budget).toFixed(1)}h
+                      <div className="text-xs font-semibold text-red-700">
+                        +{(stats.totalSpentHours - project.hour_budget).toFixed(1)}h
                       </div>
                     )}
                   </div>
@@ -754,69 +753,35 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
 
               {(() => {
                 const stats = calculateProjectStats();
-                if (stats.totalEstimatedHours > 0) {
-                  return (
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-3">
-                      <div className="text-xs font-medium text-gray-600 mb-1">Odhad fází</div>
-                      <div className="text-2xl font-bold text-blue-700">
-                        {stats.estimatedPercentage.toFixed(0)}%
-                      </div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {stats.totalSpentHours.toFixed(1)}h / {stats.totalEstimatedHours.toFixed(1)}h
-                      </div>
-                    </div>
-                  );
-                }
-              })()}
-
-              {(() => {
-                const stats = calculateProjectStats();
                 if (stats.daysToDeadline !== null) {
                   const isOverdue = stats.daysToDeadline < 0;
                   const isUrgent = stats.daysToDeadline >= 0 && stats.daysToDeadline <= 7;
                   return (
-                    <div className={`rounded-lg p-3 border-2 ${
+                    <div className={`rounded-lg p-2 border ${
                       isOverdue
-                        ? 'bg-red-50 border-red-200'
+                        ? 'bg-red-50 border-red-300'
                         : isUrgent
-                          ? 'bg-orange-50 border-orange-200'
-                          : 'bg-blue-50 border-blue-200'
+                          ? 'bg-orange-50 border-orange-300'
+                          : 'bg-blue-50 border-blue-300'
                     }`}>
-                      <div className="text-xs font-medium text-gray-600 mb-1">Do dodání</div>
-                      <div className={`text-2xl font-bold ${
+                      <div className="text-xs font-medium text-gray-600 mb-0.5">Do dodání</div>
+                      <div className={`text-lg font-bold ${
                         isOverdue
                           ? 'text-red-700'
                           : isUrgent
                             ? 'text-orange-700'
                             : 'text-blue-700'
                       }`}>
-                        {isOverdue ? '!' : Math.abs(stats.daysToDeadline)}
+                        {Math.abs(stats.daysToDeadline)}
                       </div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {isOverdue ? `Po termínu ${Math.abs(stats.daysToDeadline)} dní` : `${stats.daysToDeadline} dní`}
+                      <div className="text-xs text-gray-600">
+                        {isOverdue ? `po termínu` : `dní`}
                       </div>
                       {project.delivery_date && (
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="text-xs text-gray-500">
                           {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
                         </div>
                       )}
-                    </div>
-                  );
-                }
-              })()}
-
-              {(() => {
-                const stats = calculateProjectStats();
-                if (stats.phasesOverBudget > 0) {
-                  return (
-                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3">
-                      <div className="text-xs font-medium text-gray-600 mb-1">Fáze přes rozpočet</div>
-                      <div className="text-2xl font-bold text-red-700">
-                        {stats.phasesOverBudget}
-                      </div>
-                      <div className="text-xs text-gray-600 mt-1">
-                        {stats.phasesOverBudget === 1 ? 'fáze' : stats.phasesOverBudget < 5 ? 'fáze' : 'fází'} přečerpána
-                      </div>
                     </div>
                   );
                 }
@@ -942,9 +907,12 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               const totalHours = getTotalHours(phase.id);
               const isEditing = editingPhaseId === phase.id;
               const assignedUser = phase.assigned_user_id ? users.find(u => u.id === phase.assigned_user_id) : null;
+              const isOverBudget = isPhaseOverBudget(phase.id);
 
               return (
-                <div key={phase.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div key={phase.id} className={`bg-white rounded-lg border-2 overflow-hidden ${
+                  isOverBudget ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
+                }`}>
                   <div className="p-4 border-b border-gray-200">
                     {isEditing ? (
                       <div className="space-y-3">
@@ -1063,13 +1031,26 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
                             {phase.status}
                           </span>
                           {phase.estimated_hours > 0 && (
-                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                            <span className={`text-xs px-2 py-1 rounded font-medium ${
+                              isOverBudget
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}>
                               Odhad: {phase.estimated_hours}h
                             </span>
                           )}
-                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded font-medium">
+                          <span className={`text-xs px-2 py-1 rounded font-medium ${
+                            isOverBudget
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}>
                             Vykázáno: {totalHours.toFixed(2)}h
                           </span>
+                          {isOverBudget && (
+                            <span className="text-xs px-2 py-1 bg-red-600 text-white rounded font-semibold">
+                              PŘEČERPÁNO +{(totalHours - (phase.estimated_hours || 0)).toFixed(1)}h
+                            </span>
+                          )}
                           {phase.start_date && (
                             <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
                               {new Date(phase.start_date).toLocaleDateString('cs-CZ')}
