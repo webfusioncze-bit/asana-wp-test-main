@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FolderIcon, PlusIcon, ChevronRightIcon, ChevronDownIcon, Share2Icon, Edit2Icon, TrashIcon, FolderPlusIcon, UsersIcon, MoreVerticalIcon, GlobeIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Folder, User, FolderShare } from '../types';
+import type { Folder, User, FolderShare, Project } from '../types';
 import { FolderSettingsModal } from './FolderSettingsModal';
 import { FolderSidebarSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -9,10 +9,11 @@ import { useDataCache } from '../contexts/DataCacheContext';
 interface FolderSidebarProps {
   selectedFolderId: string | null;
   onSelectFolder: (folderId: string | null) => void;
-  folderType: 'tasks' | 'requests';
+  folderType: 'tasks' | 'requests' | 'projects';
 }
 
 export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: FolderSidebarProps) {
+  const [projects, setProjects] = useState<Project[]>([]);
   const [globalFolders, setGlobalFolders] = useState<Folder[]>([]);
   const [sharedFolders, setSharedFolders] = useState<Folder[]>([]);
   const [myFolders, setMyFolders] = useState<Folder[]>([]);
@@ -46,11 +47,29 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
 
   async function loadData() {
     setLoading(true);
-    await Promise.all([
-      loadFolders(),
-      loadFolderShares()
-    ]);
+    if (folderType === 'projects') {
+      await loadProjects();
+    } else {
+      await Promise.all([
+        loadFolders(),
+        loadFolderShares()
+      ]);
+    }
     setLoading(false);
+  }
+
+  async function loadProjects() {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error('Error loading projects:', error);
+      return;
+    }
+
+    setProjects(data || []);
   }
 
   async function loadCurrentUser() {
@@ -552,7 +571,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     );
   }
 
-  const folderTypeLabel = folderType === 'tasks' ? 'Úkoly' : 'Poptávky';
+  const folderTypeLabel = folderType === 'tasks' ? 'Úkoly' : folderType === 'requests' ? 'Poptávky' : 'Projekty';
 
   if (loading || cacheLoading.folders) {
     return <FolderSidebarSkeleton />;
@@ -572,7 +591,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
           <div>
             <h2 className="text-lg font-semibold text-gray-800">{folderTypeLabel}</h2>
             <p className="text-xs text-gray-500">
-              {folderType === 'requests' ? 'Stavy (spravováno v administraci)' : 'Složky'}
+              {folderType === 'projects' ? 'Seznam projektů' : folderType === 'requests' ? 'Stavy (spravováno v administraci)' : 'Složky'}
             </p>
           </div>
           {folderType === 'tasks' && (
@@ -612,49 +631,82 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         )}
       </div>
       <div className="flex-1 overflow-y-auto">
-        <div
-          className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${
-            selectedFolderId === null ? 'bg-blue-50' : ''
-          }`}
-          onClick={() => onSelectFolder(null)}
-        >
-          {selectedFolderId === null && (
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
-          )}
-          <FolderIcon className="w-4 h-4 text-gray-600" />
-          <span className="text-[13px] text-gray-700 flex-1">
-            {folderType === 'tasks' ? 'Všechny úkoly' : 'Nové poptávky'}
-          </span>
-          {folderType === 'tasks' && (
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-              {allTasksCount}
-            </span>
-          )}
-        </div>
-
-        {folderType === 'tasks' ? (
+        {folderType === 'projects' ? (
+          <div className="py-2">
+            {projects.map((project) => (
+              <div
+                key={project.id}
+                className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${
+                  selectedFolderId === project.id ? 'bg-blue-50' : ''
+                }`}
+                onClick={() => onSelectFolder(project.id)}
+              >
+                {selectedFolderId === project.id && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
+                )}
+                <FolderIcon className={`w-4 h-4 ${selectedFolderId === project.id ? 'text-blue-600' : 'text-gray-600'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className={`text-[13px] font-medium truncate ${
+                    selectedFolderId === project.id ? 'text-blue-900' : 'text-gray-700'
+                  }`}>
+                    {project.name}
+                  </div>
+                  {project.status && (
+                    <div className="text-xs text-gray-500 truncate">
+                      {project.status}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
           <>
-            {renderFolderCategory(
-              'Globální složky',
-              globalFolders,
-              'global',
-              <GlobeIcon className="w-4 h-4 text-blue-600" />
-            )}
-            {renderFolderCategory(
-              'Sdílené složky',
-              sharedFolders,
-              'shared',
-              <Share2Icon className="w-4 h-4 text-green-600" />
-            )}
-            {renderFolderCategory(
-              'Moje složky',
-              myFolders,
-              'my',
+            <div
+              className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-100 transition-colors relative ${
+                selectedFolderId === null ? 'bg-blue-50' : ''
+              }`}
+              onClick={() => onSelectFolder(null)}
+            >
+              {selectedFolderId === null && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
+              )}
               <FolderIcon className="w-4 h-4 text-gray-600" />
+              <span className="text-[13px] text-gray-700 flex-1">
+                {folderType === 'tasks' ? 'Všechny úkoly' : 'Nové poptávky'}
+              </span>
+              {folderType === 'tasks' && (
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  {allTasksCount}
+                </span>
+              )}
+            </div>
+
+            {folderType === 'tasks' ? (
+              <>
+                {renderFolderCategory(
+                  'Globální složky',
+                  globalFolders,
+                  'global',
+                  <GlobeIcon className="w-4 h-4 text-blue-600" />
+                )}
+                {renderFolderCategory(
+                  'Sdílené složky',
+                  sharedFolders,
+                  'shared',
+                  <Share2Icon className="w-4 h-4 text-green-600" />
+                )}
+                {renderFolderCategory(
+                  'Moje složky',
+                  myFolders,
+                  'my',
+                  <FolderIcon className="w-4 h-4 text-gray-600" />
+                )}
+              </>
+            ) : (
+              myFolders.map(folder => renderFolder(folder))
             )}
           </>
-        ) : (
-          myFolders.map(folder => renderFolder(folder))
         )}
       </div>
 

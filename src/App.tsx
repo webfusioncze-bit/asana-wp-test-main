@@ -180,7 +180,15 @@ function App() {
   return (
     <DataCacheProvider>
       <div className="flex h-screen bg-gray-50">
-      {!showAdmin && (
+      {!showAdmin && viewMode === 'projects' && (
+        <FolderSidebar
+          key={`${viewMode}-${tasksRefreshKey}-${requestsRefreshKey}`}
+          selectedFolderId={selectedProjectId}
+          onSelectFolder={setSelectedProjectId}
+          folderType={viewMode}
+        />
+      )}
+      {!showAdmin && viewMode !== 'projects' && (
         <FolderSidebar
           key={`${viewMode}-${tasksRefreshKey}-${requestsRefreshKey}`}
           selectedFolderId={selectedFolderId}
