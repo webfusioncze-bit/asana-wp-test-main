@@ -493,58 +493,33 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
 
   return (
     <div className="flex-1 flex bg-gray-50 h-full overflow-hidden">
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+      <div className="w-56 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
+        <div className="p-3 border-b border-gray-200">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors w-full"
+            className="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-900 transition-colors w-full"
           >
-            <ArrowLeftIcon className="w-4 h-4" />
+            <ArrowLeftIcon className="w-3.5 h-3.5" />
             <span>Zpět na projekty</span>
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="mb-4">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
-              Projekty
+          {project && (
+            <div className="mb-4 pb-3 border-b border-gray-200">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                Projekt
+              </div>
+              <div className="text-sm font-bold text-gray-900 mb-1">{project.name}</div>
+              {project.status && (
+                <div className="text-xs text-gray-500">{project.status}</div>
+              )}
             </div>
-            <div className="space-y-1 mb-4">
-              {allProjects.map((proj) => (
-                <button
-                  key={proj.id}
-                  onClick={() => onProjectChange(proj.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
-                    proj.id === projectId
-                      ? 'bg-blue-50 border border-blue-200'
-                      : 'hover:bg-gray-50 border border-transparent'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <FolderIcon className={`w-4 h-4 flex-shrink-0 ${
-                      proj.id === projectId ? 'text-blue-600' : 'text-gray-400'
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-sm font-medium truncate ${
-                        proj.id === projectId ? 'text-blue-900' : 'text-gray-900'
-                      }`}>
-                        {proj.name}
-                      </div>
-                      {proj.status && (
-                        <div className="text-xs text-gray-500 truncate mt-0.5">
-                          {proj.status}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
           {project && phases.length > 0 && (
             <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">
+              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                 Fáze projektu
               </div>
             </div>
