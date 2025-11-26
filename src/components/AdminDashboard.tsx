@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -51,6 +51,12 @@ export function AdminDashboard() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserExternalId, setNewUserExternalId] = useState('');
+  const [editingUser, setEditingUser] = useState<AuthUser | null>(null);
+  const [editUserForm, setEditUserForm] = useState({
+    first_name: '',
+    last_name: '',
+    avatar_url: '',
+  });
 
   useEffect(() => {
     loadUsers();
@@ -275,6 +281,67 @@ export function AdminDashboard() {
     } catch (error) {
       console.error('Error:', error);
       alert('Došlo k chybě při přiřazování');
+    }
+  }
+
+  function openEditUser(user: AuthUser) {
+    setEditingUser(user);
+    setEditUserForm({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      avatar_url: user.avatar_url || '',
+    });
+  }
+
+  function closeEditUser() {
+    setEditingUser(null);
+    setEditUserForm({
+      first_name: '',
+      last_name: '',
+      avatar_url: '',
+    });
+  }
+
+  async function saveUserProfile() {
+    if (!editingUser) return;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Nejste přihlášeni');
+        return;
+      }
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-operations`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'update-user-profile',
+          userId: editingUser.id,
+          firstName: editUserForm.first_name.trim() || null,
+          lastName: editUserForm.last_name.trim() || null,
+          avatarUrl: editUserForm.avatar_url.trim() || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('Error updating user profile:', result.error);
+        alert('Chyba při aktualizaci profilu: ' + result.error);
+        return;
+      }
+
+      closeEditUser();
+      loadUsers();
+      alert('Profil uživatele byl úspěšně aktualizován');
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Došlo k chybě při aktualizaci profilu');
     }
   }
 
@@ -590,6 +657,13 @@ export function AdminDashboard() {
                             {user.role === 'admin' ? 'Odebrat admin' : 'Admin'}
                           </button>
                           <button
+                            onClick={() => openEditUser(user)}
+                            className="p-1.5 text-gray-600 hover:bg-gray-50 rounded transition-colors"
+                            title="Upravit profil"
+                          >
+                            <Edit2Icon className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => resetUserPassword(user.id, user.email)}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                             title="Resetovat heslo"
@@ -628,6 +702,99 @@ export function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Upravit profil uživatele</h2>
+              <button
+                onClick={closeEditUser}
+                className="p-2 hover:bg-gray-100 rounded transition-colors"
+              >
+                <XIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="text-center mb-4">
+                <div className="flex justify-center mb-3">
+                  {editUserForm.avatar_url ? (
+                    <img
+                      src={editUserForm.avatar_url}
+                      alt="Avatar preview"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                      <UsersIcon className="w-10 h-10 text-gray-500" />
+                    </div>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600">{editingUser.email}</div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Jméno
+                </label>
+                <input
+                  type="text"
+                  value={editUserForm.first_name}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, first_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Zadejte jméno"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Příjmení
+                </label>
+                <input
+                  type="text"
+                  value={editUserForm.last_name}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, last_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Zadejte příjmení"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  URL profilového obrázku
+                </label>
+                <input
+                  type="text"
+                  value={editUserForm.avatar_url}
+                  onChange={(e) => setEditUserForm({ ...editUserForm, avatar_url: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://example.com/avatar.jpg"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Zadejte URL adresu obrázku nebo nechte prázdné pro výchozí avatar
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={closeEditUser}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={saveUserProfile}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <SaveIcon className="w-4 h-4" />
+                Uložit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

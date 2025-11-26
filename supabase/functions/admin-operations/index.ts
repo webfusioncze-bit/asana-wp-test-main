@@ -7,10 +7,13 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'reset-password' | 'delete-user' | 'set-external-id';
+  action: 'reset-password' | 'delete-user' | 'set-external-id' | 'update-user-profile';
   userId: string;
   newPassword?: string;
   externalId?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatarUrl?: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -64,7 +67,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { action, userId, newPassword, externalId }: RequestBody = await req.json();
+    const { action, userId, newPassword, externalId, firstName, lastName, avatarUrl }: RequestBody = await req.json();
 
     if (!action || !userId) {
       return new Response(
@@ -130,6 +133,42 @@ Deno.serve(async (req: Request) => {
 
       return new Response(
         JSON.stringify({ success: true, message: 'External ID updated successfully', data }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
+    if (action === 'update-user-profile') {
+      const updateData: any = {};
+      if (firstName !== undefined) updateData.first_name = firstName;
+      if (lastName !== undefined) updateData.last_name = lastName;
+      if (avatarUrl !== undefined) updateData.avatar_url = avatarUrl;
+
+      const displayName = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
+      if (displayName) {
+        updateData.display_name = displayName;
+      }
+
+      const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        { user_metadata: updateData }
+      );
+
+      if (metadataError) {
+        console.error('Error updating user metadata:', metadataError);
+        return new Response(
+          JSON.stringify({ error: metadataError.message }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'User profile updated successfully' }),
         {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
