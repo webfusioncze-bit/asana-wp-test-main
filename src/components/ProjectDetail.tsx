@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeft as ArrowLeftIcon, Plus as PlusIcon, Bitcoin as EditIcon, Save as SaveIcon, Bone as XIcon, Trash as TrashIcon, Clock as ClockIcon, UserPlus as UserPlusIcon, RefreshCw as RefreshCwIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ArrowLeft as ArrowLeftIcon, Plus as PlusIcon, Bitcoin as EditIcon, Save as SaveIcon, Bone as XIcon, Trash as TrashIcon, Clock as ClockIcon, UserPlus as UserPlusIcon, RefreshCw as RefreshCwIcon, FolderOpen as FolderOpenIcon, Folder as FolderIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
@@ -22,6 +22,8 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
   const [editingPhaseId, setEditingPhaseId] = useState<string | null>(null);
   const [showPhaseForm, setShowPhaseForm] = useState(false);
   const [showTimeFormForPhase, setShowTimeFormForPhase] = useState<string | null>(null);
+  const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
+  const phaseRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [projectForm, setProjectForm] = useState({
     name: '',
@@ -436,16 +438,114 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
     );
   }
 
+  function scrollToPhase(phaseId: string) {
+    const element = phaseRefs.current[phaseId];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActivePhaseId(phaseId);
+    }
+  }
+
+  useEffect(() => {
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      let closestPhase: string | null = null;
+      let closestDistance = Infinity;
+
+      Object.entries(phaseRefs.current).forEach(([phaseId, element]) => {
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          const distance = Math.abs(rect.top - 100);
+          if (distance < closestDistance && rect.top < window.innerHeight / 2) {
+            closestDistance = distance;
+            closestPhase = phaseId;
+          }
+        }
+      });
+
+      if (closestPhase) {
+        setActivePhaseId(closestPhase);
+      }
+    };
+
+    const scrollContainer = document.querySelector('.project-detail-content');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [phases]);
+
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 h-full overflow-hidden">
-      <div className="bg-white border-b border-gray-200 px-6 py-3">
-        <div className="flex items-center gap-3 mb-2">
+    <div className="flex-1 flex bg-gray-50 h-full overflow-hidden">
+      <div className="w-64 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
+        <div className="p-4 border-b border-gray-200">
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors w-full"
           >
-            <ArrowLeftIcon className="w-5 h-5 text-gray-600" />
+            <ArrowLeftIcon className="w-4 h-4" />
+            <span>Zpět na projekty</span>
           </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="mb-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-2 px-2">
+              <FolderOpenIcon className="w-4 h-4 text-blue-600" />
+              <span className="truncate">{project?.name}</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            {phases.map((phase) => {
+              const assignedUser = phase.assigned_user_id ? users.find(u => u.id === phase.assigned_user_id) : null;
+              const isActive = activePhaseId === phase.id;
+              const isOverBudget = isPhaseOverBudget(phase.id);
+
+              return (
+                <button
+                  key={phase.id}
+                  onClick={() => scrollToPhase(phase.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-blue-50 border border-blue-200'
+                      : 'hover:bg-gray-50 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <FolderIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                      isOverBudget ? 'text-red-600' : 'text-gray-400'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium truncate ${
+                        isActive ? 'text-blue-900' : 'text-gray-900'
+                      }`}>
+                        {phase.name}
+                      </div>
+                      {assignedUser && (
+                        <div className="text-xs text-gray-500 truncate mt-0.5">
+                          {assignedUser.display_name || assignedUser.email}
+                        </div>
+                      )}
+                      {isOverBudget && (
+                        <div className="text-xs text-red-600 font-semibold mt-0.5">
+                          Přečerpáno
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white border-b border-gray-200 px-6 py-3">
+        <div className="flex items-center gap-3 mb-2">
           <div className="flex-1">
             {editingProject ? (
               <div className="space-y-3">
@@ -726,7 +826,7 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 project-detail-content">
         {canManage && (
           <div className="mb-6">
             {!showPhaseForm ? (
@@ -832,9 +932,13 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               const isOverBudget = isPhaseOverBudget(phase.id);
 
               return (
-                <div key={phase.id} className={`bg-white rounded-lg border-2 overflow-hidden ${
-                  isOverBudget ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
-                }`}>
+                <div
+                  key={phase.id}
+                  ref={(el) => { phaseRefs.current[phase.id] = el; }}
+                  className={`bg-white rounded-lg border-2 overflow-hidden ${
+                    isOverBudget ? 'border-red-300 bg-red-50/30' : 'border-gray-200'
+                  }`}
+                >
                   <div className="p-4 border-b border-gray-200">
                     {isEditing ? (
                       <div className="space-y-3">
@@ -1120,6 +1224,7 @@ export function ProjectDetail({ projectId, onClose, canManage }: ProjectDetailPr
               );
             })
           )}
+        </div>
         </div>
       </div>
     </div>
