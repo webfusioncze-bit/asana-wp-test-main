@@ -58,13 +58,33 @@ Deno.serve(async (req: Request) => {
 
         function parseDate(dateStr: string | null): string | null {
           if (!dateStr) return null;
-          if (dateStr.length === 8) {
+
+          // Format: YYYYMMDD (např. 20250924)
+          if (dateStr.length === 8 && /^\d{8}$/.test(dateStr)) {
             const year = dateStr.substring(0, 4);
             const month = dateStr.substring(4, 6);
             const day = dateStr.substring(6, 8);
             return `${year}-${month}-${day}`;
           }
-          return dateStr;
+
+          // Format: D.M.YYYY nebo DD.MM.YYYY (např. 11.9.2025 nebo 16.09.2025)
+          if (dateStr.includes('.')) {
+            const parts = dateStr.split('.');
+            if (parts.length === 3) {
+              const day = parts[0].padStart(2, '0');
+              const month = parts[1].padStart(2, '0');
+              const year = parts[2];
+              return `${year}-${month}-${day}`;
+            }
+          }
+
+          // Pokud už je ve formátu YYYY-MM-DD, vrátit jak je
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            return dateStr;
+          }
+
+          console.warn(`Unknown date format: ${dateStr}`);
+          return null;
         }
 
         function normalizeStatus(status: string): string {
