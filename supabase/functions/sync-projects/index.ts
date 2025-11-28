@@ -129,11 +129,12 @@ Deno.serve(async (req: Request) => {
 
         const { data: existingPhases } = await supabaseAdmin
           .from('project_phases')
-          .select('id, position, external_operator_id')
+          .select('id, position, external_operator_id, name')
           .eq('project_id', project.id)
           .order('position');
 
         const phases = acf.faze_projektu || [];
+        console.log(`Project has ${phases.length} phases in API, ${existingPhases?.length || 0} phases in DB`);
         let phasesUpdated = 0;
         let timeEntriesAdded = 0;
 
@@ -172,35 +173,47 @@ Deno.serve(async (req: Request) => {
 
               const { data: existingEntries } = await supabaseAdmin
                 .from('project_time_entries')
-                .select('entry_date')
+                .select('entry_date, hours, description')
                 .eq('phase_id', existingPhase.id);
 
-              const existingDates = new Set(existingEntries?.map(e => e.entry_date) || []);
+              const existingEntriesSet = new Set(
+                existingEntries?.map(e => `${e.entry_date}|${e.hours}|${e.description}`) || []
+              );
 
               const timeEntries = phase.polozkovy_vykaz || [];
+              console.log(`Phase "${phaseData.name}": ${timeEntries.length} time entries from API, ${existingEntries?.length || 0} existing in DB`);
+
               for (const entry of timeEntries) {
                 const entryDate = parseDate(entry.datum);
                 const hours = Number(entry.pocet_hodin) || 0;
+                const description = entry.cinnost || 'Importovaná činnost';
 
-                if (hours > 0 && entryDate && !existingDates.has(entryDate)) {
-                  const timeEntryInsert: any = {
-                    phase_id: existingPhase.id,
-                    description: entry.cinnost || 'Importovaná činnost',
-                    hours: hours,
-                    entry_date: entryDate,
-                    visible_to_client: !entry.vidi_klient || !entry.vidi_klient.includes('nevidi'),
-                  };
+                if (hours > 0 && entryDate) {
+                  const entryKey = `${entryDate}|${hours}|${description}`;
 
-                  if (phaseWithUser?.assigned_user_id) {
-                    timeEntryInsert.user_id = phaseWithUser.assigned_user_id;
-                  }
+                  if (!existingEntriesSet.has(entryKey)) {
+                    const timeEntryInsert: any = {
+                      phase_id: existingPhase.id,
+                      description: description,
+                      hours: hours,
+                      entry_date: entryDate,
+                      visible_to_client: !entry.vidi_klient || !entry.vidi_klient.includes('nevidi'),
+                    };
 
-                  const { error: timeError } = await supabaseAdmin
-                    .from('project_time_entries')
-                    .insert(timeEntryInsert);
+                    if (phaseWithUser?.assigned_user_id) {
+                      timeEntryInsert.user_id = phaseWithUser.assigned_user_id;
+                    }
 
-                  if (!timeError) {
-                    timeEntriesAdded++;
+                    const { error: timeError } = await supabaseAdmin
+                      .from('project_time_entries')
+                      .insert(timeEntryInsert);
+
+                    if (!timeError) {
+                      timeEntriesAdded++;
+                      console.log(`  ✓ Added time entry: ${entryDate} - ${hours}h - ${description}`);
+                    } else {
+                      console.error(`  ✗ Failed to add time entry: ${timeError.message}`);
+                    }
                   }
                 }
               }
@@ -217,16 +230,20 @@ Deno.serve(async (req: Request) => {
 
             if (!phaseError && newPhase) {
               phasesUpdated++;
+              console.log(`  ✓ Created new phase: "${phaseData.name}"`);
 
               const timeEntries = phase.polozkovy_vykaz || [];
+              console.log(`New phase "${phaseData.name}": ${timeEntries.length} time entries from API`);
+
               for (const entry of timeEntries) {
                 const entryDate = parseDate(entry.datum);
                 const hours = Number(entry.pocet_hodin) || 0;
+                const description = entry.cinnost || 'Importovaná činnost';
 
                 if (hours > 0 && entryDate) {
                   const timeEntryInsert: any = {
                     phase_id: newPhase.id,
-                    description: entry.cinnost || 'Importovaná činnost',
+                    description: description,
                     hours: hours,
                     entry_date: entryDate,
                     visible_to_client: !entry.vidi_klient || !entry.vidi_klient.includes('nevidi'),
@@ -242,9 +259,14 @@ Deno.serve(async (req: Request) => {
 
                   if (!timeError) {
                     timeEntriesAdded++;
+                    console.log(`  ✓ Added time entry: ${entryDate} - ${hours}h - ${description}`);
+                  } else {
+                    console.error(`  ✗ Failed to add time entry: ${timeError.message}`);
                   }
                 }
               }
+            } else if (phaseError) {
+              console.error(`  ✗ Failed to create phase: ${phaseError.message}`);
             }
           }
         }
