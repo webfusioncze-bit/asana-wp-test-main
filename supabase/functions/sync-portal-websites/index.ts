@@ -21,7 +21,6 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Get portal sync config
     const { data: config, error: configError } = await supabaseAdmin
       .from('portal_sync_config')
       .select('*')
@@ -50,24 +49,57 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Fetching websites from portal: ${config.portal_url}`);
 
-    // Fetch websites from portal
-    const response = await fetch(config.portal_url, {
-      headers: {
-        'User-Agent': 'Supabase-Edge-Function/1.0',
-      },
-    });
+    // Fetch all pages from portal with pagination
+    const allPortalWebsites = [];
+    let currentPage = 1;
+    let hasMorePages = true;
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch portal: ${response.statusText}`);
+    while (hasMorePages) {
+      const url = new URL(config.portal_url);
+      url.searchParams.set('page', currentPage.toString());
+      url.searchParams.set('per_page', '100');
+
+      console.log(`Fetching page ${currentPage}: ${url.toString()}`);
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          'User-Agent': 'Supabase-Edge-Function/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch portal page ${currentPage}: ${response.statusText}`);
+      }
+
+      const pageData = await response.json();
+
+      if (!Array.isArray(pageData)) {
+        throw new Error('Invalid portal response format');
+      }
+
+      console.log(`Page ${currentPage}: Found ${pageData.length} websites`);
+
+      allPortalWebsites.push(...pageData);
+
+      // Check if there are more pages
+      const totalPages = response.headers.get('X-WP-TotalPages');
+      if (totalPages) {
+        hasMorePages = currentPage < parseInt(totalPages, 10);
+      } else {
+        // If no pagination header, check if we got results
+        hasMorePages = pageData.length === 100;
+      }
+
+      currentPage++;
+
+      // Safety limit to prevent infinite loops
+      if (currentPage > 1000) {
+        console.warn('Reached safety limit of 1000 pages');
+        break;
+      }
     }
 
-    const portalWebsites = await response.json();
-
-    if (!Array.isArray(portalWebsites)) {
-      throw new Error('Invalid portal response format');
-    }
-
-    console.log(`Found ${portalWebsites.length} websites in portal`);
+    console.log(`Total websites fetched from portal: ${allPortalWebsites.length}`);
 
     // Get current websites from database
     const { data: currentWebsites, error: websitesError } = await supabaseAdmin
@@ -97,7 +129,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Add new websites from portal
-    for (const portalSite of portalWebsites) {
+    for (const portalSite of allPortalWebsites) {
       const url = portalSite.acf?.url_adresa_webu;
       if (!url) continue;
 
@@ -105,6 +137,9 @@ Deno.serve(async (req: Request) => {
       if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
         normalizedUrl = 'https://' + normalizedUrl;
       }
+
+      // Remove trailing slash
+      normalizedUrl = normalizedUrl.replace(/\/$/, '');
 
       portalWebsiteUrls.add(normalizedUrl.toLowerCase());
 
@@ -167,7 +202,8 @@ Deno.serve(async (req: Request) => {
         added,
         removed,
         skipped,
-        total: portalWebsites.length,
+        total: allPortalWebsites.length,
+        pages: currentPage - 1,
       }),
       {
         status: 200,
