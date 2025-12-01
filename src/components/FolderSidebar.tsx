@@ -177,9 +177,14 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
       setSharedFolders(shared);
       setMyFolders(my);
 
+      // Spočítat všechny úkoly, ke kterým má uživatel přístup
+      // (součet úkolů ze všech složek, které má v seznamu)
+      const accessibleFolderIds = allFolders.map(f => f.id);
+
       const { count: allCount } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
+        .in('folder_id', accessibleFolderIds)
         .neq('status', 'completed')
         .is('parent_task_id', null);
       setAllTasksCount(allCount || 0);
