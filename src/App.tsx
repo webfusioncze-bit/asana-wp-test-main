@@ -13,11 +13,13 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { UserProfileSettings } from './components/UserProfileSettings';
 import { ProjectList } from './components/ProjectList';
 import { ProjectDetail } from './components/ProjectDetail';
+import { WebsiteList } from './components/WebsiteList';
+import { WebsiteDetail } from './components/WebsiteDetail';
 import { DataCacheProvider } from './contexts/DataCacheContext';
 import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
-type ViewMode = 'tasks' | 'requests' | 'projects';
+type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -28,12 +30,14 @@ function App() {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('tasks');
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
   const [tasksRefreshKey, setTasksRefreshKey] = useState(0);
   const [hasRequestsPermission, setHasRequestsPermission] = useState(false);
   const [hasProjectsPermission, setHasProjectsPermission] = useState(false);
+  const [hasWebsitesPermission, setHasWebsitesPermission] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [showTaskCreation, setShowTaskCreation] = useState(false);
@@ -111,6 +115,9 @@ function App() {
     // Zkontroluj oprávnění pro projekty
     await checkProjectsPermission(userId);
 
+    // Zkontroluj oprávnění pro weby
+    await checkWebsitesPermission(userId);
+
     // Načti profil uživatele
     await loadUserProfile(userId);
 
@@ -157,6 +164,18 @@ function App() {
       .maybeSingle();
 
     setHasProjectsPermission(!!data);
+  }
+
+  async function checkWebsitesPermission(userId: string) {
+    // Zkontroluj, jestli má uživatel oprávnění manage_websites
+    const { data } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('permission', 'manage_websites')
+      .maybeSingle();
+
+    setHasWebsitesPermission(!!data);
   }
 
   async function handleSignOut() {
@@ -245,6 +264,18 @@ function App() {
                     }`}
                   >
                     Projekty
+                  </button>
+                )}
+                {hasWebsitesPermission && (
+                  <button
+                    onClick={() => setViewMode('websites')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'websites'
+                        ? 'bg-primary text-white'
+                        : 'text-gray-300 hover:bg-dark-light'
+                    }`}
+                  >
+                    Weby
                   </button>
                 )}
               </div>
@@ -363,19 +394,34 @@ function App() {
                 />
               )}
             </div>
-          ) : selectedProjectId ? (
-            <ProjectDetail
-              projectId={selectedProjectId}
-              onClose={() => setSelectedProjectId(null)}
-              onProjectChange={setSelectedProjectId}
-              canManage={hasProjectsPermission}
-            />
-          ) : (
-            <ProjectList
-              canManage={hasProjectsPermission}
-              onSelectProject={setSelectedProjectId}
-            />
-          )}
+          ) : viewMode === 'projects' ? (
+            selectedProjectId ? (
+              <ProjectDetail
+                projectId={selectedProjectId}
+                onClose={() => setSelectedProjectId(null)}
+                onProjectChange={setSelectedProjectId}
+                canManage={hasProjectsPermission}
+              />
+            ) : (
+              <ProjectList
+                canManage={hasProjectsPermission}
+                onSelectProject={setSelectedProjectId}
+              />
+            )
+          ) : viewMode === 'websites' ? (
+            selectedWebsiteId ? (
+              <WebsiteDetail
+                websiteId={selectedWebsiteId}
+                onClose={() => setSelectedWebsiteId(null)}
+              />
+            ) : (
+              <WebsiteList
+                selectedWebsiteId={selectedWebsiteId}
+                onSelectWebsite={setSelectedWebsiteId}
+                canManage={hasWebsitesPermission}
+              />
+            )
+          ) : null}
         </div>
       </div>
 

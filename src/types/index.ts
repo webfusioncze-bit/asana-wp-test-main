@@ -359,3 +359,47 @@ export interface ProjectMilestone {
   created_at: string;
   updated_at: string;
 }
+
+export interface Website {
+  id: string;
+  url: string;
+  name: string;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  last_sync_at: string | null;
+  sync_error: string | null;
+}
+
+export interface WebsiteStatus {
+  id: string;
+  website_id: string;
+  last_updated: string | null;
+  wordpress_version: string | null;
+  php_version: string | null;
+  mysql_version: string | null;
+  memory_limit: string | null;
+  upload_max_filesize: string | null;
+  num_pages: number;
+  num_posts: number;
+  num_comments: number;
+  num_users: number;
+  num_media_files: number;
+  https_status: string | null;
+  indexing_allowed: string | null;
+  storage_usage: string | null;
+  active_plugins_count: number;
+  inactive_plugins_count: number;
+  update_plugins_count: number;
+  theme_name: string | null;
+  theme_version: string | null;
+  server_load: string | null;
+  uptime: string | null;
+  raw_data: {
+    active_plugins?: Array<{ name: string; version: string; author: string }>;
+    inactive_plugins?: Array<{ name: string; version: string; author: string }>;
+    update_plugins?: Array<{ name: string; version: string; author: string }>;
+    users?: Array<{ username: string; email: string; role: string }>;
+  } | null;
+  created_at: string;
+}
