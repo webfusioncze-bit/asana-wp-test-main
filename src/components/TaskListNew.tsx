@@ -33,6 +33,29 @@ export function TaskListNew({ folderId, onSelectTask }: TaskListNewProps) {
     loadData();
   }, [currentFolderId]);
 
+  useEffect(() => {
+    // Subscribe to realtime changes in tasks table
+    const channel = supabase
+      .channel('tasks-list-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks'
+        },
+        () => {
+          // Trigger refresh of task list
+          setRefreshTrigger(prev => prev + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   async function loadData() {
     setLoading(true);
     await Promise.all([

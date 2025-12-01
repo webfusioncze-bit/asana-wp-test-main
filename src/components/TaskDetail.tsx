@@ -68,6 +68,65 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     }
   }, [task?.folder_id]);
 
+  useEffect(() => {
+    // Subscribe to realtime changes for this specific task
+    const channel = supabase
+      .channel(`task-detail-${taskId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tasks',
+          filter: `id=eq.${taskId}`
+        },
+        () => {
+          loadTask();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_comments',
+          filter: `task_id=eq.${taskId}`
+        },
+        () => {
+          loadComments();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'time_entries',
+          filter: `task_id=eq.${taskId}`
+        },
+        () => {
+          loadTimeEntries();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_attachments',
+          filter: `task_id=eq.${taskId}`
+        },
+        () => {
+          loadAttachments();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [taskId]);
+
   async function loadTask() {
     const { data, error } = await supabase
       .from('tasks')

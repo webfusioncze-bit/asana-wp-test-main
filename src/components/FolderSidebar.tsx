@@ -45,6 +45,31 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     }
   }, [folderType, currentUserId]);
 
+  useEffect(() => {
+    if (!currentUserId || folderType === 'projects') return;
+
+    // Subscribe to realtime changes in tasks table
+    const channel = supabase
+      .channel('tasks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks'
+        },
+        () => {
+          // Reload folders to update counts
+          loadFolders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, folderType]);
+
   async function loadData() {
     setLoading(true);
     if (folderType === 'projects') {

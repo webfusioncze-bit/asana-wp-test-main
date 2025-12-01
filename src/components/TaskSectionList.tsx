@@ -32,6 +32,39 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
     loadUsers();
   }, [folderId, refreshTrigger]);
 
+  useEffect(() => {
+    // Subscribe to realtime changes in tasks and task_sections
+    const tasksChannel = supabase
+      .channel('section-tasks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks'
+        },
+        () => {
+          loadTasks();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_sections'
+        },
+        () => {
+          loadSections();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tasksChannel);
+    };
+  }, [folderId]);
+
   async function loadSections() {
     if (isCompletedFolder) {
       setSections([]);
