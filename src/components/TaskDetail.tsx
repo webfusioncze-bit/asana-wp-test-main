@@ -32,12 +32,11 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
   const [availableTags, setAvailableTags] = useState<FolderTag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [editedTask, setEditedTask] = useState<Partial<Task>>({});
   const [isAddingTime, setIsAddingTime] = useState(false);
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+  const [editingField, setEditingField] = useState<string | null>(null);
   const [newSubtask, setNewSubtask] = useState({
     title: '',
     description: '',
@@ -82,7 +81,6 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     }
 
     setTask(data);
-    setEditedTask(data || {});
   }
 
   async function loadComments() {
@@ -232,15 +230,21 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     setTaskHierarchy(hierarchy);
   }
 
-  async function updateTask() {
-    const updateData = {
-      ...editedTask,
+  async function updateTaskField(field: string, value: any) {
+    if (!task) return;
+
+    const updateData: any = {
+      [field]: value,
       updated_at: new Date().toISOString(),
-      due_date: editedTask.due_date ? new Date(editedTask.due_date).toISOString() : null,
-      recurrence_end_date: editedTask.recurrence_end_date ? new Date(editedTask.recurrence_end_date).toISOString() : null
     };
 
-    if (editedTask.status === 'completed' && task.status !== 'completed') {
+    // Speciální zpracování pro datum
+    if (field === 'due_date' && value) {
+      updateData.due_date = new Date(value).toISOString();
+    }
+
+    // Speciální zpracování pro status změnu na completed
+    if (field === 'status' && value === 'completed' && task.status !== 'completed') {
       updateData.completed_at = new Date().toISOString();
 
       if (task.folder_id) {
@@ -271,13 +275,9 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           }
         }
       }
-    } else if (editedTask.status !== 'completed' && task.status === 'completed') {
+    } else if (field === 'status' && value !== 'completed' && task.status === 'completed') {
       updateData.completed_at = null;
       updateData.section_id = null;
-    } else if (editedTask.status === 'completed') {
-      updateData.completed_at = task.completed_at || new Date().toISOString();
-    } else {
-      updateData.completed_at = null;
     }
 
     const { error } = await supabase
@@ -290,7 +290,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
       return;
     }
 
-    setIsEditing(false);
+    setEditingField(null);
     loadTask();
     onTaskUpdated();
   }
@@ -675,29 +675,65 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Název</label>
-          {isEditing ? (
+          {editingField === 'title' ? (
             <input
               type="text"
-              value={editedTask.title || ''}
-              onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
+              defaultValue={task.title}
+              autoFocus
+              onBlur={(e) => {
+                if (e.target.value.trim() && e.target.value !== task.title) {
+                  updateTaskField('title', e.target.value);
+                } else {
+                  setEditingField(null);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  setEditingField(null);
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
           ) : (
-            <h3 className="text-xl font-semibold text-gray-800">{task.title}</h3>
+            <h3
+              className="text-xl font-semibold text-gray-800 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+              onClick={() => setEditingField('title')}
+            >
+              {task.title}
+            </h3>
           )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Popis</label>
-          {isEditing ? (
+          {editingField === 'description' ? (
             <textarea
-              value={editedTask.description || ''}
-              onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
+              defaultValue={task.description || ''}
+              autoFocus
               rows={4}
+              onBlur={(e) => {
+                if (e.target.value !== task.description) {
+                  updateTaskField('description', e.target.value || null);
+                } else {
+                  setEditingField(null);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setEditingField(null);
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
           ) : (
-            <p className="text-gray-600">{task.description || 'Bez popisu'}</p>
+            <p
+              className="text-gray-600 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors min-h-[2.5rem]"
+              onClick={() => setEditingField('description')}
+            >
+              {task.description || 'Bez popisu'}
+            </p>
           )}
         </div>
 
@@ -707,15 +743,28 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               <CalendarIcon className="w-4 h-4 inline mr-2" />
               Termín dokončení
             </label>
-            {isEditing ? (
+            {editingField === 'due_date' ? (
               <input
                 type="date"
-                value={editedTask.due_date ? new Date(editedTask.due_date).toISOString().slice(0, 10) : ''}
-                onChange={(e) => setEditedTask({ ...editedTask, due_date: e.target.value })}
+                defaultValue={task.due_date ? new Date(task.due_date).toISOString().slice(0, 10) : ''}
+                autoFocus
+                onBlur={(e) => {
+                  updateTaskField('due_date', e.target.value || null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  } else if (e.key === 'Escape') {
+                    setEditingField(null);
+                  }
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             ) : (
-              <p className="text-gray-600 text-sm">
+              <p
+                className="text-gray-600 text-sm cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                onClick={() => setEditingField('due_date')}
+              >
                 {task.due_date
                   ? new Date(task.due_date).toLocaleString('cs-CZ')
                   : 'Není nastaven'}
@@ -728,10 +777,14 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               <UserIcon className="w-4 h-4 inline mr-2" />
               Přiřazeno
             </label>
-            {isEditing ? (
+            {editingField === 'assigned_to' ? (
               <select
-                value={editedTask.assigned_to || task.assigned_to}
-                onChange={(e) => setEditedTask({ ...editedTask, assigned_to: e.target.value })}
+                defaultValue={task.assigned_to}
+                autoFocus
+                onChange={(e) => {
+                  updateTaskField('assigned_to', e.target.value);
+                }}
+                onBlur={() => setEditingField(null)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 {users.map(user => (
@@ -739,7 +792,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 ))}
               </select>
             ) : (
-              <div className="flex items-center gap-2">
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                onClick={() => setEditingField('assigned_to')}
+              >
                 {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
                   <img
                     src={users.find(u => u.id === task.assigned_to)?.avatar_url}
@@ -789,10 +845,14 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               <TagIcon className="w-4 h-4 inline mr-2" />
               Kategorie
             </label>
-            {isEditing ? (
+            {editingField === 'category_id' ? (
               <select
-                value={editedTask.category_id || ''}
-                onChange={(e) => setEditedTask({ ...editedTask, category_id: e.target.value || null })}
+                defaultValue={task.category_id || ''}
+                autoFocus
+                onChange={(e) => {
+                  updateTaskField('category_id', e.target.value || null);
+                }}
+                onBlur={() => setEditingField(null)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Žádná kategorie</option>
@@ -801,7 +861,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 ))}
               </select>
             ) : (
-              <p className="text-gray-600 text-sm">
+              <p
+                className="text-gray-600 text-sm cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                onClick={() => setEditingField('category_id')}
+              >
                 {categories.find(c => c.id === task.category_id)?.name || 'Bez kategorie'}
               </p>
             )}
@@ -812,17 +875,24 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               <FolderIcon className="w-4 h-4 inline mr-2" />
               Složka
             </label>
-            {isEditing ? (
+            {editingField === 'folder_id' ? (
               <select
-                value={editedTask.folder_id || ''}
-                onChange={(e) => setEditedTask({ ...editedTask, folder_id: e.target.value || null })}
+                defaultValue={task.folder_id || ''}
+                autoFocus
+                onChange={(e) => {
+                  updateTaskField('folder_id', e.target.value || null);
+                }}
+                onBlur={() => setEditingField(null)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Žádná složka</option>
                 {buildFolderHierarchy(folders)}
               </select>
             ) : (
-              <p className="text-gray-600 text-sm">
+              <p
+                className="text-gray-600 text-sm cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                onClick={() => setEditingField('folder_id')}
+              >
                 {folders.find(f => f.id === task.folder_id)?.name || 'Bez složky'}
               </p>
             )}
@@ -869,10 +939,14 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Priorita</label>
-            {isEditing ? (
+            {editingField === 'priority' ? (
               <select
-                value={editedTask.priority || 'medium'}
-                onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value as Task['priority'] })}
+                defaultValue={task.priority || 'medium'}
+                autoFocus
+                onChange={(e) => {
+                  updateTaskField('priority', e.target.value as Task['priority']);
+                }}
+                onBlur={() => setEditingField(null)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="low">Nízká</option>
@@ -881,7 +955,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 <option value="urgent">Urgentní</option>
               </select>
             ) : (
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${priorityColors[task.priority]}`}>
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity ${priorityColors[task.priority]}`}
+                onClick={() => setEditingField('priority')}
+              >
                 {priorityLabels[task.priority]}
               </span>
             )}
@@ -889,10 +966,14 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-            {isEditing ? (
+            {editingField === 'status' ? (
               <select
-                value={editedTask.status || 'todo'}
-                onChange={(e) => setEditedTask({ ...editedTask, status: e.target.value as Task['status'] })}
+                defaultValue={task.status || 'todo'}
+                autoFocus
+                onChange={(e) => {
+                  updateTaskField('status', e.target.value as Task['status']);
+                }}
+                onBlur={() => setEditingField(null)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="todo">K dokončení</option>
@@ -900,186 +981,15 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 <option value="completed">Dokončeno</option>
               </select>
             ) : (
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColors[task.status]}`}>
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity ${statusColors[task.status]}`}
+                onClick={() => setEditingField('status')}
+              >
                 {statusLabels[task.status]}
               </span>
             )}
           </div>
         </div>
-
-        {isEditing && (
-          <div className="border-t border-gray-200 pt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <RepeatIcon className="w-4 h-4 text-gray-600" />
-              <label className="text-sm font-medium text-gray-700">
-                Opakovaný úkol
-              </label>
-              <input
-                type="checkbox"
-                checked={editedTask.is_recurring || false}
-                onChange={(e) => setEditedTask({ ...editedTask, is_recurring: e.target.checked })}
-                className="ml-auto w-4 h-4 text-primary focus:ring-2 focus:ring-primary rounded"
-              />
-            </div>
-
-            {editedTask.is_recurring && (
-              <div className="space-y-3 pl-6">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Frekvence</label>
-                    <select
-                      value={editedTask.recurrence_rule || 'weekly'}
-                      onChange={(e) => setEditedTask({ ...editedTask, recurrence_rule: e.target.value as any })}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="daily">Denně</option>
-                      <option value="weekly">Týdně</option>
-                      <option value="monthly">Měsíčně</option>
-                      <option value="yearly">Ročně</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Interval</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={editedTask.recurrence_interval || 1}
-                      onChange={(e) => setEditedTask({ ...editedTask, recurrence_interval: parseInt(e.target.value) })}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-
-                {editedTask.recurrence_rule === 'weekly' && (
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Dny v týdnu</label>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { value: 1, label: 'Po' },
-                        { value: 2, label: 'Út' },
-                        { value: 3, label: 'St' },
-                        { value: 4, label: 'Čt' },
-                        { value: 5, label: 'Pá' },
-                        { value: 6, label: 'So' },
-                        { value: 0, label: 'Ne' },
-                      ].map(day => (
-                        <button
-                          key={day.value}
-                          type="button"
-                          onClick={() => {
-                            const days = editedTask.recurrence_days_of_week || [];
-                            const newDays = days.includes(day.value)
-                              ? days.filter(d => d !== day.value)
-                              : [...days, day.value];
-                            setEditedTask({ ...editedTask, recurrence_days_of_week: newDays.length > 0 ? newDays : null });
-                          }}
-                          className={`px-3 py-1.5 text-xs rounded border transition-colors ${
-                            (editedTask.recurrence_days_of_week || []).includes(day.value)
-                              ? 'bg-primary text-white border-primary'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-primary'
-                          }`}
-                        >
-                          {day.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {editedTask.recurrence_rule === 'monthly' && (
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">Den v měsíci (1-31)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={editedTask.recurrence_day_of_month || ''}
-                      onChange={(e) => setEditedTask({ ...editedTask, recurrence_day_of_month: e.target.value ? parseInt(e.target.value) : null })}
-                      placeholder="např. 15"
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                )}
-
-                {editedTask.recurrence_rule === 'yearly' && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Den</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={editedTask.recurrence_day_of_month || ''}
-                        onChange={(e) => setEditedTask({ ...editedTask, recurrence_day_of_month: e.target.value ? parseInt(e.target.value) : null })}
-                        placeholder="30"
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Měsíc</label>
-                      <select
-                        value={editedTask.recurrence_month || ''}
-                        onChange={(e) => setEditedTask({ ...editedTask, recurrence_month: e.target.value ? parseInt(e.target.value) : null })}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        <option value="">Vyberte měsíc</option>
-                        <option value="1">Leden</option>
-                        <option value="2">Únor</option>
-                        <option value="3">Březen</option>
-                        <option value="4">Duben</option>
-                        <option value="5">Květen</option>
-                        <option value="6">Červen</option>
-                        <option value="7">Červenec</option>
-                        <option value="8">Srpen</option>
-                        <option value="9">Září</option>
-                        <option value="10">Říjen</option>
-                        <option value="11">Listopad</option>
-                        <option value="12">Prosinec</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Ukončit opakování (volitelné)</label>
-                  <input
-                    type="date"
-                    value={editedTask.recurrence_end_date ? new Date(editedTask.recurrence_end_date).toISOString().slice(0, 10) : ''}
-                    onChange={(e) => setEditedTask({ ...editedTask, recurrence_end_date: e.target.value || null })}
-                    className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {isEditing ? (
-          <div className="flex gap-2">
-            <button
-              onClick={updateTask}
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-            >
-              Uložit
-            </button>
-            <button
-              onClick={() => {
-                setIsEditing(false);
-                setEditedTask(task);
-              }}
-              className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Zrušit
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            Upravit úkol
-          </button>
-        )}
 
         <div className="border-t border-gray-200 pt-6">
           <div className="flex items-center justify-between mb-4">
