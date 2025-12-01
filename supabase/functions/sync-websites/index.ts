@@ -21,7 +21,6 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Fetch all websites
     const { data: websites, error: websitesError } = await supabaseAdmin
       .from('websites')
       .select('id, url, name, last_sync_at');
@@ -37,23 +36,39 @@ Deno.serve(async (req: Request) => {
     for (const website of websites) {
       try {
         console.log(`Syncing website: ${website.name} (${website.url})`);
-        
-        // Build XML feed URL
+
+        const startTime = Date.now();
+        let isAvailable = true;
+        let responseTimeMs = null;
+
+        try {
+          const healthCheck = await fetch(website.url, {
+            method: 'HEAD',
+            headers: {
+              'User-Agent': 'Supabase-Edge-Function/1.0',
+            },
+          });
+          responseTimeMs = Date.now() - startTime;
+          isAvailable = healthCheck.ok;
+        } catch (error) {
+          isAvailable = false;
+          console.error(`Availability check failed for ${website.name}:`, error);
+        }
+
         const feedUrl = `${website.url}/wp-content/plugins/webfusion-connector/feeds/stav-webu.xml`;
-        
+
         const response = await fetch(feedUrl, {
           headers: {
             'User-Agent': 'Supabase-Edge-Function/1.0',
           },
         });
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch: ${response.statusText}`);
         }
 
         const xmlText = await response.text();
-        
-        // Parse XML to extract data
+
         const parseXmlValue = (xml: string, tag: string): string | null => {
           const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i');
           const match = xml.match(regex);
@@ -65,17 +80,16 @@ Deno.serve(async (req: Request) => {
           return value ? parseInt(value, 10) : 0;
         };
 
-        // Extract plugins
         const extractPlugins = (xml: string, containerTag: string): any[] => {
           const regex = new RegExp(`<${containerTag}>(.*?)</${containerTag}>`, 'is');
           const match = xml.match(regex);
           if (!match) return [];
-          
+
           const pluginsXml = match[1];
           const pluginRegex = /<plugin>(.*?)<\/plugin>/gis;
           const plugins = [];
           let pluginMatch;
-          
+
           while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
             const pluginXml = pluginMatch[1];
             plugins.push({
@@ -84,21 +98,20 @@ Deno.serve(async (req: Request) => {
               author: parseXmlValue(pluginXml, 'author'),
             });
           }
-          
+
           return plugins;
         };
 
-        // Extract users
         const extractUsers = (xml: string): any[] => {
           const regex = /<users>(.*?)<\/users>/is;
           const match = xml.match(regex);
           if (!match) return [];
-          
+
           const usersXml = match[1];
           const userRegex = /<user>(.*?)<\/user>/gis;
           const users = [];
           let userMatch;
-          
+
           while ((userMatch = userRegex.exec(usersXml)) !== null) {
             const userXml = userMatch[1];
             users.push({
@@ -107,7 +120,7 @@ Deno.serve(async (req: Request) => {
               role: parseXmlValue(userXml, 'role'),
             });
           }
-          
+
           return users;
         };
 
@@ -115,8 +128,8 @@ Deno.serve(async (req: Request) => {
         const inactivePlugins = extractPlugins(xmlText, 'inactive_plugins');
         const updatePlugins = extractPlugins(xmlText, 'update_plugins');
         const users = extractUsers(xmlText);
+        const ult = parseXmlValue(xmlText, 'ult');
 
-        // Build status data
         const statusData = {
           website_id: website.id,
           last_updated: parseXmlValue(xmlText, 'last_updated'),
@@ -140,6 +153,7 @@ Deno.serve(async (req: Request) => {
           theme_version: parseXmlValue(xmlText, 'theme_version'),
           server_load: parseXmlValue(xmlText, 'server_load'),
           uptime: parseXmlValue(xmlText, 'uptime'),
+          ult: ult,
           raw_data: {
             active_plugins: activePlugins,
             inactive_plugins: inactivePlugins,
@@ -148,7 +162,6 @@ Deno.serve(async (req: Request) => {
           },
         };
 
-        // Insert status record
         const { error: statusError } = await supabaseAdmin
           .from('website_status')
           .insert(statusData);
@@ -157,12 +170,15 @@ Deno.serve(async (req: Request) => {
           throw new Error(`Failed to insert status: ${statusError.message}`);
         }
 
-        // Update website last_sync_at
         const { error: updateError } = await supabaseAdmin
           .from('websites')
           .update({
             last_sync_at: new Date().toISOString(),
             sync_error: null,
+            login_token: ult,
+            is_available: isAvailable,
+            last_check_at: new Date().toISOString(),
+            response_time_ms: responseTimeMs,
           })
           .eq('id', website.id);
 
@@ -179,8 +195,7 @@ Deno.serve(async (req: Request) => {
         console.log(`✓ Synced ${website.name}`);
       } catch (error) {
         console.error(`Failed to sync website ${website.name}:`, error);
-        
-        // Update website with error
+
         await supabaseAdmin
           .from('websites')
           .update({

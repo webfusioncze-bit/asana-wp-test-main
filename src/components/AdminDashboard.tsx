@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon, GlobeIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -8,8 +8,9 @@ import { ZapierIntegrationManager } from './ZapierIntegrationManager';
 import { UserPermissionsManager } from './UserPermissionsManager';
 import { UserGroupManager } from './UserGroupManager';
 import { GlobalFolderManager } from './GlobalFolderManager';
+import { PortalSyncManager } from './PortalSyncManager';
 
-type TabType = 'overview' | 'users' | 'settings' | 'integrations' | 'permissions' | 'groups' | 'folders';
+type TabType = 'overview' | 'users' | 'settings' | 'integrations' | 'permissions' | 'groups' | 'folders' | 'portal';
 
 interface UserRole {
   id: string;
@@ -412,6 +413,7 @@ export function AdminDashboard() {
     { id: 'permissions' as TabType, label: 'Oprávnění', icon: UserCog },
     { id: 'groups' as TabType, label: 'Skupiny', icon: UsersGroupIcon },
     { id: 'folders' as TabType, label: 'Globální složky', icon: FolderOpen },
+    { id: 'portal' as TabType, label: 'Portal Sync', icon: GlobeIcon },
     { id: 'settings' as TabType, label: 'Nastavení', icon: Settings },
     { id: 'integrations' as TabType, label: 'Integrace', icon: Webhook },
   ];
@@ -705,6 +707,7 @@ export function AdminDashboard() {
         {activeTab === 'groups' && <UserGroupManager />}
         {activeTab === 'folders' && <GlobalFolderManager />}
         {activeTab === 'integrations' && <ZapierIntegrationManager />}
+        {activeTab === 'portal' && <PortalSyncManager />}
 
         {activeTab === 'settings' && (
           <div className="space-y-6">

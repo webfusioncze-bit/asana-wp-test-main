@@ -369,6 +369,11 @@ export interface Website {
   updated_at: string;
   last_sync_at: string | null;
   sync_error: string | null;
+  login_token: string | null;
+  is_available: boolean;
+  last_check_at: string | null;
+  response_time_ms: number | null;
+  screenshot_url: string | null;
 }
 
 export interface WebsiteStatus {
@@ -401,5 +406,6 @@ export interface WebsiteStatus {
     update_plugins?: Array<{ name: string; version: string; author: string }>;
     users?: Array<{ username: string; email: string; role: string }>;
   } | null;
+  ult: string | null;
   created_at: string;
 }

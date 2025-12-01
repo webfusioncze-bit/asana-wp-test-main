@@ -3,7 +3,6 @@ import {
   GlobeIcon,
   ServerIcon,
   DatabaseIcon,
-  HardDriveIcon,
   UsersIcon,
   FileTextIcon,
   ImageIcon,
@@ -15,6 +14,11 @@ import {
   TrendingUpIcon,
   RefreshCwIcon,
   XIcon,
+  ExternalLinkIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ZapIcon,
+  LogInIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus } from '../types';
@@ -109,9 +113,18 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     });
   };
 
+  const getScreenshotUrl = () => {
+    if (website.screenshot_url) return website.screenshot_url;
+    return `https://api.screenshotone.com/take?url=${encodeURIComponent(website.url)}&viewport_width=1920&viewport_height=1080&device_scale_factor=1&format=jpg&block_ads=true&block_cookie_banners=true&block_trackers=true&cache=true&cache_ttl=2592000`;
+  };
+
+  const adminLoginUrl = latestStatus?.ult
+    ? `${website.url}?login_token=${latestStatus.ult}`
+    : `${website.url}/wp-admin`;
+
   return (
-    <div className="flex-1 flex flex-col bg-gray-50">
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+    <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -121,15 +134,45 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
               <XIcon className="w-5 h-5 text-gray-500" />
             </button>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">{website.name}</h1>
-              <a
-                href={website.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                {website.url}
-              </a>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold text-gray-900">{website.name}</h1>
+                {website.is_available ? (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                    <CheckCircleIcon className="w-3 h-3" />
+                    Online
+                    {website.response_time_ms && (
+                      <span className="ml-1 text-green-600">({website.response_time_ms}ms)</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                    <XCircleIcon className="w-3 h-3" />
+                    Offline
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 mt-1">
+                <a
+                  href={website.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  {website.url}
+                  <ExternalLinkIcon className="w-3 h-3" />
+                </a>
+                {latestStatus?.ult && (
+                  <a
+                    href={adminLoginUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors"
+                  >
+                    <LogInIcon className="w-3 h-3" />
+                    Přihlásit do administrace
+                  </a>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -152,8 +195,8 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-7xl mx-auto p-6 space-y-6">
             {website.sync_error && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                 <div className="flex items-start gap-3">
@@ -166,7 +209,31 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+              <div className="aspect-video bg-gray-100 relative">
+                <img
+                  src={getScreenshotUrl()}
+                  alt={`Náhled ${website.name}`}
+                  className="w-full h-full object-cover object-top"
+                  onError={(e) => {
+                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23e5e7eb" width="100" height="100"/%3E%3Ctext fill="%239ca3af" font-family="sans-serif" font-size="14" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENáhled není k dispozici%3C/text%3E%3C/svg%3E';
+                  }}
+                />
+                <div className="absolute top-4 right-4">
+                  <a
+                    href={website.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 bg-white/90 backdrop-blur-sm text-gray-900 rounded-lg hover:bg-white transition-colors shadow-md"
+                  >
+                    <ExternalLinkIcon className="w-4 h-4" />
+                    Navštívit web
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <StatCard
                 icon={<ClockIcon className="w-5 h-5" />}
                 label="Poslední aktualizace"
@@ -185,6 +252,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                 value={latestStatus.server_load || '-'}
                 color="orange"
               />
+              <StatCard
+                icon={<ZapIcon className="w-5 h-5" />}
+                label="Úložiště"
+                value={latestStatus.storage_usage || '-'}
+                color="purple"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -194,7 +267,6 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                 <InfoRow label="MySQL" value={latestStatus.mysql_version} />
                 <InfoRow label="Memory limit" value={latestStatus.memory_limit} />
                 <InfoRow label="Max. velikost uploadu" value={latestStatus.upload_max_filesize} />
-                <InfoRow label="Úložiště" value={latestStatus.storage_usage} />
               </Section>
 
               <Section title="Bezpečnost" icon={<ShieldCheckIcon className="w-5 h-5" />}>
@@ -210,44 +282,40 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                 />
               </Section>
 
-              <Section title="Obsah" icon={<FileTextIcon className="w-5 h-5" />}>
-                <InfoRow
-                  label="Stránky"
-                  value={latestStatus.num_pages.toString()}
-                  icon={<FileTextIcon className="w-4 h-4 text-blue-600" />}
-                />
-                <InfoRow
-                  label="Příspěvky"
-                  value={latestStatus.num_posts.toString()}
-                  icon={<FileTextIcon className="w-4 h-4 text-green-600" />}
-                />
-                <InfoRow
-                  label="Komentáře"
-                  value={latestStatus.num_comments.toString()}
-                  icon={<MessageSquareIcon className="w-4 h-4 text-purple-600" />}
-                />
-                <InfoRow
-                  label="Mediální soubory"
-                  value={latestStatus.num_media_files.toString()}
-                  icon={<ImageIcon className="w-4 h-4 text-orange-600" />}
-                />
-                <InfoRow
-                  label="Uživatelé"
-                  value={latestStatus.num_users.toString()}
-                  icon={<UsersIcon className="w-4 h-4 text-gray-600" />}
-                />
+              <Section title="Obsah webu" icon={<FileTextIcon className="w-5 h-5" />}>
+                <div className="grid grid-cols-2 gap-4">
+                  <ContentStat
+                    icon={<FileTextIcon className="w-5 h-5 text-blue-600" />}
+                    label="Stránky"
+                    value={latestStatus.num_pages}
+                  />
+                  <ContentStat
+                    icon={<FileTextIcon className="w-5 h-5 text-green-600" />}
+                    label="Příspěvky"
+                    value={latestStatus.num_posts}
+                  />
+                  <ContentStat
+                    icon={<MessageSquareIcon className="w-5 h-5 text-purple-600" />}
+                    label="Komentáře"
+                    value={latestStatus.num_comments}
+                  />
+                  <ContentStat
+                    icon={<ImageIcon className="w-5 h-5 text-orange-600" />}
+                    label="Média"
+                    value={latestStatus.num_media_files}
+                  />
+                  <ContentStat
+                    icon={<UsersIcon className="w-5 h-5 text-gray-600" />}
+                    label="Uživatelé"
+                    value={latestStatus.num_users}
+                  />
+                </div>
               </Section>
 
-              <Section title="Motiv" icon={<PackageIcon className="w-5 h-5" />}>
+              <Section title="Motiv & Pluginy" icon={<PackageIcon className="w-5 h-5" />}>
                 <InfoRow label="Název motivu" value={latestStatus.theme_name} />
                 <InfoRow label="Verze motivu" value={latestStatus.theme_version} />
-              </Section>
-
-              <Section
-                title={`Pluginy (${latestStatus.active_plugins_count})`}
-                icon={<PackageIcon className="w-5 h-5" />}
-              >
-                <div className="space-y-2">
+                <div className="pt-3 mt-3 border-t border-gray-100">
                   <InfoRow
                     label="Aktivní pluginy"
                     value={latestStatus.active_plugins_count.toString()}
@@ -270,15 +338,15 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
             </div>
 
             {latestStatus.raw_data?.active_plugins && latestStatus.raw_data.active_plugins.length > 0 && (
-              <Section title="Seznam aktivních pluginů" icon={<PackageIcon className="w-5 h-5" />}>
-                <div className="space-y-2">
+              <Section title="Aktivní pluginy" icon={<PackageIcon className="w-5 h-5" />}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {latestStatus.raw_data.active_plugins.map((plugin, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                      <div>
-                        <p className="font-medium text-gray-900">{plugin.name}</p>
-                        <p className="text-sm text-gray-500">{plugin.author}</p>
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{plugin.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
                       </div>
-                      <span className="text-sm text-gray-600 font-mono">{plugin.version}</span>
+                      <span className="ml-3 text-xs text-gray-600 font-mono bg-white px-2 py-1 rounded">{plugin.version}</span>
                     </div>
                   ))}
                 </div>
@@ -286,15 +354,15 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
             )}
 
             {latestStatus.raw_data?.update_plugins && latestStatus.raw_data.update_plugins.length > 0 && (
-              <Section title="Pluginy s dostupnými aktualizacemi" icon={<AlertTriangleIcon className="w-5 h-5 text-orange-600" />}>
+              <Section title="Pluginy vyžadující aktualizaci" icon={<AlertTriangleIcon className="w-5 h-5 text-orange-600" />}>
                 <div className="space-y-2">
                   {latestStatus.raw_data.update_plugins.map((plugin, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                      <div>
-                        <p className="font-medium text-gray-900">{plugin.name}</p>
-                        <p className="text-sm text-gray-500">{plugin.author}</p>
+                    <div key={index} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{plugin.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
                       </div>
-                      <span className="text-sm text-orange-600 font-mono">{plugin.version}</span>
+                      <span className="ml-3 text-xs text-orange-700 font-mono bg-white px-2 py-1 rounded">{plugin.version}</span>
                     </div>
                   ))}
                 </div>
@@ -305,12 +373,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
               <Section title="Uživatelé" icon={<UsersIcon className="w-5 h-5" />}>
                 <div className="space-y-2">
                   {latestStatus.raw_data.users.map((user, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                      <div>
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900">{user.username}</p>
-                        <p className="text-sm text-gray-500">{user.email}</p>
+                        <p className="text-sm text-gray-500 truncate">{user.email}</p>
                       </div>
-                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded">
+                      <span className="ml-3 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded">
                         {user.role}
                       </span>
                     </div>
@@ -334,12 +402,13 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: string;
-  color: 'blue' | 'green' | 'orange';
+  color: 'blue' | 'green' | 'orange' | 'purple';
 }) {
   const colorClasses = {
     blue: 'bg-blue-50 text-blue-600',
     green: 'bg-green-50 text-green-600',
     orange: 'bg-orange-50 text-orange-600',
+    purple: 'bg-purple-50 text-purple-600',
   };
 
   return (
@@ -348,7 +417,25 @@ function StatCard({
         {icon}
       </div>
       <p className="text-sm text-gray-600 mb-1">{label}</p>
-      <p className="text-xl font-semibold text-gray-900">{value}</p>
+      <p className="text-lg font-semibold text-gray-900 truncate">{value}</p>
+    </div>
+  );
+}
+
+function ContentStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="text-center p-3 bg-gray-50 rounded-lg">
+      <div className="flex justify-center mb-2">{icon}</div>
+      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <p className="text-xs text-gray-600 mt-1">{label}</p>
     </div>
   );
 }
@@ -376,12 +463,10 @@ function Section({
 function InfoRow({
   label,
   value,
-  icon,
   badge,
 }: {
   label: string;
   value: string | null | undefined;
-  icon?: React.ReactNode;
   badge?: 'success' | 'warning' | 'info';
 }) {
   const badgeClasses = {
@@ -392,10 +477,7 @@ function InfoRow({
 
   return (
     <div className="flex items-center justify-between py-2">
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-sm text-gray-600">{label}</span>
-      </div>
+      <span className="text-sm text-gray-600">{label}</span>
       {badge ? (
         <span className={`px-2 py-1 text-xs font-medium rounded ${badgeClasses[badge]}`}>
           {value || '-'}
