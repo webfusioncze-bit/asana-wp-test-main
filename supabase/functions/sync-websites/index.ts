@@ -21,12 +21,51 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { data: websites, error: websitesError } = await supabaseAdmin
+    // Check if a specific website ID was provided
+    let websiteId = null;
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        websiteId = body.websiteId;
+      } catch (e) {
+        // No body or invalid JSON, sync all websites
+      }
+    }
+
+    // Fetch websites to sync
+    let query = supabaseAdmin
       .from('websites')
       .select('id, url, name, last_sync_at');
 
+    if (websiteId) {
+      query = query.eq('id', websiteId);
+      console.log(`Syncing specific website: ${websiteId}`);
+    } else {
+      console.log('Syncing all websites');
+    }
+
+    const { data: websites, error: websitesError } = await query;
+
     if (websitesError) {
       throw new Error(`Failed to fetch websites: ${websitesError.message}`);
+    }
+
+    if (!websites || websites.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          syncedWebsites: 0,
+          failedWebsites: 0,
+          results: [],
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
     console.log(`Found ${websites.length} websites to sync`);

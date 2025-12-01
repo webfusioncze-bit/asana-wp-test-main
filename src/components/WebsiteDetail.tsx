@@ -36,6 +36,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
 
   useEffect(() => {
     loadWebsiteData();
+    syncWebsiteOnOpen();
   }, [websiteId]);
 
   async function loadWebsiteData() {
@@ -60,6 +61,26 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     setLoading(false);
   }
 
+  async function syncWebsiteOnOpen() {
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-websites`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ websiteId }),
+      });
+
+      if (response.ok) {
+        await loadWebsiteData();
+      }
+    } catch (error) {
+      console.error('Background sync error:', error);
+    }
+  }
+
   async function syncWebsite() {
     setSyncing(true);
 
@@ -71,6 +92,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ websiteId }),
       });
 
       if (!response.ok) {
