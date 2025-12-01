@@ -114,19 +114,31 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
   }
 
   async function loadTasks() {
-    let query = supabase
+    if (isCompletedFolder) {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .is('parent_task_id', null)
+        .eq('status', 'completed')
+        .order('position', { ascending: true });
+
+      if (error) {
+        console.error('Error loading tasks:', error);
+        return;
+      }
+
+      setTasks(data || []);
+      return;
+    }
+
+    const folderIds = await getAllSubfolderIds(folderId);
+
+    const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .is('parent_task_id', null)
+      .in('folder_id', folderIds)
       .order('position', { ascending: true });
-
-    if (isCompletedFolder) {
-      query = query.eq('status', 'completed');
-    } else {
-      query = query.eq('folder_id', folderId);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       console.error('Error loading tasks:', error);
@@ -134,6 +146,29 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
     }
 
     setTasks(data || []);
+  }
+
+  async function getAllSubfolderIds(parentFolderId: string): Promise<string[]> {
+    const folderIds = [parentFolderId];
+
+    const { data: subfolders, error } = await supabase
+      .from('folders')
+      .select('id')
+      .eq('parent_id', parentFolderId);
+
+    if (error) {
+      console.error('Error loading subfolders:', error);
+      return folderIds;
+    }
+
+    if (subfolders && subfolders.length > 0) {
+      for (const subfolder of subfolders) {
+        const childFolderIds = await getAllSubfolderIds(subfolder.id);
+        folderIds.push(...childFolderIds);
+      }
+    }
+
+    return folderIds;
   }
 
   async function createSection() {
