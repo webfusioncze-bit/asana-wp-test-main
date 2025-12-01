@@ -409,18 +409,20 @@ function App() {
               />
             )
           ) : viewMode === 'websites' ? (
-            selectedWebsiteId ? (
-              <WebsiteDetail
-                websiteId={selectedWebsiteId}
-                onClose={() => setSelectedWebsiteId(null)}
-              />
-            ) : (
-              <WebsiteList
-                selectedWebsiteId={selectedWebsiteId}
-                onSelectWebsite={setSelectedWebsiteId}
-                canManage={hasWebsitesPermission}
-              />
-            )
+            <div className="flex h-full">
+              {selectedWebsiteId ? (
+                <WebsiteDetail
+                  websiteId={selectedWebsiteId}
+                  onClose={() => setSelectedWebsiteId(null)}
+                />
+              ) : (
+                <WebsiteList
+                  selectedWebsiteId={selectedWebsiteId}
+                  onSelectWebsite={setSelectedWebsiteId}
+                  canManage={hasWebsitesPermission}
+                />
+              )}
+            </div>
           ) : null}
         </div>
       </div>

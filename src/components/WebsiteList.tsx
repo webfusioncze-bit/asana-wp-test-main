@@ -138,8 +138,8 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
-      <div className="border-b border-gray-200 px-6 py-4">
+    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+      <div className="border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gray-900">Weby</h1>
           <div className="flex gap-2">
@@ -165,7 +165,7 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
       </div>
 
       {showAddWebsite && (
-        <div className="border-b border-gray-200 px-6 py-4 bg-blue-50">
+        <div className="border-b border-gray-200 px-6 py-4 bg-blue-50 flex-shrink-0">
           <h3 className="text-sm font-medium text-gray-900 mb-3">Nový web</h3>
           <div className="space-y-3">
             <div>
