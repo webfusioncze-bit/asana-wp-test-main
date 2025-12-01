@@ -17,6 +17,7 @@ interface UserPermission {
 const AVAILABLE_PERMISSIONS = [
   { value: 'view_requests', label: 'Zobrazit všechny poptávky', description: 'Uživatel vidí všechny poptávky bez omezení' },
   { value: 'manage_projects', label: 'Spravovat projekty', description: 'Uživatel může zobrazit a spravovat všechny projekty' },
+  { value: 'manage_websites', label: 'Spravovat weby', description: 'Uživatel může zobrazit a spravovat všechny weby' },
 ];
 
 export function UserPermissionsManager() {
