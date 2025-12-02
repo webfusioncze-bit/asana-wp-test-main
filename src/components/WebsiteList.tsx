@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GlobeIcon, PlusIcon, Trash2Icon, RefreshCwIcon, AlertCircleIcon } from 'lucide-react';
+import { GlobeIcon, Trash2Icon, RefreshCwIcon, AlertCircleIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website } from '../types';
 
@@ -12,9 +12,6 @@ interface WebsiteListProps {
 export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: WebsiteListProps) {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddWebsite, setShowAddWebsite] = useState(false);
-  const [newWebsiteUrl, setNewWebsiteUrl] = useState('');
-  const [newWebsiteName, setNewWebsiteName] = useState('');
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -36,35 +33,6 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
     setLoading(false);
   }
 
-  async function addWebsite() {
-    if (!newWebsiteUrl.trim() || !newWebsiteName.trim()) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    let url = newWebsiteUrl.trim();
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url;
-    }
-
-    const { error } = await supabase
-      .from('websites')
-      .insert({
-        url,
-        name: newWebsiteName.trim(),
-        owner_id: user.id,
-      });
-
-    if (error) {
-      console.error('Error adding website:', error);
-      alert('Chyba při přidávání webu');
-    } else {
-      setNewWebsiteUrl('');
-      setNewWebsiteName('');
-      setShowAddWebsite(false);
-      loadWebsites();
-    }
-  }
 
   async function deleteWebsite(websiteId: string) {
     if (!confirm('Opravdu chcete smazat tento web?')) return;
@@ -151,78 +119,16 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
               <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Synchronizuji...' : 'Synchronizovat vše'}
             </button>
-            {canManage && (
-              <button
-                onClick={() => setShowAddWebsite(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <PlusIcon className="w-4 h-4" />
-                Přidat web
-              </button>
-            )}
           </div>
         </div>
       </div>
-
-      {showAddWebsite && (
-        <div className="border-b border-gray-200 px-6 py-4 bg-blue-50 flex-shrink-0">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Nový web</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Název webu</label>
-              <input
-                type="text"
-                value={newWebsiteName}
-                onChange={(e) => setNewWebsiteName(e.target.value)}
-                placeholder="Např. Holding DETF"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">URL webu</label>
-              <input
-                type="text"
-                value={newWebsiteUrl}
-                onChange={(e) => setNewWebsiteUrl(e.target.value)}
-                placeholder="detf-holding.com"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={addWebsite}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Přidat
-              </button>
-              <button
-                onClick={() => {
-                  setShowAddWebsite(false);
-                  setNewWebsiteUrl('');
-                  setNewWebsiteName('');
-                }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Zrušit
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="flex-1 overflow-auto p-6">
         {websites.length === 0 ? (
           <div className="text-center py-12">
             <GlobeIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">Zatím nejsou přidány žádné weby</p>
-            {canManage && (
-              <button
-                onClick={() => setShowAddWebsite(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Přidat první web
-              </button>
-            )}
+            <p className="text-gray-500 mb-4">Zatím nejsou synchronizovány žádné weby</p>
+            <p className="text-gray-400 text-sm">Weby se synchronizují automaticky každých 5 minut z portálu</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

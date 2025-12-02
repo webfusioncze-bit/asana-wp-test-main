@@ -7,6 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const FEED_URL = "https://portal.webfusion.cz/webs_feed.xml";
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -21,85 +23,124 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { data: config, error: configError } = await supabaseAdmin
-      .from('portal_sync_config')
-      .select('*')
-      .eq('is_enabled', true)
-      .maybeSingle();
+    console.log('Fetching websites feed from:', FEED_URL);
 
-    if (configError) {
-      throw new Error(`Failed to fetch config: ${configError.message}`);
+    const response = await fetch(FEED_URL, {
+      headers: {
+        'User-Agent': 'Supabase-Edge-Function/1.0',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch feed: ${response.statusText}`);
     }
 
-    if (!config) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Portal sync is not configured or disabled',
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-    }
+    const xmlText = await response.text();
+    console.log('Feed fetched successfully');
 
-    console.log(`Fetching websites from portal: ${config.portal_url}`);
+    const parseXmlValue = (xml: string, tag: string): string | null => {
+      const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i');
+      const match = xml.match(regex);
+      return match ? match[1].trim() : null;
+    };
 
-    // Fetch all pages from portal with pagination
+    const parseXmlInt = (xml: string, tag: string): number => {
+      const value = parseXmlValue(xml, tag);
+      return value ? parseInt(value, 10) : 0;
+    };
+
+    const extractPlugins = (xml: string, containerTag: string): any[] => {
+      const regex = new RegExp(`<${containerTag}>(.*?)</${containerTag}>`, 'is');
+      const match = xml.match(regex);
+      if (!match) return [];
+
+      const pluginsXml = match[1];
+      const pluginRegex = /<plugin>(.*?)<\/plugin>/gis;
+      const plugins = [];
+      let pluginMatch;
+
+      while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
+        const pluginXml = pluginMatch[1];
+        plugins.push({
+          name: parseXmlValue(pluginXml, 'name'),
+          version: parseXmlValue(pluginXml, 'version'),
+          author: parseXmlValue(pluginXml, 'author'),
+        });
+      }
+
+      return plugins;
+    };
+
+    const extractUsers = (xml: string): any[] => {
+      const regex = /<users>(.*?)<\/users>/is;
+      const match = xml.match(regex);
+      if (!match) return [];
+
+      const usersXml = match[1];
+      const userRegex = /<user>(.*?)<\/user>/gis;
+      const users = [];
+      let userMatch;
+
+      while ((userMatch = userRegex.exec(usersXml)) !== null) {
+        const userXml = userMatch[1];
+        users.push({
+          username: parseXmlValue(userXml, 'username'),
+          email: parseXmlValue(userXml, 'email'),
+          role: parseXmlValue(userXml, 'role'),
+        });
+      }
+
+      return users;
+    };
+
+    const webRegex = /<web>(.*?)<\/web>/gis;
     const allPortalWebsites = [];
-    let currentPage = 1;
-    let hasMorePages = true;
+    let webMatch;
 
-    while (hasMorePages) {
-      const url = new URL(config.portal_url);
-      url.searchParams.set('page', currentPage.toString());
-      url.searchParams.set('per_page', '100');
+    while ((webMatch = webRegex.exec(xmlText)) !== null) {
+      const webXml = webMatch[1];
+      const url = parseXmlValue(webXml, 'post');
 
-      console.log(`Fetching page ${currentPage}: ${url.toString()}`);
+      if (!url) continue;
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          'User-Agent': 'Supabase-Edge-Function/1.0',
-        },
+      const activePlugins = extractPlugins(webXml, 'active_plugins');
+      const inactivePlugins = extractPlugins(webXml, 'inactive_plugins');
+      const updatePlugins = extractPlugins(webXml, 'update_plugins');
+      const users = extractUsers(webXml);
+      const ult = parseXmlValue(webXml, 'ult');
+
+      allPortalWebsites.push({
+        url,
+        ult,
+        last_updated: parseXmlValue(webXml, 'last_updated'),
+        wordpress_version: parseXmlValue(webXml, 'wordpress_version'),
+        php_version: parseXmlValue(webXml, 'php_version'),
+        mysql_version: parseXmlValue(webXml, 'mysql_version'),
+        memory_limit: parseXmlValue(webXml, 'memory_limit'),
+        upload_max_filesize: parseXmlValue(webXml, 'upload_max_filesize'),
+        num_pages: parseXmlInt(webXml, 'num_pages'),
+        num_posts: parseXmlInt(webXml, 'num_posts'),
+        num_comments: parseXmlInt(webXml, 'num_comments'),
+        num_users: parseXmlInt(webXml, 'num_users'),
+        num_media_files: parseXmlInt(webXml, 'num_media_files'),
+        https_status: parseXmlValue(webXml, 'https_status'),
+        indexing_allowed: parseXmlValue(webXml, 'indexing_allowed'),
+        storage_usage: parseXmlValue(webXml, 'storage_usage'),
+        active_plugins_count: parseXmlInt(webXml, 'active_plugins_count'),
+        inactive_plugins_count: parseXmlInt(webXml, 'inactive_plugins_count'),
+        update_plugins_count: parseXmlInt(webXml, 'update_plugins_count'),
+        theme_name: parseXmlValue(webXml, 'theme_name'),
+        theme_version: parseXmlValue(webXml, 'theme_version'),
+        server_load: parseXmlValue(webXml, 'server_load'),
+        uptime: parseXmlValue(webXml, 'uptime'),
+        active_plugins: activePlugins,
+        inactive_plugins: inactivePlugins,
+        update_plugins: updatePlugins,
+        users: users,
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch portal page ${currentPage}: ${response.statusText}`);
-      }
-
-      const pageData = await response.json();
-
-      if (!Array.isArray(pageData)) {
-        throw new Error('Invalid portal response format');
-      }
-
-      console.log(`Page ${currentPage}: Found ${pageData.length} websites`);
-
-      allPortalWebsites.push(...pageData);
-
-      // Check if there are more pages
-      const totalPages = response.headers.get('X-WP-TotalPages');
-      if (totalPages) {
-        hasMorePages = currentPage < parseInt(totalPages, 10);
-      } else {
-        // If no pagination header, check if we got results
-        hasMorePages = pageData.length === 100;
-      }
-
-      currentPage++;
-
-      // Safety limit to prevent infinite loops
-      if (currentPage > 1000) {
-        console.warn('Reached safety limit of 1000 pages');
-        break;
-      }
     }
 
-    console.log(`Total websites fetched from portal: ${allPortalWebsites.length}`);
+    console.log(`Total websites parsed from feed: ${allPortalWebsites.length}`);
 
     // Get current websites from database
     const { data: currentWebsites, error: websitesError } = await supabaseAdmin
@@ -109,12 +150,6 @@ Deno.serve(async (req: Request) => {
     if (websitesError) {
       throw new Error(`Failed to fetch current websites: ${websitesError.message}`);
     }
-
-    const currentWebsiteUrls = new Set(currentWebsites?.map(w => w.url.toLowerCase()) || []);
-    const portalWebsiteUrls = new Set<string>();
-
-    let added = 0;
-    let skipped = 0;
 
     // Get first admin user as owner
     const { data: adminUser } = await supabaseAdmin
@@ -128,82 +163,130 @@ Deno.serve(async (req: Request) => {
       throw new Error('No admin user found');
     }
 
-    // Add new websites from portal
-    for (const portalSite of allPortalWebsites) {
-      const url = portalSite.acf?.url_adresa_webu;
-      if (!url) continue;
+    const results = [];
 
-      let normalizedUrl = url.trim();
-      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-        normalizedUrl = 'https://' + normalizedUrl;
-      }
+    // Process each website from the feed
+    for (const websiteData of allPortalWebsites) {
+      try {
+        const { data: existingWebsite, error: findError } = await supabaseAdmin
+          .from('websites')
+          .select('id')
+          .eq('url', websiteData.url)
+          .maybeSingle();
 
-      // Remove trailing slash
-      normalizedUrl = normalizedUrl.replace(/\/$/, '');
+        if (findError) {
+          throw new Error(`Failed to find website: ${findError.message}`);
+        }
 
-      portalWebsiteUrls.add(normalizedUrl.toLowerCase());
+        let websiteId = existingWebsite?.id;
 
-      if (currentWebsiteUrls.has(normalizedUrl.toLowerCase())) {
-        skipped++;
-        continue;
-      }
+        // Create or update website
+        if (!websiteId) {
+          const urlObj = new URL(websiteData.url);
+          const domain = urlObj.hostname.replace('www.', '');
 
-      // Extract website name from title or URL
-      const name = portalSite.title?.rendered || portalSite.acf?.nazev_webu || normalizedUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-
-      const { error: insertError } = await supabaseAdmin
-        .from('websites')
-        .insert({
-          url: normalizedUrl,
-          name: name,
-          owner_id: adminUser.user_id,
-        });
-
-      if (insertError) {
-        console.error(`Failed to add website ${normalizedUrl}:`, insertError);
-      } else {
-        added++;
-        console.log(`✓ Added website: ${name}`);
-      }
-    }
-
-    // Remove websites that are no longer in portal
-    let removed = 0;
-    if (currentWebsites) {
-      for (const website of currentWebsites) {
-        if (!portalWebsiteUrls.has(website.url.toLowerCase())) {
-          const { error: deleteError } = await supabaseAdmin
+          const { data: newWebsite, error: insertError } = await supabaseAdmin
             .from('websites')
-            .delete()
-            .eq('id', website.id);
+            .insert({
+              url: websiteData.url,
+              name: domain,
+              owner_id: adminUser.user_id,
+              login_token: websiteData.ult,
+              last_sync_at: new Date().toISOString(),
+              is_available: true,
+              last_check_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
 
-          if (deleteError) {
-            console.error(`Failed to remove website ${website.url}:`, deleteError);
-          } else {
-            removed++;
-            console.log(`✗ Removed website: ${website.name}`);
+          if (insertError) {
+            throw new Error(`Failed to insert website: ${insertError.message}`);
+          }
+
+          websiteId = newWebsite.id;
+          console.log(`Created new website: ${domain}`);
+        } else {
+          const { error: updateError } = await supabaseAdmin
+            .from('websites')
+            .update({
+              login_token: websiteData.ult,
+              last_sync_at: new Date().toISOString(),
+              sync_error: null,
+              is_available: true,
+              last_check_at: new Date().toISOString(),
+            })
+            .eq('id', websiteId);
+
+          if (updateError) {
+            throw new Error(`Failed to update website: ${updateError.message}`);
           }
         }
+
+        // Insert status data
+        const statusData = {
+          website_id: websiteId,
+          last_updated: websiteData.last_updated,
+          wordpress_version: websiteData.wordpress_version,
+          php_version: websiteData.php_version,
+          mysql_version: websiteData.mysql_version,
+          memory_limit: websiteData.memory_limit,
+          upload_max_filesize: websiteData.upload_max_filesize,
+          num_pages: websiteData.num_pages,
+          num_posts: websiteData.num_posts,
+          num_comments: websiteData.num_comments,
+          num_users: websiteData.num_users,
+          num_media_files: websiteData.num_media_files,
+          https_status: websiteData.https_status,
+          indexing_allowed: websiteData.indexing_allowed,
+          storage_usage: websiteData.storage_usage,
+          active_plugins_count: websiteData.active_plugins_count,
+          inactive_plugins_count: websiteData.inactive_plugins_count,
+          update_plugins_count: websiteData.update_plugins_count,
+          theme_name: websiteData.theme_name,
+          theme_version: websiteData.theme_version,
+          server_load: websiteData.server_load,
+          uptime: websiteData.uptime,
+          ult: websiteData.ult,
+          raw_data: {
+            active_plugins: websiteData.active_plugins,
+            inactive_plugins: websiteData.inactive_plugins,
+            update_plugins: websiteData.update_plugins,
+            users: websiteData.users,
+          },
+        };
+
+        const { error: statusError } = await supabaseAdmin
+          .from('website_status')
+          .insert(statusData);
+
+        if (statusError) {
+          throw new Error(`Failed to insert status: ${statusError.message}`);
+        }
+
+        results.push({
+          url: websiteData.url,
+          websiteId: websiteId,
+          success: true,
+        });
+
+        console.log(`✓ Synced ${websiteData.url}`);
+      } catch (error) {
+        console.error(`Failed to sync website ${websiteData.url}:`, error);
+        results.push({
+          url: websiteData.url,
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
     }
-
-    // Update config with last sync time
-    await supabaseAdmin
-      .from('portal_sync_config')
-      .update({
-        last_sync_at: new Date().toISOString(),
-        sync_error: null,
-      })
-      .eq('id', config.id);
 
     return new Response(
       JSON.stringify({
         success: true,
-        added,
-        removed,
-        skipped,
+        syncedWebsites: results.filter(r => r.success).length,
+        failedWebsites: results.filter(r => !r.success).length,
         total: allPortalWebsites.length,
-        pages: currentPage - 1,
+        results,
       }),
       {
         status: 200,
