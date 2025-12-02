@@ -43,6 +43,7 @@ class AsanaTaskManager {
         require_once ATM_PLUGIN_DIR . 'includes/class-atm-admin.php';
         require_once ATM_PLUGIN_DIR . 'includes/class-atm-notifications.php';
         require_once ATM_PLUGIN_DIR . 'includes/class-atm-ajax.php';
+        require_once ATM_PLUGIN_DIR . 'includes/class-atm-feed.php';
     }
 
     private function init_hooks() {

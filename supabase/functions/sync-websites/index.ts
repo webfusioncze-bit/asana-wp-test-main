@@ -21,18 +21,15 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Check if a specific website ID was provided
     let websiteId = null;
     if (req.method === 'POST') {
       try {
         const body = await req.json();
         websiteId = body.websiteId;
       } catch (e) {
-        // No body or invalid JSON, sync all websites
       }
     }
 
-    // Fetch websites to sync
     let query = supabaseAdmin
       .from('websites')
       .select('id, url, name, last_sync_at');
@@ -94,7 +91,7 @@ Deno.serve(async (req: Request) => {
           console.error(`Availability check failed for ${website.name}:`, error);
         }
 
-        const feedUrl = `${website.url}/wp-content/plugins/webfusion-connector/feeds/stav-webu.xml`;
+        const feedUrl = `${website.url}/?atm_feed=status`;
 
         const response = await fetch(feedUrl, {
           headers: {
@@ -108,7 +105,6 @@ Deno.serve(async (req: Request) => {
 
         const xmlText = await response.text();
 
-        // Debug: Log a sample of the XML to see actual structure
         console.log('=== XML Sample (first 2000 chars) ===');
         console.log(xmlText.substring(0, 2000));
         console.log('=== End XML Sample ===');
@@ -137,7 +133,6 @@ Deno.serve(async (req: Request) => {
           while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
             const pluginXml = pluginMatch[1];
 
-            // Try multiple possible tag names for each field
             const name = parseXmlValue(pluginXml, 'name') ||
                         parseXmlValue(pluginXml, 'plugin_name') ||
                         parseXmlValue(pluginXml, 'title');
@@ -173,7 +168,6 @@ Deno.serve(async (req: Request) => {
           while ((userMatch = userRegex.exec(usersXml)) !== null) {
             const userXml = userMatch[1];
 
-            // Try multiple possible tag names for each field
             const username = parseXmlValue(userXml, 'username') ||
                            parseXmlValue(userXml, 'user_login') ||
                            parseXmlValue(userXml, 'login') ||
