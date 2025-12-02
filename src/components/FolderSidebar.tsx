@@ -161,6 +161,17 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
       const shared: Folder[] = [];
       const my: Folder[] = [];
 
+      // Helper funkce pro kontrolu, zda je složka v globální hierarchii
+      const isInGlobalHierarchy = (folder: Folder): boolean => {
+        if (folder.is_global) return true;
+        if (!folder.parent_id) return false;
+
+        const parent = allFolders.find(f => f.id === folder.parent_id);
+        if (!parent) return false;
+
+        return isInGlobalHierarchy(parent);
+      };
+
       const getFolderTaskCount = async (folderId: string, includeCompleted: boolean): Promise<number> => {
         const childFolderIds = allFolders.filter(f => f.parent_id === folderId).map(f => f.id);
 
@@ -189,7 +200,8 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         const itemCount = await getFolderTaskCount(folder.id, includeCompleted);
         const folderWithCount = { ...folder, item_count: itemCount };
 
-        if (folder.is_global) {
+        // Složky v globální hierarchii jdou do "global" kategorie
+        if (folder.is_global || isInGlobalHierarchy(folder)) {
           global.push(folderWithCount);
         } else if (folder.owner_id !== currentUserId) {
           shared.push(folderWithCount);
