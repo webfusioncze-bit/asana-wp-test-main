@@ -19,6 +19,7 @@ import {
   XCircleIcon,
   ZapIcon,
   LogInIcon,
+  LayoutGridIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus } from '../types';
@@ -28,11 +29,14 @@ interface WebsiteDetailProps {
   onClose: () => void;
 }
 
+type TabType = 'overview' | 'plugins' | 'users';
+
 export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const [website, setWebsite] = useState<Website | null>(null);
   const [latestStatus, setLatestStatus] = useState<WebsiteStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   useEffect(() => {
     loadWebsiteData();
@@ -137,7 +141,6 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
 
   const getScreenshotUrl = () => {
     if (website.screenshot_url) return website.screenshot_url;
-    // Use Screenshotmachine.com free API (no key required for basic usage)
     return `https://api.screenshotmachine.com?key=demo&url=${encodeURIComponent(website.url)}&dimension=1920x1080&format=jpg&cacheLimit=14`;
   };
 
@@ -145,67 +148,72 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     ? `${website.url}?login_token=${latestStatus.ult}`
     : `${website.url}/wp-admin`;
 
+  const activePlugins = latestStatus?.raw_data?.active_plugins || [];
+  const updatePlugins = latestStatus?.raw_data?.update_plugins || [];
+  const inactivePlugins = latestStatus?.raw_data?.inactive_plugins || [];
+  const users = latestStatus?.raw_data?.users || [];
+
   return (
-    <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <XIcon className="w-5 h-5 text-gray-500" />
             </button>
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-semibold text-gray-900">{website.name}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-semibold text-gray-900">{website.name}</h1>
                 {website.is_available ? (
-                  <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                  <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
                     <CheckCircleIcon className="w-3 h-3" />
                     Online
-                    {website.response_time_ms && (
-                      <span className="ml-1 text-green-600">({website.response_time_ms}ms)</span>
-                    )}
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                  <span className="flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
                     <XCircleIcon className="w-3 h-3" />
                     Offline
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-2 mt-0.5">
                 <a
                   href={website.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                 >
                   {website.url}
                   <ExternalLinkIcon className="w-3 h-3" />
                 </a>
-                {latestStatus?.ult && (
-                  <a
-                    href={adminLoginUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors"
-                  >
-                    <LogInIcon className="w-3 h-3" />
-                    Přihlásit do administrace
-                  </a>
-                )}
               </div>
             </div>
           </div>
-          <button
-            onClick={syncWebsite}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Synchronizuji...' : 'Synchronizovat'}
-          </button>
+          <div className="flex items-center gap-2">
+            {latestStatus?.ult && (
+              <a
+                href={adminLoginUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <LogInIcon className="w-4 h-4" />
+                WP Admin
+              </a>
+            )}
+            <button
+              onClick={syncWebsite}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Synchronizuji...' : 'Synchronizovat'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -219,196 +227,291 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
-          <div className="max-w-7xl mx-auto p-6 space-y-6">
+          <div className="p-6">
+            {/* Error Alert */}
             {website.sync_error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangleIcon className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h3 className="font-medium text-red-900 mb-1">Chyba synchronizace</h3>
-                    <p className="text-sm text-red-700">{website.sync_error}</p>
+                    <h3 className="text-sm font-medium text-red-900">Chyba synchronizace</h3>
+                    <p className="text-xs text-red-700 mt-0.5">{website.sync_error}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
-              <div className="aspect-video bg-gray-100 relative">
-                <img
-                  src={getScreenshotUrl()}
-                  alt={`Náhled ${website.name}`}
-                  className="w-full h-full object-cover object-top"
-                  onError={(e) => {
-                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23e5e7eb" width="100" height="100"/%3E%3Ctext fill="%239ca3af" font-family="sans-serif" font-size="14" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENáhled není k dispozici%3C/text%3E%3C/svg%3E';
-                  }}
-                />
-                <div className="absolute top-4 right-4">
-                  <a
-                    href={website.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-3 py-2 bg-white/90 backdrop-blur-sm text-gray-900 rounded-lg hover:bg-white transition-colors shadow-md"
-                  >
-                    <ExternalLinkIcon className="w-4 h-4" />
-                    Navštívit web
-                  </a>
+            {/* Content Grid */}
+            <div className="grid grid-cols-12 gap-4">
+              {/* Left Column - Screenshot */}
+              <div className="col-span-12 lg:col-span-4">
+                <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200 sticky top-4">
+                  <div className="aspect-video bg-gray-100">
+                    <img
+                      src={getScreenshotUrl()}
+                      alt={`Náhled ${website.name}`}
+                      className="w-full h-full object-cover object-top"
+                      onError={(e) => {
+                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23e5e7eb" width="100" height="100"/%3E%3Ctext fill="%239ca3af" font-family="sans-serif" font-size="12" x="50%25" y="50%25" text-anchor="middle" dominant-baseline="middle"%3ENáhled není k dispozici%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <InfoRow label="Poslední aktualizace" value={formatDate(latestStatus.last_updated)} small />
+                    <InfoRow label="Poslední synchronizace" value={formatDate(website.last_sync_at)} small />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <StatCard
-                icon={<ClockIcon className="w-5 h-5" />}
-                label="Poslední aktualizace"
-                value={latestStatus.last_updated || '-'}
-                color="blue"
-              />
-              <StatCard
-                icon={<ServerIcon className="w-5 h-5" />}
-                label="Server uptime"
-                value={latestStatus.uptime || '-'}
-                color="green"
-              />
-              <StatCard
-                icon={<TrendingUpIcon className="w-5 h-5" />}
-                label="Zatížení serveru"
-                value={latestStatus.server_load || '-'}
-                color="orange"
-              />
-              <StatCard
-                icon={<ZapIcon className="w-5 h-5" />}
-                label="Úložiště"
-                value={latestStatus.storage_usage || '-'}
-                color="purple"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Section title="Technické informace" icon={<ServerIcon className="w-5 h-5" />}>
-                <InfoRow label="WordPress" value={latestStatus.wordpress_version} />
-                <InfoRow label="PHP" value={latestStatus.php_version} />
-                <InfoRow label="MySQL" value={latestStatus.mysql_version} />
-                <InfoRow label="Memory limit" value={latestStatus.memory_limit} />
-                <InfoRow label="Max. velikost uploadu" value={latestStatus.upload_max_filesize} />
-              </Section>
-
-              <Section title="Bezpečnost" icon={<ShieldCheckIcon className="w-5 h-5" />}>
-                <InfoRow
-                  label="HTTPS"
-                  value={latestStatus.https_status}
-                  badge={latestStatus.https_status === 'enabled' ? 'success' : 'warning'}
-                />
-                <InfoRow
-                  label="Indexování"
-                  value={latestStatus.indexing_allowed === 'true' ? 'Povoleno' : 'Zakázáno'}
-                  badge={latestStatus.indexing_allowed === 'true' ? 'success' : 'info'}
-                />
-              </Section>
-
-              <Section title="Obsah webu" icon={<FileTextIcon className="w-5 h-5" />}>
-                <div className="grid grid-cols-2 gap-4">
-                  <ContentStat
-                    icon={<FileTextIcon className="w-5 h-5 text-blue-600" />}
-                    label="Stránky"
-                    value={latestStatus.num_pages}
-                  />
-                  <ContentStat
-                    icon={<FileTextIcon className="w-5 h-5 text-green-600" />}
-                    label="Příspěvky"
-                    value={latestStatus.num_posts}
-                  />
-                  <ContentStat
-                    icon={<MessageSquareIcon className="w-5 h-5 text-purple-600" />}
-                    label="Komentáře"
-                    value={latestStatus.num_comments}
-                  />
-                  <ContentStat
-                    icon={<ImageIcon className="w-5 h-5 text-orange-600" />}
-                    label="Média"
-                    value={latestStatus.num_media_files}
-                  />
-                  <ContentStat
-                    icon={<UsersIcon className="w-5 h-5 text-gray-600" />}
-                    label="Uživatelé"
-                    value={latestStatus.num_users}
-                  />
-                </div>
-              </Section>
-
-              <Section title="Motiv & Pluginy" icon={<PackageIcon className="w-5 h-5" />}>
-                <InfoRow label="Název motivu" value={latestStatus.theme_name} />
-                <InfoRow label="Verze motivu" value={latestStatus.theme_version} />
-                <div className="pt-3 mt-3 border-t border-gray-100">
-                  <InfoRow
-                    label="Aktivní pluginy"
-                    value={latestStatus.active_plugins_count.toString()}
-                    badge="success"
-                  />
-                  <InfoRow
-                    label="Neaktivní pluginy"
-                    value={latestStatus.inactive_plugins_count.toString()}
-                    badge="info"
-                  />
-                  {latestStatus.update_plugins_count > 0 && (
-                    <InfoRow
-                      label="Dostupné aktualizace"
-                      value={latestStatus.update_plugins_count.toString()}
-                      badge="warning"
-                    />
-                  )}
-                </div>
-              </Section>
-            </div>
-
-            {latestStatus.raw_data?.active_plugins && latestStatus.raw_data.active_plugins.length > 0 && (
-              <Section title="Aktivní pluginy" icon={<PackageIcon className="w-5 h-5" />}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {latestStatus.raw_data.active_plugins.map((plugin, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{plugin.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
-                      </div>
-                      <span className="ml-3 text-xs text-gray-600 font-mono bg-white px-2 py-1 rounded">{plugin.version}</span>
+              {/* Right Column - Tabs & Content */}
+              <div className="col-span-12 lg:col-span-8">
+                {/* Tabs */}
+                <div className="flex gap-1 mb-4 border-b border-gray-200">
+                  <button
+                    onClick={() => setActiveTab('overview')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === 'overview'
+                        ? 'text-blue-600 border-b-2 border-blue-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <LayoutGridIcon className="w-4 h-4" />
+                      Přehled
                     </div>
-                  ))}
-                </div>
-              </Section>
-            )}
-
-            {latestStatus.raw_data?.update_plugins && latestStatus.raw_data.update_plugins.length > 0 && (
-              <Section title="Pluginy vyžadující aktualizaci" icon={<AlertTriangleIcon className="w-5 h-5 text-orange-600" />}>
-                <div className="space-y-2">
-                  {latestStatus.raw_data.update_plugins.map((plugin, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{plugin.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
-                      </div>
-                      <span className="ml-3 text-xs text-orange-700 font-mono bg-white px-2 py-1 rounded">{plugin.version}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('plugins')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === 'plugins'
+                        ? 'text-blue-600 border-b-2 border-blue-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <PackageIcon className="w-4 h-4" />
+                      Pluginy ({activePlugins.length})
                     </div>
-                  ))}
-                </div>
-              </Section>
-            )}
-
-            {latestStatus.raw_data?.users && latestStatus.raw_data.users.length > 0 && (
-              <Section title="Uživatelé" icon={<UsersIcon className="w-5 h-5" />}>
-                <div className="space-y-2">
-                  {latestStatus.raw_data.users.map((user, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900">{user.username}</p>
-                        <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                      </div>
-                      <span className="ml-3 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded">
-                        {user.role}
-                      </span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('users')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === 'users'
+                        ? 'text-blue-600 border-b-2 border-blue-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <UsersIcon className="w-4 h-4" />
+                      Uživatelé ({users.length})
                     </div>
-                  ))}
+                  </button>
                 </div>
-              </Section>
-            )}
+
+                {/* Tab Content */}
+                {activeTab === 'overview' && (
+                  <div className="space-y-4">
+                    {/* Quick Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <QuickStat icon={<ServerIcon className="w-4 h-4" />} label="Uptime" value={latestStatus.uptime || '-'} />
+                      <QuickStat icon={<TrendingUpIcon className="w-4 h-4" />} label="Zatížení" value={latestStatus.server_load || '-'} />
+                      <QuickStat icon={<ZapIcon className="w-4 h-4" />} label="Úložiště" value={latestStatus.storage_usage || '-'} />
+                      <QuickStat icon={<UsersIcon className="w-4 h-4" />} label="Uživatelé" value={latestStatus.num_users?.toString() || '0'} />
+                    </div>
+
+                    {/* Content Stats */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Obsah webu</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <ContentStat icon={<FileTextIcon className="w-5 h-5 text-blue-600" />} label="Stránky" value={latestStatus.num_pages || 0} />
+                        <ContentStat icon={<FileTextIcon className="w-5 h-5 text-green-600" />} label="Příspěvky" value={latestStatus.num_posts || 0} />
+                        <ContentStat icon={<MessageSquareIcon className="w-5 h-5 text-purple-600" />} label="Komentáře" value={latestStatus.num_comments || 0} />
+                        <ContentStat icon={<ImageIcon className="w-5 h-5 text-orange-600" />} label="Média" value={latestStatus.num_media_files || 0} />
+                      </div>
+                    </div>
+
+                    {/* Technical Info */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <ServerIcon className="w-4 h-4" />
+                          Technické informace
+                        </h3>
+                        <div className="space-y-2">
+                          <InfoRow label="WordPress" value={latestStatus.wordpress_version} small />
+                          <InfoRow label="PHP" value={latestStatus.php_version} small />
+                          <InfoRow label="MySQL" value={latestStatus.mysql_version} small />
+                          <InfoRow label="Memory limit" value={latestStatus.memory_limit} small />
+                          <InfoRow label="Max. upload" value={latestStatus.upload_max_filesize} small />
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <ShieldCheckIcon className="w-4 h-4" />
+                          Bezpečnost
+                        </h3>
+                        <div className="space-y-2">
+                          <InfoRow
+                            label="HTTPS"
+                            value={latestStatus.https_status}
+                            badge={latestStatus.https_status === 'enabled' ? 'success' : 'warning'}
+                            small
+                          />
+                          <InfoRow
+                            label="Indexování"
+                            value={latestStatus.indexing_allowed === 'true' ? 'Povoleno' : 'Zakázáno'}
+                            badge={latestStatus.indexing_allowed === 'true' ? 'success' : 'info'}
+                            small
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Theme & Plugins Summary */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <PackageIcon className="w-4 h-4" />
+                        Motiv & Pluginy
+                      </h3>
+                      <div className="space-y-2">
+                        <InfoRow label="Motiv" value={`${latestStatus.theme_name} (${latestStatus.theme_version})`} small />
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1">
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                              {latestStatus.active_plugins_count}
+                            </span>
+                            <span className="text-gray-600">aktivních</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                              {latestStatus.inactive_plugins_count}
+                            </span>
+                            <span className="text-gray-600">neaktivních</span>
+                          </div>
+                          {latestStatus.update_plugins_count > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                {latestStatus.update_plugins_count}
+                              </span>
+                              <span className="text-gray-600">aktualizací</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'plugins' && (
+                  <div className="space-y-4">
+                    {updatePlugins.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <AlertTriangleIcon className="w-4 h-4 text-orange-600" />
+                          Vyžadují aktualizaci ({updatePlugins.length})
+                        </h3>
+                        <div className="space-y-2">
+                          {updatePlugins.map((plugin: any, index: number) => (
+                            <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{plugin.name}</p>
+                                  <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
+                                </div>
+                                <span className="ml-3 text-xs text-orange-700 font-mono bg-white px-2 py-1 rounded">
+                                  {plugin.version}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {activePlugins.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                          Aktivní pluginy ({activePlugins.length})
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {activePlugins.map((plugin: any, index: number) => (
+                            <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{plugin.name}</p>
+                                  <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
+                                </div>
+                                <span className="ml-2 text-xs text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded">
+                                  {plugin.version}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {inactivePlugins.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                          <XCircleIcon className="w-4 h-4 text-gray-400" />
+                          Neaktivní pluginy ({inactivePlugins.length})
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {inactivePlugins.map((plugin: any, index: number) => (
+                            <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-3 opacity-60">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{plugin.name}</p>
+                                  <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
+                                </div>
+                                <span className="ml-2 text-xs text-gray-600 font-mono bg-white px-2 py-1 rounded">
+                                  {plugin.version}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {activePlugins.length === 0 && updatePlugins.length === 0 && inactivePlugins.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <PackageIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>Žádné pluginy nenalezeny</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'users' && (
+                  <div className="space-y-2">
+                    {users.length > 0 ? (
+                      users.map((user: any, index: number) => (
+                        <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{user.username}</p>
+                              <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
+                            </div>
+                            <span className="ml-3 px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded">
+                              {user.role}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <UsersIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>Žádní uživatelé nenalezeni</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -416,69 +519,24 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: 'blue' | 'green' | 'orange' | 'purple';
-}) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    orange: 'bg-orange-50 text-orange-600',
-    purple: 'bg-purple-50 text-purple-600',
-  };
-
+function QuickStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="bg-white rounded-xl p-5 border border-gray-200">
-      <div className={`inline-flex p-2 rounded-lg mb-3 ${colorClasses[color]}`}>
-        {icon}
+    <div className="bg-white border border-gray-200 rounded-lg p-3">
+      <div className="flex items-center gap-2 mb-1">
+        <div className="text-gray-500">{icon}</div>
+        <p className="text-xs text-gray-600">{label}</p>
       </div>
-      <p className="text-sm text-gray-600 mb-1">{label}</p>
-      <p className="text-lg font-semibold text-gray-900 truncate">{value}</p>
+      <p className="text-sm font-semibold text-gray-900 truncate">{value}</p>
     </div>
   );
 }
 
-function ContentStat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-}) {
+function ContentStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="text-center p-3 bg-gray-50 rounded-lg">
-      <div className="flex justify-center mb-2">{icon}</div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-600 mt-1">{label}</p>
-    </div>
-  );
-}
-
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="bg-white rounded-xl p-6 border border-gray-200">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="text-gray-600">{icon}</div>
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-      </div>
-      <div className="space-y-3">{children}</div>
+    <div className="text-center">
+      <div className="flex justify-center mb-1">{icon}</div>
+      <p className="text-lg font-bold text-gray-900">{value}</p>
+      <p className="text-xs text-gray-600">{label}</p>
     </div>
   );
 }
@@ -487,10 +545,12 @@ function InfoRow({
   label,
   value,
   badge,
+  small = false,
 }: {
   label: string;
   value: string | null | undefined;
   badge?: 'success' | 'warning' | 'info';
+  small?: boolean;
 }) {
   const badgeClasses = {
     success: 'bg-green-100 text-green-700',
@@ -499,14 +559,16 @@ function InfoRow({
   };
 
   return (
-    <div className="flex items-center justify-between py-2">
-      <span className="text-sm text-gray-600">{label}</span>
+    <div className={`flex items-center justify-between ${small ? 'py-1' : 'py-2'}`}>
+      <span className={`${small ? 'text-xs' : 'text-sm'} text-gray-600`}>{label}</span>
       {badge ? (
-        <span className={`px-2 py-1 text-xs font-medium rounded ${badgeClasses[badge]}`}>
+        <span className={`px-2 py-0.5 text-xs font-medium rounded ${badgeClasses[badge]}`}>
           {value || '-'}
         </span>
       ) : (
-        <span className="text-sm font-medium text-gray-900">{value || '-'}</span>
+        <span className={`${small ? 'text-xs' : 'text-sm'} font-medium text-gray-900 truncate ml-2`}>
+          {value || '-'}
+        </span>
       )}
     </div>
   );
