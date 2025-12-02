@@ -57,7 +57,7 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
     setSyncing(true);
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-websites`;
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-portal-websites`;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -67,20 +67,22 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
       });
 
       if (!response.ok) {
-        throw new Error('Failed to sync websites');
+        throw new Error('Failed to sync websites from portal feed');
       }
 
       const result = await response.json();
-      console.log('Sync result:', result);
+      console.log('Portal sync result:', result);
 
       await loadWebsites();
 
-      if (result.failedWebsites > 0) {
-        alert(`Synchronizováno ${result.syncedWebsites} webů, ${result.failedWebsites} selhalo`);
+      if (result.success) {
+        alert(`Synchronizováno ${result.syncedWebsites} webů z portálového feedu${result.failedWebsites > 0 ? `, ${result.failedWebsites} selhalo` : ''}`);
+      } else {
+        alert('Chyba při synchronizaci webů z portálového feedu');
       }
     } catch (error) {
-      console.error('Sync error:', error);
-      alert('Chyba při synchronizaci webů');
+      console.error('Portal sync error:', error);
+      alert('Chyba při synchronizaci webů z portálového feedu');
     } finally {
       setSyncing(false);
     }
@@ -113,11 +115,11 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
           <div className="flex gap-2">
             <button
               onClick={syncAllWebsites}
-              disabled={syncing || websites.length === 0}
+              disabled={syncing}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Synchronizuji...' : 'Synchronizovat vše'}
+              {syncing ? 'Synchronizuji z feedu...' : 'Synchronizovat z feedu'}
             </button>
           </div>
         </div>
