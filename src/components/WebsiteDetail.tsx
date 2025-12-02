@@ -120,7 +120,8 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
 
   const getScreenshotUrl = () => {
     if (website.screenshot_url) return website.screenshot_url;
-    return `https://api.screenshotmachine.com?key=demo&url=${encodeURIComponent(website.url)}&dimension=1920x1080&format=jpg&cacheLimit=14`;
+    const auth = '75912-task';
+    return `https://image.thum.io/get/auth/${auth}/${encodeURIComponent(website.url)}`;
   };
 
   const adminLoginUrl = latestStatus?.ult
@@ -386,23 +387,19 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                   <div className="space-y-4">
                     {updatePlugins.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <AlertTriangleIcon className="w-4 h-4 text-orange-600" />
                           Vyžadují aktualizaci ({updatePlugins.length})
                         </h3>
-                        <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
                           {updatePlugins.map((plugin: any, index: number) => (
-                            <div key={index} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{plugin.name}</p>
-                                  <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
-                                </div>
-                                <span className="ml-3 text-xs text-orange-700 font-mono bg-white px-2 py-1 rounded">
-                                  {plugin.version}
-                                </span>
-                              </div>
-                            </div>
+                            <span
+                              key={index}
+                              className="inline-flex items-center px-3 py-1.5 bg-orange-50 text-orange-700 text-xs font-medium rounded-full border border-orange-200 hover:bg-orange-100 transition-colors"
+                              title={`${plugin.current_version} → ${plugin.new_version}`}
+                            >
+                              {plugin.name}
+                            </span>
                           ))}
                         </div>
                       </div>
@@ -456,21 +453,25 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                 )}
 
                 {activeTab === 'users' && (
-                  <div className="space-y-2">
+                  <div>
                     {users.length > 0 ? (
-                      users.map((user: any, index: number) => (
-                        <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900">{user.username}</p>
-                              <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
-                            </div>
-                            <span className="ml-3 px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded">
-                              {user.role}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <UsersIcon className="w-4 h-4 text-blue-600" />
+                          Uživatelé ({users.length})
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {users.map((user: any, index: number) => (
+                            <span
+                              key={index}
+                              className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200 hover:bg-blue-100 transition-colors"
+                              title={user.email || user.username}
+                            >
+                              {user.username}
                             </span>
-                          </div>
+                          ))}
                         </div>
-                      ))
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         <UsersIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
