@@ -788,7 +788,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             />
           ) : (
             <p
-              className="text-gray-600 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors min-h-[2.5rem]"
+              className="text-sm text-gray-600 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors min-h-[2.5rem] whitespace-pre-wrap"
               onClick={() => setEditingField('description')}
             >
               {task.description || 'Bez popisu'}

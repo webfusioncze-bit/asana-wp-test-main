@@ -100,11 +100,17 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
     nextWeekDate.setDate(now.getDate() + (nextWeekOffset * 7));
     const { start: nextWeekStart, end: nextWeekEnd } = getWeekBounds(nextWeekDate);
 
+    // Získat ID aktuálního uživatele
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Načíst pouze úkoly vytvořené nebo přiřazené přihlášenému uživateli
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .neq('status', 'completed')
       .not('due_date', 'is', null)
+      .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
       .order('due_date', { ascending: true });
 
     if (error) {
