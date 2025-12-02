@@ -685,26 +685,26 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
 
   return (
     <div className="w-[500px] bg-white border-l border-gray-200 flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-gray-800">Detail úkolu</h2>
-          <div className="flex gap-2">
+      <div className="px-3 py-2 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-base font-semibold text-gray-800">Detail úkolu</h2>
+          <div className="flex gap-1">
             <button
               onClick={deleteTask}
-              className="p-2 hover:bg-red-50 rounded transition-colors"
+              className="p-1.5 hover:bg-red-50 rounded transition-colors"
             >
-              <TrashIcon className="w-5 h-5 text-red-500" />
+              <TrashIcon className="w-4 h-4 text-red-500" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded transition-colors"
             >
-              <XIcon className="w-5 h-5 text-gray-600" />
+              <XIcon className="w-4 h-4 text-gray-600" />
             </button>
           </div>
         </div>
         {taskHierarchy.length > 1 && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 overflow-x-auto">
+          <div className="flex items-center gap-2 text-xs text-gray-600 overflow-x-auto">
             {taskHierarchy.map((hierarchyTask, index) => (
               <div key={hierarchyTask.id} className="flex items-center gap-2 flex-shrink-0">
                 {index > 0 && <span>/</span>}
@@ -731,9 +731,9 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Název</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Název</label>
           {editingField === 'title' ? (
             <input
               type="text"
@@ -753,11 +753,11 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   setEditingField(null);
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
             />
           ) : (
             <h3
-              className="text-xl font-semibold text-gray-800 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+              className="text-base font-semibold text-gray-800 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
               onClick={() => setEditingField('title')}
             >
               {task.title}
@@ -765,13 +765,13 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Popis</label>
+        <div className="border-t border-gray-100 pt-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Popis</label>
           {editingField === 'description' ? (
             <textarea
               defaultValue={task.description || ''}
               autoFocus
-              rows={4}
+              rows={3}
               onBlur={(e) => {
                 if (e.target.value !== task.description) {
                   updateTaskField('description', e.target.value || null);
@@ -784,11 +784,11 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   setEditingField(null);
                 }
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
             />
           ) : (
             <p
-              className="text-sm text-gray-600 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors min-h-[2.5rem] whitespace-pre-wrap"
+              className="text-xs text-gray-600 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors min-h-[2rem] whitespace-pre-wrap"
               onClick={() => setEditingField('description')}
             >
               {task.description || 'Bez popisu'}
@@ -796,10 +796,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <CalendarIcon className="w-4 h-4 inline mr-2" />
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              <CalendarIcon className="w-3.5 h-3.5 inline mr-1" />
               Termín dokončení
             </label>
             {editingField === 'due_date' ? (
@@ -817,11 +817,11 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                     setEditingField(null);
                   }
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
               />
             ) : (
               <p
-                className="text-gray-600 text-sm cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
                 onClick={() => setEditingField('due_date')}
               >
                 {task.due_date
@@ -832,8 +832,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <UserIcon className="w-4 h-4 inline mr-2" />
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              <UserIcon className="w-3.5 h-3.5 inline mr-1" />
               Přiřazeno
             </label>
             {editingField === 'assigned_to' ? (
@@ -844,7 +844,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   updateTaskField('assigned_to', e.target.value);
                 }}
                 onBlur={() => setEditingField(null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 {users.map(user => (
                   <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
@@ -852,21 +852,21 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               </select>
             ) : (
               <div
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
                 onClick={() => setEditingField('assigned_to')}
               >
                 {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
                   <img
                     src={users.find(u => u.id === task.assigned_to)?.avatar_url}
                     alt="Avatar"
-                    className="w-8 h-8 rounded-full object-cover"
+                    className="w-6 h-6 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                    <UserIcon className="w-4 h-4 text-gray-500" />
+                  <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                    <UserIcon className="w-3 h-3 text-gray-500" />
                   </div>
                 )}
-                <p className="text-gray-600 text-sm truncate">
+                <p className="text-gray-600 text-xs truncate">
                   {users.find(u => u.id === task.assigned_to)?.display_name ||
                    users.find(u => u.id === task.assigned_to)?.email ||
                    'Neznámý uživatel'}
@@ -876,20 +876,20 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Zadavatel</label>
-            <div className="flex items-center gap-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Zadavatel</label>
+            <div className="flex items-center gap-1.5 px-2 py-1.5">
               {users.find(u => u.id === task.created_by)?.avatar_url ? (
                 <img
                   src={users.find(u => u.id === task.created_by)?.avatar_url}
                   alt="Avatar"
-                  className="w-8 h-8 rounded-full object-cover"
+                  className="w-6 h-6 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <UserIcon className="w-4 h-4 text-blue-600" />
+                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserIcon className="w-3 h-3 text-blue-600" />
                 </div>
               )}
-              <p className="text-gray-600 text-sm truncate">
+              <p className="text-gray-600 text-xs truncate">
                 {users.find(u => u.id === task.created_by)?.display_name ||
                  users.find(u => u.id === task.created_by)?.email ||
                  'Neznámý uživatel'}
@@ -898,10 +898,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <TagIcon className="w-4 h-4 inline mr-2" />
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              <TagIcon className="w-3.5 h-3.5 inline mr-1" />
               Kategorie
             </label>
             {editingField === 'category_id' ? (
@@ -912,7 +912,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   updateTaskField('category_id', e.target.value || null);
                 }}
                 onBlur={() => setEditingField(null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Žádná kategorie</option>
                 {categories.map(cat => (
@@ -921,7 +921,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               </select>
             ) : (
               <p
-                className="text-gray-600 text-sm cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
                 onClick={() => setEditingField('category_id')}
               >
                 {categories.find(c => c.id === task.category_id)?.name || 'Bez kategorie'}
@@ -930,8 +930,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <FolderIcon className="w-4 h-4 inline mr-2" />
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              <FolderIcon className="w-3.5 h-3.5 inline mr-1" />
               Složka
             </label>
             {editingField === 'folder_id' ? (
@@ -942,14 +942,14 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   updateTaskField('folder_id', e.target.value || null);
                 }}
                 onBlur={() => setEditingField(null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Žádná složka</option>
                 {buildFolderHierarchy(folders)}
               </select>
             ) : (
               <p
-                className="text-gray-600 text-sm cursor-pointer hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+                className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
                 onClick={() => setEditingField('folder_id')}
               >
                 {folders.find(f => f.id === task.folder_id)?.name || 'Bez složky'}
@@ -960,7 +960,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
 
         {task.folder_id && availableTags.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               <TagIcon className="w-4 h-4 inline mr-2" />
               Tagy
             </label>
@@ -971,7 +971,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   <button
                     key={tag.id}
                     onClick={() => toggleTag(tag.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all ${
                       isSelected
                         ? 'ring-2 ring-offset-1'
                         : 'opacity-50 hover:opacity-100'
@@ -995,9 +995,9 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Priorita</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Priorita</label>
             {editingField === 'priority' ? (
               <select
                 defaultValue={task.priority || 'medium'}
@@ -1006,7 +1006,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   updateTaskField('priority', e.target.value as Task['priority']);
                 }}
                 onBlur={() => setEditingField(null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="low">Nízká</option>
                 <option value="medium">Střední</option>
@@ -1015,7 +1015,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               </select>
             ) : (
               <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity ${priorityColors[task.priority]}`}
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${priorityColors[task.priority]}`}
                 onClick={() => setEditingField('priority')}
               >
                 {priorityLabels[task.priority]}
@@ -1024,7 +1024,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
             {editingField === 'status' ? (
               <select
                 defaultValue={task.status || 'todo'}
@@ -1033,7 +1033,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   updateTaskField('status', e.target.value as Task['status']);
                 }}
                 onBlur={() => setEditingField(null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="todo">K dokončení</option>
                 <option value="in_progress">Probíhá</option>
@@ -1041,7 +1041,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               </select>
             ) : (
               <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium cursor-pointer hover:opacity-80 transition-opacity ${statusColors[task.status]}`}
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${statusColors[task.status]}`}
                 onClick={() => setEditingField('status')}
               >
                 {statusLabels[task.status]}
@@ -1050,22 +1050,22 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-medium text-gray-700">
+        <div className="border-t border-gray-100 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-medium text-gray-700">
               Subtasky ({subtasks.length})
             </h4>
             <button
               onClick={() => setIsAddingSubtask(!isAddingSubtask)}
-              className="flex items-center gap-1 px-3 py-1 text-sm bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary-dark transition-colors"
             >
-              <PlusIcon className="w-4 h-4" />
+              <PlusIcon className="w-3.5 h-3.5" />
               Přidat
             </button>
           </div>
 
           {isAddingSubtask && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+            <div className="bg-gray-50 rounded p-3 mb-3 space-y-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Název subtasku</label>
                 <input
@@ -1119,7 +1119,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               <div className="flex gap-2">
                 <button
                   onClick={addSubtask}
-                  className="flex-1 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
+                  className="flex-1 px-2 py-1.5 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-xs"
                 >
                   Vytvořit
                 </button>
@@ -1128,7 +1128,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                     setIsAddingSubtask(false);
                     setNewSubtask({ title: '', description: '', due_date: '', assigned_to: '' });
                   }}
-                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                  className="px-2 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-xs"
                 >
                   Zrušit
                 </button>
@@ -1136,12 +1136,12 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             </div>
           )}
 
-          <div className="space-y-2 mb-6">
+          <div className="space-y-1.5 mb-3">
             {subtasks.length === 0 ? (
-              <p className="text-sm text-gray-500">Zatím žádné subtasky</p>
+              <p className="text-xs text-gray-500">Zatím žádné subtasky</p>
             ) : (
               subtasks.map(subtask => (
-                <div key={subtask.id} className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                <div key={subtask.id} className="bg-gray-50 rounded p-2 hover:bg-gray-100 transition-colors">
                   <div className="flex items-start justify-between mb-1">
                     <button
                       onClick={() => {
@@ -1150,13 +1150,13 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                       }}
                       className="flex-1 text-left"
                     >
-                      <span className="text-sm font-medium text-gray-900 hover:text-primary">{subtask.title}</span>
+                      <span className="text-xs font-medium text-gray-900 hover:text-primary">{subtask.title}</span>
                     </button>
                     <button
                       onClick={() => deleteSubtask(subtask.id)}
                       className="text-gray-400 hover:text-red-500 transition-colors"
                     >
-                      <TrashIcon className="w-4 h-4" />
+                      <TrashIcon className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   {subtask.description && (
@@ -1204,7 +1204,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                           <img
                             src={users.find(u => u.id === subtask.assigned_to)?.avatar_url}
                             alt="Avatar"
-                            className="w-4 h-4 rounded-full object-cover"
+                            className="w-3 h-3 rounded-full object-cover"
                           />
                         ) : (
                           <UserIcon className="w-3 h-3" />
@@ -1221,23 +1221,23 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-medium text-gray-700">
-              <ClockIcon className="w-4 h-4 inline mr-2" />
+        <div className="border-t border-gray-100 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-medium text-gray-700">
+              <ClockIcon className="w-3.5 h-3.5 inline mr-1" />
               Vykazování času
             </h4>
             <button
               onClick={() => setIsAddingTime(!isAddingTime)}
               className="flex items-center gap-1 px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
             >
-              <PlusIcon className="w-4 h-4" />
+              <PlusIcon className="w-3.5 h-3.5" />
               Přidat
             </button>
           </div>
 
           {isAddingTime && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-3">
+            <div className="bg-gray-50 rounded p-3 mb-3 space-y-2">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Popis činnosti</label>
                 <input
@@ -1287,7 +1287,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                       date: new Date().toISOString().split('T')[0],
                     });
                   }}
-                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                  className="px-2 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors text-xs"
                 >
                   Zrušit
                 </button>
@@ -1295,9 +1295,9 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             </div>
           )}
 
-          <div className="space-y-2 mb-6">
+          <div className="space-y-1.5 mb-3">
             {timeEntries.length === 0 ? (
-              <p className="text-sm text-gray-500">Zatím žádné záznamy času</p>
+              <p className="text-xs text-gray-500">Zatím žádné záznamy času</p>
             ) : (
               <>
                 <div className="flex items-center justify-between text-xs font-medium text-gray-700 bg-gray-50 px-3 py-2 rounded">
@@ -1314,7 +1314,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                         onClick={() => deleteTimeEntry(entry.id)}
                         className="text-gray-400 hover:text-red-500 transition-colors"
                       >
-                        <TrashIcon className="w-4 h-4" />
+                        <TrashIcon className="w-3.5 h-3.5" />
                       </button>
                     </div>
                     {entry.description && (
@@ -1330,11 +1330,11 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-medium text-gray-700">Přílohy</h4>
+        <div className="border-t border-gray-100 pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-medium text-gray-700">Přílohy</h4>
             <label className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer text-sm flex items-center gap-2">
-              <UploadIcon className="w-4 h-4" />
+              <UploadIcon className="w-3.5 h-3.5" />
               {isUploading ? 'Nahrávání...' : 'Nahrát soubor'}
               <input
                 type="file"
@@ -1344,9 +1344,9 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               />
             </label>
           </div>
-          <div className="space-y-2 mb-6">
+          <div className="space-y-1.5 mb-3">
             {attachments.length === 0 ? (
-              <p className="text-sm text-gray-500">Zatím žádné přílohy</p>
+              <p className="text-xs text-gray-500">Zatím žádné přílohy</p>
             ) : (
               attachments.map(attachment => (
                 <div key={attachment.id} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
@@ -1381,11 +1381,11 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
         </div>
 
-        <div className="border-t border-gray-200 pt-6">
+        <div className="border-t border-gray-100 pt-3">
           <h4 className="text-sm font-medium text-gray-700 mb-4">Komentáře</h4>
           <div className="space-y-3 mb-4">
             {comments.length === 0 ? (
-              <p className="text-sm text-gray-500">Zatím žádné komentáře</p>
+              <p className="text-xs text-gray-500">Zatím žádné komentáře</p>
             ) : (
               comments.map(comment => (
                 <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
