@@ -108,6 +108,11 @@ Deno.serve(async (req: Request) => {
 
         const xmlText = await response.text();
 
+        // Debug: Log a sample of the XML to see actual structure
+        console.log('=== XML Sample (first 2000 chars) ===');
+        console.log(xmlText.substring(0, 2000));
+        console.log('=== End XML Sample ===');
+
         const parseXmlValue = (xml: string, tag: string): string | null => {
           const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i');
           const match = xml.match(regex);
@@ -131,10 +136,24 @@ Deno.serve(async (req: Request) => {
 
           while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
             const pluginXml = pluginMatch[1];
+
+            // Try multiple possible tag names for each field
+            const name = parseXmlValue(pluginXml, 'name') ||
+                        parseXmlValue(pluginXml, 'plugin_name') ||
+                        parseXmlValue(pluginXml, 'title');
+
+            const version = parseXmlValue(pluginXml, 'version') ||
+                           parseXmlValue(pluginXml, 'plugin_version') ||
+                           parseXmlValue(pluginXml, 'ver');
+
+            const author = parseXmlValue(pluginXml, 'author') ||
+                          parseXmlValue(pluginXml, 'plugin_author') ||
+                          parseXmlValue(pluginXml, 'author_name');
+
             plugins.push({
-              name: parseXmlValue(pluginXml, 'name'),
-              version: parseXmlValue(pluginXml, 'version'),
-              author: parseXmlValue(pluginXml, 'author'),
+              name,
+              version,
+              author,
             });
           }
 
@@ -153,10 +172,25 @@ Deno.serve(async (req: Request) => {
 
           while ((userMatch = userRegex.exec(usersXml)) !== null) {
             const userXml = userMatch[1];
+
+            // Try multiple possible tag names for each field
+            const username = parseXmlValue(userXml, 'username') ||
+                           parseXmlValue(userXml, 'user_login') ||
+                           parseXmlValue(userXml, 'login') ||
+                           parseXmlValue(userXml, 'name');
+
+            const email = parseXmlValue(userXml, 'email') ||
+                         parseXmlValue(userXml, 'user_email') ||
+                         parseXmlValue(userXml, 'mail');
+
+            const role = parseXmlValue(userXml, 'role') ||
+                        parseXmlValue(userXml, 'user_role') ||
+                        parseXmlValue(userXml, 'roles');
+
             users.push({
-              username: parseXmlValue(userXml, 'username'),
-              email: parseXmlValue(userXml, 'email'),
-              role: parseXmlValue(userXml, 'role'),
+              username,
+              email,
+              role,
             });
           }
 
