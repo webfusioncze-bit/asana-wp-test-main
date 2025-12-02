@@ -153,6 +153,13 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const inactivePlugins = latestStatus?.raw_data?.inactive_plugins || [];
   const users = latestStatus?.raw_data?.users || [];
 
+  // Debug: log raw_data structure
+  if (latestStatus?.raw_data) {
+    console.log('Raw data structure:', latestStatus.raw_data);
+    console.log('Active plugins:', activePlugins);
+    console.log('Users:', users);
+  }
+
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
       {/* Header */}
