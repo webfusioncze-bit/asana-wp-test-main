@@ -163,130 +163,163 @@ Deno.serve(async (req: Request) => {
       throw new Error('No admin user found');
     }
 
-    const results = [];
+    // Build a map of existing websites by URL for fast lookup
+    const existingWebsitesMap = new Map(
+      currentWebsites?.map(w => [w.url.toLowerCase(), w]) || []
+    );
 
-    // Process each website from the feed
+    const websitesToInsert = [];
+    const websitesToUpdate = [];
+    const statusesToInsert = [];
+
+    const now = new Date().toISOString();
+
+    // Process all websites and prepare batch operations
     for (const websiteData of allPortalWebsites) {
-      try {
-        const { data: existingWebsite, error: findError } = await supabaseAdmin
-          .from('websites')
-          .select('id')
-          .eq('url', websiteData.url)
-          .maybeSingle();
+      const existingWebsite = existingWebsitesMap.get(websiteData.url.toLowerCase());
 
-        if (findError) {
-          throw new Error(`Failed to find website: ${findError.message}`);
-        }
+      if (!existingWebsite) {
+        // New website - prepare for batch insert
+        const urlObj = new URL(websiteData.url);
+        const domain = urlObj.hostname.replace('www.', '');
 
-        let websiteId = existingWebsite?.id;
-
-        // Create or update website
-        if (!websiteId) {
-          const urlObj = new URL(websiteData.url);
-          const domain = urlObj.hostname.replace('www.', '');
-
-          const { data: newWebsite, error: insertError } = await supabaseAdmin
-            .from('websites')
-            .insert({
-              url: websiteData.url,
-              name: domain,
-              owner_id: adminUser.user_id,
-              login_token: websiteData.ult,
-              last_sync_at: new Date().toISOString(),
-              is_available: true,
-              last_check_at: new Date().toISOString(),
-            })
-            .select('id')
-            .single();
-
-          if (insertError) {
-            throw new Error(`Failed to insert website: ${insertError.message}`);
-          }
-
-          websiteId = newWebsite.id;
-          console.log(`Created new website: ${domain}`);
-        } else {
-          const { error: updateError } = await supabaseAdmin
-            .from('websites')
-            .update({
-              login_token: websiteData.ult,
-              last_sync_at: new Date().toISOString(),
-              sync_error: null,
-              is_available: true,
-              last_check_at: new Date().toISOString(),
-            })
-            .eq('id', websiteId);
-
-          if (updateError) {
-            throw new Error(`Failed to update website: ${updateError.message}`);
-          }
-        }
-
-        // Insert status data
-        const statusData = {
-          website_id: websiteId,
-          last_updated: websiteData.last_updated,
-          wordpress_version: websiteData.wordpress_version,
-          php_version: websiteData.php_version,
-          mysql_version: websiteData.mysql_version,
-          memory_limit: websiteData.memory_limit,
-          upload_max_filesize: websiteData.upload_max_filesize,
-          num_pages: websiteData.num_pages,
-          num_posts: websiteData.num_posts,
-          num_comments: websiteData.num_comments,
-          num_users: websiteData.num_users,
-          num_media_files: websiteData.num_media_files,
-          https_status: websiteData.https_status,
-          indexing_allowed: websiteData.indexing_allowed,
-          storage_usage: websiteData.storage_usage,
-          active_plugins_count: websiteData.active_plugins_count,
-          inactive_plugins_count: websiteData.inactive_plugins_count,
-          update_plugins_count: websiteData.update_plugins_count,
-          theme_name: websiteData.theme_name,
-          theme_version: websiteData.theme_version,
-          server_load: websiteData.server_load,
-          uptime: websiteData.uptime,
-          ult: websiteData.ult,
-          raw_data: {
-            active_plugins: websiteData.active_plugins,
-            inactive_plugins: websiteData.inactive_plugins,
-            update_plugins: websiteData.update_plugins,
-            users: websiteData.users,
-          },
-        };
-
-        const { error: statusError } = await supabaseAdmin
-          .from('website_status')
-          .insert(statusData);
-
-        if (statusError) {
-          throw new Error(`Failed to insert status: ${statusError.message}`);
-        }
-
-        results.push({
+        websitesToInsert.push({
           url: websiteData.url,
-          websiteId: websiteId,
-          success: true,
+          name: domain,
+          owner_id: adminUser.user_id,
+          login_token: websiteData.ult,
+          last_sync_at: now,
+          is_available: true,
+          last_check_at: now,
         });
-
-        console.log(`✓ Synced ${websiteData.url}`);
-      } catch (error) {
-        console.error(`Failed to sync website ${websiteData.url}:`, error);
-        results.push({
-          url: websiteData.url,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+      } else {
+        // Existing website - prepare for batch update
+        websitesToUpdate.push({
+          id: existingWebsite.id,
+          login_token: websiteData.ult,
+          last_sync_at: now,
+          sync_error: null,
+          is_available: true,
+          last_check_at: now,
         });
       }
+    }
+
+    console.log(`Batch operations: ${websitesToInsert.length} to insert, ${websitesToUpdate.length} to update`);
+
+    // Batch insert new websites
+    let newWebsiteIds = [];
+    if (websitesToInsert.length > 0) {
+      const { data: insertedWebsites, error: insertError } = await supabaseAdmin
+        .from('websites')
+        .insert(websitesToInsert)
+        .select('id, url');
+
+      if (insertError) {
+        throw new Error(`Failed to batch insert websites: ${insertError.message}`);
+      }
+
+      newWebsiteIds = insertedWebsites || [];
+      console.log(`✓ Inserted ${newWebsiteIds.length} new websites`);
+    }
+
+    // Batch update existing websites
+    if (websitesToUpdate.length > 0) {
+      for (const website of websitesToUpdate) {
+        const { error: updateError } = await supabaseAdmin
+          .from('websites')
+          .update({
+            login_token: website.login_token,
+            last_sync_at: website.last_sync_at,
+            sync_error: website.sync_error,
+            is_available: website.is_available,
+            last_check_at: website.last_check_at,
+          })
+          .eq('id', website.id);
+
+        if (updateError) {
+          console.error(`Failed to update website ${website.id}:`, updateError);
+        }
+      }
+      console.log(`✓ Updated ${websitesToUpdate.length} existing websites`);
+    }
+
+    // Rebuild the website map with new IDs
+    const { data: allWebsites } = await supabaseAdmin
+      .from('websites')
+      .select('id, url');
+
+    const websiteUrlToIdMap = new Map(
+      allWebsites?.map(w => [w.url.toLowerCase(), w.id]) || []
+    );
+
+    // Prepare status data for batch insert
+    for (const websiteData of allPortalWebsites) {
+      const websiteId = websiteUrlToIdMap.get(websiteData.url.toLowerCase());
+      if (!websiteId) continue;
+
+      statusesToInsert.push({
+        website_id: websiteId,
+        last_updated: websiteData.last_updated,
+        wordpress_version: websiteData.wordpress_version,
+        php_version: websiteData.php_version,
+        mysql_version: websiteData.mysql_version,
+        memory_limit: websiteData.memory_limit,
+        upload_max_filesize: websiteData.upload_max_filesize,
+        num_pages: websiteData.num_pages,
+        num_posts: websiteData.num_posts,
+        num_comments: websiteData.num_comments,
+        num_users: websiteData.num_users,
+        num_media_files: websiteData.num_media_files,
+        https_status: websiteData.https_status,
+        indexing_allowed: websiteData.indexing_allowed,
+        storage_usage: websiteData.storage_usage,
+        active_plugins_count: websiteData.active_plugins_count,
+        inactive_plugins_count: websiteData.inactive_plugins_count,
+        update_plugins_count: websiteData.update_plugins_count,
+        theme_name: websiteData.theme_name,
+        theme_version: websiteData.theme_version,
+        server_load: websiteData.server_load,
+        uptime: websiteData.uptime,
+        ult: websiteData.ult,
+        raw_data: {
+          active_plugins: websiteData.active_plugins,
+          inactive_plugins: websiteData.inactive_plugins,
+          update_plugins: websiteData.update_plugins,
+          users: websiteData.users,
+        },
+      });
+    }
+
+    // Batch insert status data
+    if (statusesToInsert.length > 0) {
+      const { error: statusError } = await supabaseAdmin
+        .from('website_status')
+        .insert(statusesToInsert);
+
+      if (statusError) {
+        console.error('Failed to batch insert status data:', statusError);
+        throw new Error(`Failed to batch insert status data: ${statusError.message}`);
+      }
+
+      console.log(`✓ Inserted ${statusesToInsert.length} status records`);
+    }
+
+    const results = {
+      newWebsites: websitesToInsert.length,
+      updatedWebsites: websitesToUpdate.length,
+      statusRecords: statusesToInsert.length,
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        syncedWebsites: results.filter(r => r.success).length,
-        failedWebsites: results.filter(r => !r.success).length,
+        syncedWebsites: results.newWebsites + results.updatedWebsites,
+        failedWebsites: 0,
         total: allPortalWebsites.length,
-        results,
+        newWebsites: results.newWebsites,
+        updatedWebsites: results.updatedWebsites,
+        statusRecords: results.statusRecords,
       }),
       {
         status: 200,

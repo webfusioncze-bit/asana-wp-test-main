@@ -137,7 +137,8 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
 
   const getScreenshotUrl = () => {
     if (website.screenshot_url) return website.screenshot_url;
-    return `https://api.screenshotone.com/take?url=${encodeURIComponent(website.url)}&viewport_width=1920&viewport_height=1080&device_scale_factor=1&format=jpg&block_ads=true&block_cookie_banners=true&block_trackers=true&cache=true&cache_ttl=2592000`;
+    // Use Screenshotmachine.com free API (no key required for basic usage)
+    return `https://api.screenshotmachine.com?key=demo&url=${encodeURIComponent(website.url)}&dimension=1920x1080&format=jpg&cacheLimit=14`;
   };
 
   const adminLoginUrl = latestStatus?.ult
