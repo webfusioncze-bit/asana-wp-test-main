@@ -410,23 +410,18 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
 
                     {activePlugins.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <CheckCircleIcon className="w-4 h-4 text-green-600" />
                           Aktivní pluginy ({activePlugins.length})
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {activePlugins.map((plugin: any, index: number) => (
-                            <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{plugin.name}</p>
-                                  <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
-                                </div>
-                                <span className="ml-2 text-xs text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded">
-                                  {plugin.version}
-                                </span>
-                              </div>
-                            </div>
+                            <span
+                              key={index}
+                              className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium rounded-full border border-green-200 hover:bg-green-100 transition-colors"
+                            >
+                              {plugin.name}
+                            </span>
                           ))}
                         </div>
                       </div>
@@ -434,23 +429,18 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
 
                     {inactivePlugins.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <XCircleIcon className="w-4 h-4 text-gray-400" />
                           Neaktivní pluginy ({inactivePlugins.length})
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div className="flex flex-wrap gap-2">
                           {inactivePlugins.map((plugin: any, index: number) => (
-                            <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-3 opacity-60">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{plugin.name}</p>
-                                  <p className="text-xs text-gray-500 truncate">{plugin.author}</p>
-                                </div>
-                                <span className="ml-2 text-xs text-gray-600 font-mono bg-white px-2 py-1 rounded">
-                                  {plugin.version}
-                                </span>
-                              </div>
-                            </div>
+                            <span
+                              key={index}
+                              className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full border border-gray-200"
+                            >
+                              {plugin.name}
+                            </span>
                           ))}
                         </div>
                       </div>

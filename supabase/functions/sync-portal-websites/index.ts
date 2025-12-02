@@ -36,10 +36,21 @@ Deno.serve(async (req: Request) => {
 
     const xmlText = await response.text();
 
+    const decodeHtmlEntities = (text: string): string => {
+      return text
+        .replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+    };
+
     const parseXmlValue = (xml: string, tag: string): string | null => {
       const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i');
       const match = xml.match(regex);
-      return match ? match[1].trim() : null;
+      return match ? decodeHtmlEntities(match[1].trim()) : null;
     };
 
     const parseXmlInt = (xml: string, tag: string): number => {
@@ -58,7 +69,7 @@ Deno.serve(async (req: Request) => {
       let pluginMatch;
 
       while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
-        const pluginName = pluginMatch[1].trim();
+        const pluginName = decodeHtmlEntities(pluginMatch[1].trim());
         if (pluginName) {
           plugins.push(pluginName);
         }
@@ -100,7 +111,7 @@ Deno.serve(async (req: Request) => {
       let userMatch;
 
       while ((userMatch = userRegex.exec(usersXml)) !== null) {
-        const username = userMatch[1].trim();
+        const username = decodeHtmlEntities(userMatch[1].trim());
         if (username) {
           users.push(username);
         }
