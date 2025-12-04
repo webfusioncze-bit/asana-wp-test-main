@@ -61,14 +61,27 @@ export async function sendTaskAssignmentEmail({
 
     let folderName = '';
     let categoryName = '';
+    let folderHierarchy: string[] = [];
 
     if (task?.folder_id) {
-      const { data: folder } = await supabase
-        .from('folders')
-        .select('name')
-        .eq('id', task.folder_id)
-        .maybeSingle();
-      folderName = folder?.name || '';
+      const hierarchy: Array<{ id: string; name: string; parent_id: string | null }> = [];
+      let currentFolderId: string | null = task.folder_id;
+
+      while (currentFolderId) {
+        const { data: folder } = await supabase
+          .from('folders')
+          .select('id, name, parent_id')
+          .eq('id', currentFolderId)
+          .maybeSingle();
+
+        if (!folder) break;
+
+        hierarchy.unshift(folder);
+        currentFolderId = folder.parent_id;
+      }
+
+      folderHierarchy = hierarchy.map(f => f.name);
+      folderName = hierarchy[hierarchy.length - 1]?.name || '';
     }
 
     if (task?.category_id) {
@@ -104,6 +117,10 @@ export async function sendTaskAssignmentEmail({
       ? new Date(dueDate).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' })
       : null;
 
+    const breadcrumb = folderHierarchy.length > 0
+      ? folderHierarchy.join(' › ')
+      : '';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -117,13 +134,20 @@ export async function sendTaskAssignmentEmail({
               line-height: 1.5;
               color: #151b26;
               background-color: #f6f8fa;
-              padding: 20px 0;
+              padding: 40px 20px;
             }
-            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-            .header { padding: 32px 40px 24px; }
-            .logo { font-size: 24px; font-weight: 700; color: #0891b2; letter-spacing: -0.5px; }
+            .email-wrapper {
+              max-width: 600px;
+              margin: 0 auto;
+              border: 1px solid #e5e7eb;
+              border-radius: 12px;
+              background-color: #ffffff;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            }
+            .header { padding: 32px 40px 24px; border-bottom: 1px solid #f3f4f6; }
+            .logo img { max-width: 120px; height: auto; }
             .assignor-section {
-              padding: 0 40px 24px;
+              padding: 24px 40px;
               display: flex;
               align-items: center;
               gap: 12px;
@@ -154,10 +178,10 @@ export async function sendTaskAssignmentEmail({
               font-size: 14px;
               color: #6b7280;
             }
-            .cta-section { padding: 0 40px 32px; }
+            .cta-section { padding: 0 40px 24px; }
             .btn {
               display: inline-block;
-              background-color: #4f46e5;
+              background-color: #0891b2;
               color: #ffffff;
               text-decoration: none;
               padding: 12px 24px;
@@ -170,7 +194,14 @@ export async function sendTaskAssignmentEmail({
               border: 1px solid #e5e7eb;
               border-radius: 8px;
               padding: 24px;
-              background-color: #ffffff;
+              background-color: #fafafa;
+            }
+            .breadcrumb {
+              font-size: 12px;
+              color: #6b7280;
+              margin-bottom: 12px;
+              padding-bottom: 12px;
+              border-bottom: 1px solid #e5e7eb;
             }
             .task-title {
               font-size: 18px;
@@ -238,7 +269,7 @@ export async function sendTaskAssignmentEmail({
               width: 12px;
               height: 12px;
               border-radius: 2px;
-              background-color: #3b82f6;
+              background-color: #0891b2;
             }
             .footer {
               padding: 24px 40px 32px;
@@ -248,15 +279,17 @@ export async function sendTaskAssignmentEmail({
               line-height: 1.6;
             }
             .footer-link {
-              color: #6b7280;
-              text-decoration: underline;
+              color: #0891b2;
+              text-decoration: none;
             }
           </style>
         </head>
         <body>
-          <div class="container">
+          <div class="email-wrapper">
             <div class="header">
-              <div class="logo">Task Manager</div>
+              <div class="logo">
+                <img src="https://webfusion.sk/wp-content/uploads/2021/02/Webfusion-logo.png" alt="Webfusion" />
+              </div>
             </div>
 
             <div class="assignor-section">
@@ -268,10 +301,12 @@ export async function sendTaskAssignmentEmail({
             </div>
 
             <div class="cta-section">
-              <a href="#" class="btn">Zobrazit úkol</a>
+              <a href="https://task.webfusion.cz" class="btn">Zobrazit úkol</a>
             </div>
 
             <div class="task-card">
+              ${breadcrumb ? `<div class="breadcrumb">${breadcrumb}</div>` : ''}
+
               <div class="task-title">
                 <div class="checkbox"></div>
                 <div>${taskTitle}</div>
@@ -315,7 +350,7 @@ export async function sendTaskAssignmentEmail({
 
             <div class="footer">
               Toto je automaticky generovaný email ze systému Task Manager.<br>
-              Chcete změnit způsob doručování notifikací? <a href="#" class="footer-link">Upravte nastavení</a>
+              Chcete změnit způsob doručování notifikací? <a href="https://task.webfusion.cz" class="footer-link">Upravte nastavení</a>
             </div>
           </div>
         </body>
