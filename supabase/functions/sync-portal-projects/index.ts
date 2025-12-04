@@ -9,6 +9,7 @@ const corsHeaders = {
 
 interface PortalProject {
   id: number;
+  parent: number;
   title?: {
     rendered?: string;
   };
@@ -97,10 +98,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log(`Fetched ${allPortalProjects.length} projects from portal`);
+    console.log(`Fetched ${allPortalProjects.length} items from portal`);
+
+    const mainProjects = allPortalProjects.filter(project => project.parent === 0);
+    console.log(`Filtered to ${mainProjects.length} main projects (parent=0), excluding ${allPortalProjects.length - mainProjects.length} phases`);
 
     const portalProjectsMap = new Map<string, PortalProject>();
-    allPortalProjects.forEach(project => {
+    mainProjects.forEach(project => {
       if (project.id) {
         portalProjectsMap.set(String(project.id), project);
       }
