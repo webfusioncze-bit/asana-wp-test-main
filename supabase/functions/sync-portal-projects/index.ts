@@ -113,25 +113,28 @@ Deno.serve(async (req: Request) => {
     const portalExternalIds = Array.from(portalProjectsMap.keys());
     console.log(`Found ${portalExternalIds.length} valid project IDs`);
 
-    const { data: existingProjects } = await supabaseAdmin
+    const { data: allExistingProjects } = await supabaseAdmin
       .from('projects')
-      .select('id, name, external_project_id')
-      .not('external_project_id', 'is', null);
+      .select('id, name, external_project_id');
 
-    const existingExternalIds = new Set(existingProjects?.map(p => p.external_project_id) || []);
+    const projectsWithExternalId = allExistingProjects?.filter(p => p.external_project_id) || [];
+    const projectsWithoutExternalId = allExistingProjects?.filter(p => !p.external_project_id) || [];
 
-    const idsToAdd = portalExternalIds.filter(id => !existingExternalIds.has(id));
+    const existingExternalIds = new Set(projectsWithExternalId.map(p => p.external_project_id));
+    const existingNamesByManual = new Map(projectsWithoutExternalId.map(p => [p.name.toLowerCase().trim(), p]));
+
     const idsInPortal = new Set(portalExternalIds);
-    const projectsToRemove = existingProjects?.filter(p => !idsInPortal.has(p.external_project_id)) || [];
+    const projectsToRemove = projectsWithExternalId.filter(p => !idsInPortal.has(p.external_project_id));
 
-    console.log(`Projects to add: ${idsToAdd.length}`);
+    console.log(`Projects to process: ${portalExternalIds.length}`);
     console.log(`Projects to remove: ${projectsToRemove.length}`);
 
     let added = 0;
+    let updated = 0;
     let removed = 0;
     let skipped = 0;
 
-    for (const externalId of idsToAdd) {
+    for (const externalId of portalExternalIds) {
       try {
         const portalProject = portalProjectsMap.get(externalId);
         if (!portalProject) {
@@ -145,27 +148,55 @@ Deno.serve(async (req: Request) => {
 
         const importSourceUrl = `${portalBaseUrl}/wp-json/wp/v2/projekt/${externalId}`;
 
-        const { error } = await supabaseAdmin
-          .from('projects')
-          .insert({
-            name: projectName,
-            external_project_id: externalId,
-            import_source_url: importSourceUrl,
-            sync_enabled: true,
-            project_type: 'vývoj',
-            project_category: 'klientský',
-            status: 'aktivní',
-          });
-
-        if (error) {
-          console.error(`Failed to add project ${projectName}:`, error);
+        if (existingExternalIds.has(externalId)) {
+          console.log(`⊘ Skipped ${projectName} (${externalId}) - already synced`);
           skipped++;
+          continue;
+        }
+
+        const existingManualProject = existingNamesByManual.get(projectName.toLowerCase().trim());
+
+        if (existingManualProject) {
+          const { error } = await supabaseAdmin
+            .from('projects')
+            .update({
+              external_project_id: externalId,
+              import_source_url: importSourceUrl,
+              sync_enabled: true,
+            })
+            .eq('id', existingManualProject.id);
+
+          if (error) {
+            console.error(`Failed to update project ${projectName}:`, error);
+            skipped++;
+          } else {
+            console.log(`↻ Updated ${projectName} (${externalId}) - linked to portal`);
+            updated++;
+            existingNamesByManual.delete(projectName.toLowerCase().trim());
+          }
         } else {
-          console.log(`✓ Added ${projectName} (${externalId})`);
-          added++;
+          const { error } = await supabaseAdmin
+            .from('projects')
+            .insert({
+              name: projectName,
+              external_project_id: externalId,
+              import_source_url: importSourceUrl,
+              sync_enabled: true,
+              project_type: 'vývoj',
+              project_category: 'klientský',
+              status: 'aktivní',
+            });
+
+          if (error) {
+            console.error(`Failed to add project ${projectName}:`, error);
+            skipped++;
+          } else {
+            console.log(`✓ Added ${projectName} (${externalId})`);
+            added++;
+          }
         }
       } catch (error) {
-        console.error(`Error adding project ${externalId}:`, error);
+        console.error(`Error processing project ${externalId}:`, error);
         skipped++;
       }
     }
@@ -198,13 +229,14 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', config.id);
 
-    console.log(`Sync completed: ${added} added, ${removed} removed, ${skipped} skipped`);
+    console.log(`Sync completed: ${added} added, ${updated} updated, ${removed} removed, ${skipped} skipped`);
 
     return new Response(
       JSON.stringify({
         success: true,
         total: portalExternalIds.length,
         added,
+        updated,
         removed,
         skipped,
         message: `Sync completed successfully`,

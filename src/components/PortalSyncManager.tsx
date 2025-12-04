@@ -163,7 +163,7 @@ export function PortalSyncManager() {
       await loadConfig();
 
       if (result.success) {
-        alert(`Synchronizace projektů dokončena:\n\nPřidáno: ${result.added}\nOdstraněno: ${result.removed}\nPřeskočeno: ${result.skipped}\nCelkem v portálu: ${result.total}`);
+        alert(`Synchronizace projektů dokončena:\n\nPřidáno: ${result.added}\nAktualizováno: ${result.updated || 0}\nOdstraněno: ${result.removed}\nPřeskočeno: ${result.skipped}\nCelkem v portálu: ${result.total}`);
       } else {
         alert('Chyba při synchronizaci: ' + (result.error || 'Unknown error'));
       }
