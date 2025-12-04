@@ -394,8 +394,8 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           />
                           <InfoRow
                             label="Indexování"
-                            value={latestStatus.indexing_allowed === 'true' ? 'Povoleno' : 'Zakázáno'}
-                            badge={latestStatus.indexing_allowed === 'true' ? 'success' : 'info'}
+                            value={latestStatus.indexing_allowed || 'Neznámý'}
+                            badge={latestStatus.indexing_allowed === 'Povoleno' ? 'success' : 'info'}
                             small
                           />
                         </div>
