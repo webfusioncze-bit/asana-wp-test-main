@@ -51,6 +51,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   const [isAddingTime, setIsAddingTime] = useState(false);
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [showAllActivityLogs, setShowAllActivityLogs] = useState(false);
   const [newSubtask, setNewSubtask] = useState({
     title: '',
     description: '',
@@ -1480,12 +1481,22 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
 
         {activityLog.length > 0 && (
           <div className="border-t border-gray-100 pt-3 mt-3">
-            <h4 className="flex items-center gap-2 text-xs font-medium text-gray-600 mb-2">
-              <ActivityIcon className="w-3.5 h-3.5" />
-              Historie změn
-            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                <ActivityIcon className="w-3.5 h-3.5" />
+                Historie změn
+              </h4>
+              {activityLog.length > 1 && (
+                <button
+                  onClick={() => setShowAllActivityLogs(!showAllActivityLogs)}
+                  className="text-[10px] text-cyan-600 hover:text-cyan-700 font-medium"
+                >
+                  {showAllActivityLogs ? 'Skrýt' : `Zobrazit vše (${activityLog.length})`}
+                </button>
+              )}
+            </div>
             <div className="space-y-1">
-              {activityLog.map(log => {
+              {(showAllActivityLogs ? activityLog : activityLog.slice(0, 1)).map(log => {
                 const user = users.find(u => u.id === log.created_by);
                 const userName = user?.first_name && user?.last_name
                   ? `${user.first_name} ${user.last_name}`
@@ -1514,19 +1525,21 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 }
 
                 return (
-                  <div key={log.id} className="flex items-start gap-2 text-xs text-gray-600 py-1">
-                    {icon}
-                    <div className="flex-1">
-                      <span className="text-gray-700">{activityText}</span>
-                      <span className="text-gray-500 ml-2">
-                        • {userName} • {new Date(log.created_at).toLocaleString('cs-CZ', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
+                  <div key={log.id} className="flex items-start gap-1.5 py-0.5">
+                    <div className="mt-0.5">{icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] leading-relaxed">
+                        <span className="text-gray-700">{activityText}</span>
+                        <span className="text-gray-500">
+                          {' • '}{userName}{' • '}{new Date(log.created_at).toLocaleString('cs-CZ', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );

@@ -111,7 +111,7 @@ export async function sendTaskAssignmentEmail({
 
     const subject = isReassignment
       ? `Změna přiřazení úkolu: ${taskTitle}`
-      : `${assignedByName} přiřadil/a vám úkol`;
+      : `Byl jsi přiřazen k úkolu ${taskTitle}`;
 
     const dueDateFormatted = dueDate
       ? new Date(dueDate).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' })
@@ -181,7 +181,7 @@ export async function sendTaskAssignmentEmail({
             .cta-section { padding: 0 40px 24px; }
             .btn {
               display: inline-block;
-              background-color: #0891b2;
+              background-color: #22a0a0;
               color: #ffffff;
               text-decoration: none;
               padding: 12px 24px;
@@ -252,7 +252,7 @@ export async function sendTaskAssignmentEmail({
               width: 24px;
               height: 24px;
               border-radius: 50%;
-              background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+              background: linear-gradient(135deg, #2ab8b8 0%, #22a0a0 100%);
               display: inline-flex;
               align-items: center;
               justify-content: center;
@@ -269,7 +269,7 @@ export async function sendTaskAssignmentEmail({
               width: 12px;
               height: 12px;
               border-radius: 2px;
-              background-color: #0891b2;
+              background-color: #22a0a0;
             }
             .footer {
               padding: 24px 40px 32px;
@@ -279,7 +279,7 @@ export async function sendTaskAssignmentEmail({
               line-height: 1.6;
             }
             .footer-link {
-              color: #0891b2;
+              color: #22a0a0;
               text-decoration: none;
             }
           </style>
