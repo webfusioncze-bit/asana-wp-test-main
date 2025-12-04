@@ -7,8 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const BATCH_SIZE = 10;
-const HEAD_REQUEST_TIMEOUT = 3000;
+const BATCH_SIZE = 20;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -123,34 +122,6 @@ Deno.serve(async (req: Request) => {
       return users;
     };
 
-    const checkWebsiteAvailability = async (url: string): Promise<{isAvailable: boolean, responseTimeMs: number | null}> => {
-      const startTime = Date.now();
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), HEAD_REQUEST_TIMEOUT);
-
-        const healthCheck = await fetch(url, {
-          method: 'HEAD',
-          headers: {
-            'User-Agent': 'Supabase-Edge-Function/1.0',
-          },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-        const responseTimeMs = Date.now() - startTime;
-        return {
-          isAvailable: healthCheck.ok,
-          responseTimeMs,
-        };
-      } catch (error) {
-        return {
-          isAvailable: false,
-          responseTimeMs: null,
-        };
-      }
-    };
-
     const processWebsite = async (webXml: string) => {
       const webUrl = parseXmlValue(webXml, 'post');
 
@@ -190,8 +161,6 @@ Deno.serve(async (req: Request) => {
         } else {
           websiteId = website.data.id;
         }
-
-        const { isAvailable, responseTimeMs } = await checkWebsiteAvailability(webUrl);
 
         const activePlugins = extractSimplePluginList(webXml, 'active_plugins');
         const inactivePlugins = extractSimplePluginList(webXml, 'inactive_plugins');
@@ -250,9 +219,6 @@ Deno.serve(async (req: Request) => {
             last_sync_at: new Date().toISOString(),
             sync_error: null,
             login_token: ult,
-            is_available: isAvailable,
-            last_check_at: new Date().toISOString(),
-            response_time_ms: responseTimeMs,
           })
           .eq('id', websiteId);
 
