@@ -57,26 +57,34 @@ Deno.serve(async (req: Request) => {
     let hasMore = true;
 
     while (hasMore) {
-      const url = `${portalApiUrl}?per_page=100&page=${page}`;
+      const url = page === 1 ? portalApiUrl : `${portalApiUrl}?page=${page}`;
       console.log(`Fetching page ${page}: ${url}`);
 
       const response = await fetch(url, {
         headers: {
           'User-Agent': 'Supabase-Edge-Function/1.0',
+          'Accept': 'application/json',
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch portal API: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`API Error (${response.status}):`, errorText);
+        throw new Error(`Failed to fetch portal API: ${response.status} ${response.statusText}`);
       }
 
       const pageData: PortalWebsite[] = await response.json();
+      console.log(`Received ${pageData.length} websites from page ${page}`);
 
       if (pageData.length === 0) {
         hasMore = false;
       } else {
         allPortalWebsites = allPortalWebsites.concat(pageData);
         page++;
+
+        if (pageData.length < 10) {
+          hasMore = false;
+        }
       }
     }
 
