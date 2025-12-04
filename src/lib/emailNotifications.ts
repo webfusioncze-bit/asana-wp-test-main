@@ -39,7 +39,7 @@ export async function sendTaskAssignmentEmail({
 
     const { data: assignedUser } = await supabase
       .from('user_profiles')
-      .select('email, display_name, first_name, last_name')
+      .select('email, display_name, first_name, last_name, avatar_url')
       .eq('id', assignedUserId)
       .maybeSingle();
 
@@ -49,60 +49,273 @@ export async function sendTaskAssignmentEmail({
 
     const { data: assignedByUser } = await supabase
       .from('user_profiles')
-      .select('display_name, first_name, last_name, email')
+      .select('display_name, first_name, last_name, email, avatar_url')
       .eq('id', assignedByUserId)
       .maybeSingle();
+
+    const { data: task } = await supabase
+      .from('tasks')
+      .select('*, folder_id, category_id')
+      .eq('id', taskId)
+      .maybeSingle();
+
+    let folderName = '';
+    let categoryName = '';
+
+    if (task?.folder_id) {
+      const { data: folder } = await supabase
+        .from('folders')
+        .select('name')
+        .eq('id', task.folder_id)
+        .maybeSingle();
+      folderName = folder?.name || '';
+    }
+
+    if (task?.category_id) {
+      const { data: category } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('id', task.category_id)
+        .maybeSingle();
+      categoryName = category?.name || '';
+    }
 
     const assignedByName = assignedByUser?.first_name && assignedByUser?.last_name
       ? `${assignedByUser.first_name} ${assignedByUser.last_name}`
       : assignedByUser?.display_name || assignedByUser?.email || 'Systém';
 
+    const assignedByInitials = assignedByUser?.first_name && assignedByUser?.last_name
+      ? `${assignedByUser.first_name[0]}${assignedByUser.last_name[0]}`.toUpperCase()
+      : assignedByUser?.display_name?.[0]?.toUpperCase() || 'S';
+
     const userName = assignedUser.first_name && assignedUser.last_name
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
       : assignedUser.display_name || assignedUser.email;
 
+    const userInitials = assignedUser.first_name && assignedUser.last_name
+      ? `${assignedUser.first_name[0]}${assignedUser.last_name[0]}`.toUpperCase()
+      : assignedUser.display_name?.[0]?.toUpperCase() || assignedUser.email[0].toUpperCase();
+
     const subject = isReassignment
       ? `Změna přiřazení úkolu: ${taskTitle}`
-      : `Nový úkol přiřazen: ${taskTitle}`;
+      : `${assignedByName} přiřadil/a vám úkol`;
 
-    const dueDateText = dueDate
-      ? `Termín dokončení: ${new Date(dueDate).toLocaleDateString('cs-CZ')}`
-      : '';
+    const dueDateFormatted = dueDate
+      ? new Date(dueDate).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' })
+      : null;
 
     const html = `
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #0891b2; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-            .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-            .task-title { font-size: 20px; font-weight: bold; color: #0891b2; margin: 20px 0; }
-            .info-row { margin: 10px 0; }
-            .label { font-weight: 600; color: #6b7280; }
-            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #d1d5db; font-size: 12px; color: #6b7280; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+              line-height: 1.5;
+              color: #151b26;
+              background-color: #f6f8fa;
+              padding: 20px 0;
+            }
+            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+            .header { padding: 32px 40px 24px; }
+            .logo { font-size: 24px; font-weight: 700; color: #0891b2; letter-spacing: -0.5px; }
+            .assignor-section {
+              padding: 0 40px 24px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .avatar {
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-weight: 600;
+              font-size: 14px;
+              flex-shrink: 0;
+            }
+            .assignor-text {
+              flex: 1;
+            }
+            .assignor-name {
+              font-size: 16px;
+              font-weight: 600;
+              color: #151b26;
+              line-height: 1.4;
+            }
+            .assignor-subtitle {
+              font-size: 14px;
+              color: #6b7280;
+            }
+            .cta-section { padding: 0 40px 32px; }
+            .btn {
+              display: inline-block;
+              background-color: #4f46e5;
+              color: #ffffff;
+              text-decoration: none;
+              padding: 12px 24px;
+              border-radius: 6px;
+              font-weight: 600;
+              font-size: 14px;
+            }
+            .task-card {
+              margin: 0 40px 32px;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              padding: 24px;
+              background-color: #ffffff;
+            }
+            .task-title {
+              font-size: 18px;
+              font-weight: 600;
+              color: #151b26;
+              margin-bottom: 20px;
+              display: flex;
+              align-items: flex-start;
+              gap: 12px;
+            }
+            .checkbox {
+              width: 20px;
+              height: 20px;
+              border: 2px solid #d1d5db;
+              border-radius: 4px;
+              flex-shrink: 0;
+              margin-top: 2px;
+            }
+            .task-meta {
+              display: table;
+              width: 100%;
+              border-spacing: 0;
+            }
+            .meta-row {
+              display: table-row;
+            }
+            .meta-label {
+              display: table-cell;
+              padding: 8px 16px 8px 0;
+              font-size: 13px;
+              color: #6b7280;
+              width: 110px;
+              vertical-align: top;
+            }
+            .meta-value {
+              display: table-cell;
+              padding: 8px 0;
+              font-size: 13px;
+              color: #151b26;
+              vertical-align: top;
+            }
+            .meta-value-user {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .small-avatar {
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-weight: 600;
+              font-size: 10px;
+            }
+            .project-badge {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+            }
+            .project-dot {
+              width: 12px;
+              height: 12px;
+              border-radius: 2px;
+              background-color: #3b82f6;
+            }
+            .footer {
+              padding: 24px 40px 32px;
+              border-top: 1px solid #e5e7eb;
+              font-size: 12px;
+              color: #6b7280;
+              line-height: 1.6;
+            }
+            .footer-link {
+              color: #6b7280;
+              text-decoration: underline;
+            }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1 style="margin: 0;">${isReassignment ? 'Změna přiřazení úkolu' : 'Nový úkol'}</h1>
+              <div class="logo">Task Manager</div>
             </div>
-            <div class="content">
-              <p>Dobrý den ${userName},</p>
-              <p>${isReassignment ? 'byl Vám znovu přiřazen úkol' : 'byl Vám přiřazen nový úkol'}:</p>
 
-              <div class="task-title">${taskTitle}</div>
-
-              ${dueDateText ? `<div class="info-row"><span class="label">${dueDateText}</span></div>` : ''}
-              <div class="info-row"><span class="label">Přiřadil:</span> ${assignedByName}</div>
-
-              <p style="margin-top: 30px;">
-                Pro zobrazení detailu úkolu se přihlaste do systému Task Manager.
-              </p>
+            <div class="assignor-section">
+              <div class="avatar">${assignedByInitials}</div>
+              <div class="assignor-text">
+                <div class="assignor-name">${assignedByName} ${isReassignment ? 'změnil/a přiřazení úkolu' : 'přiřadil/a vám úkol'}</div>
+                ${folderName ? `<div class="assignor-subtitle">${folderName}</div>` : ''}
+              </div>
             </div>
+
+            <div class="cta-section">
+              <a href="#" class="btn">Zobrazit úkol</a>
+            </div>
+
+            <div class="task-card">
+              <div class="task-title">
+                <div class="checkbox"></div>
+                <div>${taskTitle}</div>
+              </div>
+
+              <div class="task-meta">
+                <div class="meta-row">
+                  <div class="meta-label">Assigned to</div>
+                  <div class="meta-value">
+                    <div class="meta-value-user">
+                      <div class="small-avatar">${userInitials}</div>
+                      <span>${userName}</span>
+                    </div>
+                  </div>
+                </div>
+                ${dueDateFormatted ? `
+                <div class="meta-row">
+                  <div class="meta-label">Due date</div>
+                  <div class="meta-value">${dueDateFormatted}</div>
+                </div>
+                ` : ''}
+                ${folderName ? `
+                <div class="meta-row">
+                  <div class="meta-label">Project</div>
+                  <div class="meta-value">
+                    <div class="project-badge">
+                      <div class="project-dot"></div>
+                      <span>${folderName}</span>
+                    </div>
+                  </div>
+                </div>
+                ` : ''}
+                ${categoryName ? `
+                <div class="meta-row">
+                  <div class="meta-label">Category</div>
+                  <div class="meta-value">${categoryName}</div>
+                </div>
+                ` : ''}
+              </div>
+            </div>
+
             <div class="footer">
-              Toto je automaticky generovaný email ze systému Task Manager. Neodpovídejte na něj.
+              Toto je automaticky generovaný email ze systému Task Manager.<br>
+              Chcete změnit způsob doručování notifikací? <a href="#" class="footer-link">Upravte nastavení</a>
             </div>
           </div>
         </body>
@@ -110,19 +323,21 @@ export async function sendTaskAssignmentEmail({
     `;
 
     const text = `
-Dobrý den ${userName},
+${assignedByName} ${isReassignment ? 'změnil/a přiřazení úkolu' : 'přiřadil/a vám úkol'}
+${folderName}
 
-${isReassignment ? 'byl Vám znovu přiřazen úkol' : 'byl Vám přiřazen nový úkol'}:
+ÚKOL: ${taskTitle}
 
-${taskTitle}
+Assigned to: ${userName}
+${dueDateFormatted ? `Due date: ${dueDateFormatted}` : ''}
+${folderName ? `Project: ${folderName}` : ''}
+${categoryName ? `Category: ${categoryName}` : ''}
 
-${dueDateText}
-Přiřadil: ${assignedByName}
-
-Pro zobrazení detailu úkolu se přihlaste do systému Task Manager.
+Zobrazit úkol v Task Manager
 
 ---
-Toto je automaticky generovaný email ze systému Task Manager. Neodpovídejte na něj.
+Toto je automaticky generovaný email ze systému Task Manager.
+Chcete změnit způsob doručování notifikací? Upravte nastavení
     `.trim();
 
     const { data: { session } } = await supabase.auth.getSession();
