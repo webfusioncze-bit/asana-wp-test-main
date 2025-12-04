@@ -160,7 +160,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const getScreenshotUrl = () => {
     if (website.screenshot_url) return website.screenshot_url;
     const auth = '75912-task';
-    return `https://image.thum.io/get/auth/${auth}/${encodeURIComponent(website.url)}`;
+    return `https://image.thum.io/get/auth/${auth}/${website.url}`;
   };
 
   const adminLoginUrl = latestStatus?.ult
@@ -466,12 +466,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           Aktivní pluginy ({activePlugins.length})
                         </h3>
                         <div className="flex flex-wrap gap-2">
-                          {activePlugins.map((plugin: any, index: number) => (
+                          {activePlugins.map((plugin: string, index: number) => (
                             <span
                               key={index}
                               className="inline-flex items-center px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium rounded-full border border-green-200 hover:bg-green-100 transition-colors"
                             >
-                              {plugin.name}
+                              {plugin}
                             </span>
                           ))}
                         </div>
@@ -485,12 +485,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           Neaktivní pluginy ({inactivePlugins.length})
                         </h3>
                         <div className="flex flex-wrap gap-2">
-                          {inactivePlugins.map((plugin: any, index: number) => (
+                          {inactivePlugins.map((plugin: string, index: number) => (
                             <span
                               key={index}
                               className="inline-flex items-center px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full border border-gray-200"
                             >
-                              {plugin.name}
+                              {plugin}
                             </span>
                           ))}
                         </div>
@@ -515,13 +515,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           Uživatelé ({users.length})
                         </h3>
                         <div className="flex flex-wrap gap-2">
-                          {users.map((user: any, index: number) => (
+                          {users.map((user: string, index: number) => (
                             <span
                               key={index}
                               className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200 hover:bg-blue-100 transition-colors"
-                              title={user.email || user.username}
                             >
-                              {user.username}
+                              {user}
                             </span>
                           ))}
                         </div>
