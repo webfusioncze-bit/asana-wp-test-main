@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { XIcon, PlusIcon, Trash2Icon, FileIcon, RepeatIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { sendTaskAssignmentEmail } from '../lib/emailNotifications';
 import type { Category, Folder, User, Priority, RecurrenceRule } from '../types';
 
 interface TaskCreationPanelProps {
@@ -167,6 +168,17 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
         console.error('Error creating task:', taskError);
         alert('Chyba při vytváření úkolu: ' + taskError.message);
         return;
+      }
+
+      if (task && assignedTo && assignedTo !== user.id) {
+        await sendTaskAssignmentEmail({
+          taskId: task.id,
+          taskTitle: title,
+          assignedUserId: assignedTo,
+          assignedByUserId: user.id,
+          dueDate: dueDate || undefined,
+          isReassignment: false
+        });
       }
 
       if (attachments.length > 0 && task) {

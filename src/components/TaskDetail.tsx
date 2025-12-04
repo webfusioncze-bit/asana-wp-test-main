@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon } from 'lucide-react';
+import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon, MailIcon, ActivityIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { sendTaskAssignmentEmail } from '../lib/emailNotifications';
 import type { Task, TaskComment, Category, Folder, User, TimeEntry, FolderTag } from '../types';
 
 interface TaskAttachment {
@@ -12,6 +13,18 @@ interface TaskAttachment {
   file_type: string | null;
   uploaded_by: string;
   created_at: string;
+}
+
+interface TaskActivityLog {
+  id: string;
+  task_id: string;
+  activity_type: string;
+  old_value: string | null;
+  new_value: string | null;
+  email_sent_to: string | null;
+  created_by: string | null;
+  created_at: string;
+  metadata: any;
 }
 
 interface TaskDetailProps {
@@ -30,6 +43,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [taskHierarchy, setTaskHierarchy] = useState<Task[]>([]);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [activityLog, setActivityLog] = useState<TaskActivityLog[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [availableTags, setAvailableTags] = useState<FolderTag[]>([]);
@@ -60,6 +74,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     loadTaskHierarchy();
     loadAttachments();
     loadTaskTags();
+    loadActivityLog();
   }, [taskId]);
 
   useEffect(() => {
@@ -118,6 +133,18 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
         },
         () => {
           loadAttachments();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'task_activity_log',
+          filter: `task_id=eq.${taskId}`
+        },
+        () => {
+          loadActivityLog();
         }
       )
       .subscribe();
@@ -349,6 +376,22 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
       return;
     }
 
+    // Pokud se změnil přiřazený uživatel, odešli email notifikaci
+    if (field === 'assigned_to' && value && value !== task.assigned_to) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const isReassignment = task.assigned_to !== null;
+        await sendTaskAssignmentEmail({
+          taskId: task.id,
+          taskTitle: task.title,
+          assignedUserId: value,
+          assignedByUserId: user.id,
+          dueDate: task.due_date || undefined,
+          isReassignment
+        });
+      }
+    }
+
     setEditingField(null);
     loadTask();
     onTaskUpdated();
@@ -513,6 +556,21 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     }
 
     setAttachments(data || []);
+  }
+
+  async function loadActivityLog() {
+    const { data, error } = await supabase
+      .from('task_activity_log')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading activity log:', error);
+      return;
+    }
+
+    setActivityLog(data || []);
   }
 
   async function loadAvailableTags() {
@@ -1419,6 +1477,63 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             </button>
           </div>
         </div>
+
+        {activityLog.length > 0 && (
+          <div className="border-t border-gray-100 pt-3 mt-3">
+            <h4 className="flex items-center gap-2 text-xs font-medium text-gray-600 mb-2">
+              <ActivityIcon className="w-3.5 h-3.5" />
+              Historie změn
+            </h4>
+            <div className="space-y-1">
+              {activityLog.map(log => {
+                const user = users.find(u => u.id === log.created_by);
+                const userName = user?.first_name && user?.last_name
+                  ? `${user.first_name} ${user.last_name}`
+                  : user?.display_name || user?.email || 'Systém';
+
+                let activityText = '';
+                let icon = <ActivityIcon className="w-3 h-3 text-gray-400" />;
+
+                if (log.activity_type === 'email_sent') {
+                  icon = <MailIcon className="w-3 h-3 text-blue-500" />;
+                  activityText = `Email odeslán na ${log.email_sent_to}`;
+                } else if (log.activity_type === 'status_changed') {
+                  const oldStatus = log.old_value === 'todo' ? 'K dokončení' : log.old_value === 'in_progress' ? 'Probíhá' : 'Dokončeno';
+                  const newStatus = log.new_value === 'todo' ? 'K dokončení' : log.new_value === 'in_progress' ? 'Probíhá' : 'Dokončeno';
+                  activityText = `Stav změněn: ${oldStatus} → ${newStatus}`;
+                } else if (log.activity_type === 'due_date_changed') {
+                  const oldDate = log.old_value && log.old_value !== 'null' ? new Date(log.old_value).toLocaleDateString('cs-CZ') : 'Bez termínu';
+                  const newDate = log.new_value && log.new_value !== 'null' ? new Date(log.new_value).toLocaleDateString('cs-CZ') : 'Bez termínu';
+                  activityText = `Termín změněn: ${oldDate} → ${newDate}`;
+                } else if (log.activity_type === 'assigned_user_changed') {
+                  const oldUser = log.old_value && log.old_value !== 'null' ? users.find(u => u.id === log.old_value) : null;
+                  const newUser = log.new_value && log.new_value !== 'null' ? users.find(u => u.id === log.new_value) : null;
+                  const oldUserName = oldUser ? (oldUser.first_name && oldUser.last_name ? `${oldUser.first_name} ${oldUser.last_name}` : oldUser.display_name || oldUser.email) : 'Nepřiřazeno';
+                  const newUserName = newUser ? (newUser.first_name && newUser.last_name ? `${newUser.first_name} ${newUser.last_name}` : newUser.display_name || newUser.email) : 'Nepřiřazeno';
+                  activityText = `Přiřazení změněno: ${oldUserName} → ${newUserName}`;
+                }
+
+                return (
+                  <div key={log.id} className="flex items-start gap-2 text-xs text-gray-600 py-1">
+                    {icon}
+                    <div className="flex-1">
+                      <span className="text-gray-700">{activityText}</span>
+                      <span className="text-gray-500 ml-2">
+                        • {userName} • {new Date(log.created_at).toLocaleString('cs-CZ', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
