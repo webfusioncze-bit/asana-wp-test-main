@@ -68,8 +68,10 @@ Deno.serve(async (req: Request) => {
     console.log(`Found ${websites.length} websites to sync`);
 
     const results = [];
+    const BATCH_SIZE = 20;
+    const PARALLEL_LIMIT = 10;
 
-    for (const website of websites) {
+    const syncSingleWebsite = async (website: any) => {
       try {
         console.log(`Syncing website: ${website.name} (${website.url})`);
 
@@ -83,6 +85,7 @@ Deno.serve(async (req: Request) => {
             headers: {
               'User-Agent': 'Supabase-Edge-Function/1.0',
             },
+            signal: AbortSignal.timeout(5000),
           });
           responseTimeMs = Date.now() - startTime;
           isAvailable = healthCheck.ok;
@@ -97,6 +100,7 @@ Deno.serve(async (req: Request) => {
           headers: {
             'User-Agent': 'Supabase-Edge-Function/1.0',
           },
+          signal: AbortSignal.timeout(10000),
         });
 
         if (!response.ok) {
@@ -104,10 +108,6 @@ Deno.serve(async (req: Request) => {
         }
 
         const xmlText = await response.text();
-
-        console.log('=== XML Sample (first 2000 chars) ===');
-        console.log(xmlText.substring(0, 2000));
-        console.log('=== End XML Sample ===');
 
         const parseXmlValue = (xml: string, tag: string): string | null => {
           const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i');
@@ -253,13 +253,12 @@ Deno.serve(async (req: Request) => {
           throw new Error(`Failed to update website: ${updateError.message}`);
         }
 
-        results.push({
+        console.log(`✓ Synced ${website.name}`);
+        return {
           websiteId: website.id,
           websiteName: website.name,
           success: true,
-        });
-
-        console.log(`✓ Synced ${website.name}`);
+        };
       } catch (error) {
         console.error(`Failed to sync website ${website.name}:`, error);
 
@@ -270,14 +269,36 @@ Deno.serve(async (req: Request) => {
           })
           .eq('id', website.id);
 
-        results.push({
+        return {
           websiteId: website.id,
           websiteName: website.name,
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    };
+
+    for (let i = 0; i < websites.length; i += BATCH_SIZE) {
+      const batch = websites.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(websites.length / BATCH_SIZE)}`);
+
+      for (let j = 0; j < batch.length; j += PARALLEL_LIMIT) {
+        const parallelBatch = batch.slice(j, j + PARALLEL_LIMIT);
+        const batchResults = await Promise.allSettled(
+          parallelBatch.map(website => syncSingleWebsite(website))
+        );
+
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled') {
+            results.push(result.value);
+          } else {
+            console.error('Batch processing error:', result.reason);
+          }
         });
       }
     }
+
+    console.log(`Sync complete: ${results.filter(r => r.success).length} succeeded, ${results.filter(r => !r.success).length} failed`);
 
     return new Response(
       JSON.stringify({
