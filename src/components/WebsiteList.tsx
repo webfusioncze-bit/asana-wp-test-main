@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GlobeIcon, Trash2Icon, RefreshCwIcon, AlertCircleIcon } from 'lucide-react';
+import { GlobeIcon, Trash2Icon, RefreshCwIcon, AlertCircleIcon, CheckCircleIcon, AlertTriangleIcon, ClockIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website } from '../types';
 
@@ -99,6 +99,42 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
     });
   };
 
+  const getSyncStatus = (lastSyncAt: string | null) => {
+    if (!lastSyncAt) {
+      return { status: 'never', icon: ClockIcon, color: 'text-gray-400', bgColor: 'bg-gray-50', label: 'Nikdy' };
+    }
+
+    const now = new Date();
+    const lastSync = new Date(lastSyncAt);
+    const minutesDiff = Math.floor((now.getTime() - lastSync.getTime()) / (1000 * 60));
+
+    if (minutesDiff <= 5) {
+      return {
+        status: 'current',
+        icon: CheckCircleIcon,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        label: `Před ${minutesDiff} min`
+      };
+    } else if (minutesDiff <= 10) {
+      return {
+        status: 'warning',
+        icon: AlertTriangleIcon,
+        color: 'text-orange-500',
+        bgColor: 'bg-orange-50',
+        label: `Před ${minutesDiff} min`
+      };
+    } else {
+      return {
+        status: 'stale',
+        icon: AlertCircleIcon,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        label: formatDate(lastSyncAt)
+      };
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 p-6">
@@ -180,11 +216,19 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
                     <AlertCircleIcon className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-red-700">{website.sync_error}</p>
                   </div>
-                ) : (
-                  <div className="text-xs text-gray-500">
-                    Poslední synchronizace: {formatDate(website.last_sync_at)}
-                  </div>
-                )}
+                ) : (() => {
+                  const syncStatus = getSyncStatus(website.last_sync_at);
+                  const Icon = syncStatus.icon;
+                  return (
+                    <div className={`flex items-center gap-2 p-2 rounded-lg ${syncStatus.bgColor}`}>
+                      <Icon className={`w-4 h-4 ${syncStatus.color} flex-shrink-0`} />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-medium text-gray-700">Synchronizace</span>
+                        <span className={`text-xs ${syncStatus.color}`}>{syncStatus.label}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>

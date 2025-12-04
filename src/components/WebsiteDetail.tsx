@@ -118,6 +118,45 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     });
   };
 
+  const getSyncStatus = (lastSyncAt: string | null) => {
+    if (!lastSyncAt) {
+      return { status: 'never', icon: ClockIcon, color: 'text-gray-400', bgColor: 'bg-gray-50', label: 'Nikdy', detail: '' };
+    }
+
+    const now = new Date();
+    const lastSync = new Date(lastSyncAt);
+    const minutesDiff = Math.floor((now.getTime() - lastSync.getTime()) / (1000 * 60));
+
+    if (minutesDiff <= 5) {
+      return {
+        status: 'current',
+        icon: CheckCircleIcon,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        label: 'Aktuální',
+        detail: `Před ${minutesDiff} min`
+      };
+    } else if (minutesDiff <= 10) {
+      return {
+        status: 'warning',
+        icon: AlertTriangleIcon,
+        color: 'text-orange-500',
+        bgColor: 'bg-orange-50',
+        label: 'Upozornění',
+        detail: `Před ${minutesDiff} min`
+      };
+    } else {
+      return {
+        status: 'stale',
+        icon: XCircleIcon,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        label: 'Zastaralá',
+        detail: formatDate(lastSyncAt)
+      };
+    }
+  };
+
   const getScreenshotUrl = () => {
     if (website.screenshot_url) return website.screenshot_url;
     const auth = '75912-task';
@@ -238,7 +277,22 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                   </div>
                   <div className="p-3 space-y-2">
                     <InfoRow label="Poslední aktualizace" value={formatDate(latestStatus.last_updated)} small />
-                    <InfoRow label="Poslední synchronizace" value={formatDate(website.last_sync_at)} small />
+                    {(() => {
+                      const syncStatus = getSyncStatus(website.last_sync_at);
+                      const Icon = syncStatus.icon;
+                      return (
+                        <div className="flex items-start justify-between text-xs">
+                          <span className="text-gray-600">Synchronizace</span>
+                          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md ${syncStatus.bgColor}`}>
+                            <Icon className={`w-3.5 h-3.5 ${syncStatus.color}`} />
+                            <div className="flex flex-col items-end">
+                              <span className={`font-medium ${syncStatus.color}`}>{syncStatus.label}</span>
+                              <span className="text-gray-600">{syncStatus.detail}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
