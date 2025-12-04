@@ -38,10 +38,16 @@ Deno.serve(async (req: Request) => {
     const xmlText = await response.text();
     console.log(`Received XML feed, size: ${xmlText.length} bytes`);
 
+    const decodeHtmlEntities = (text: string): string => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<!doctype html><body>${text}`, 'text/html');
+      return doc.body.textContent || text;
+    };
+
     const parseXmlValue = (xml: string, tag: string): string | null => {
       const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i');
       const match = xml.match(regex);
-      return match ? match[1].trim() : null;
+      return match ? decodeHtmlEntities(match[1].trim()) : null;
     };
 
     const parseXmlInt = (xml: string, tag: string): number => {
@@ -49,10 +55,30 @@ Deno.serve(async (req: Request) => {
       return value ? parseInt(value, 10) : 0;
     };
 
-    const extractPlugins = (xml: string, containerTag: string): any[] => {
+    const extractSimplePlugins = (xml: string, containerTag: string): string[] => {
       const regex = new RegExp(`<${containerTag}>(.*?)</${containerTag}>`, 'is');
       const match = xml.match(regex);
-      if (!match) return [];
+      if (!match || !match[1].trim()) return [];
+
+      const pluginsXml = match[1];
+      const pluginRegex = /<plugin>([^<]*)<\/plugin>/gis;
+      const plugins: string[] = [];
+      let pluginMatch;
+
+      while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
+        const pluginName = decodeHtmlEntities(pluginMatch[1].trim());
+        if (pluginName) {
+          plugins.push(pluginName);
+        }
+      }
+
+      return plugins;
+    };
+
+    const extractUpdatePlugins = (xml: string): any[] => {
+      const regex = /<update_plugins>(.*?)<\/update_plugins>/is;
+      const match = xml.match(regex);
+      if (!match || !match[1].trim()) return [];
 
       const pluginsXml = match[1];
       const pluginRegex = /<plugin>(.*?)<\/plugin>/gis;
@@ -62,59 +88,37 @@ Deno.serve(async (req: Request) => {
       while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
         const pluginXml = pluginMatch[1];
 
-        const name = parseXmlValue(pluginXml, 'name') ||
-                    parseXmlValue(pluginXml, 'plugin_name') ||
-                    parseXmlValue(pluginXml, 'title');
+        const nameMatch = /<name>([^<]*)<\/name>/i.exec(pluginXml);
+        const currentVersionMatch = /<current_version>([^<]*)<\/current_version>/i.exec(pluginXml);
+        const newVersionMatch = /<new_version>([^<]*)<\/new_version>/i.exec(pluginXml);
 
-        const version = parseXmlValue(pluginXml, 'version') ||
-                       parseXmlValue(pluginXml, 'plugin_version') ||
-                       parseXmlValue(pluginXml, 'ver');
-
-        const author = parseXmlValue(pluginXml, 'author') ||
-                      parseXmlValue(pluginXml, 'plugin_author') ||
-                      parseXmlValue(pluginXml, 'author_name');
-
-        plugins.push({
-          name,
-          version,
-          author,
-        });
+        if (nameMatch) {
+          plugins.push({
+            name: decodeHtmlEntities(nameMatch[1].trim()),
+            current_version: currentVersionMatch ? decodeHtmlEntities(currentVersionMatch[1].trim()) : null,
+            new_version: newVersionMatch ? decodeHtmlEntities(newVersionMatch[1].trim()) : null,
+          });
+        }
       }
 
       return plugins;
     };
 
-    const extractUsers = (xml: string): any[] => {
+    const extractUsers = (xml: string): string[] => {
       const regex = /<users>(.*?)<\/users>/is;
       const match = xml.match(regex);
-      if (!match) return [];
+      if (!match || !match[1].trim()) return [];
 
       const usersXml = match[1];
-      const userRegex = /<user>(.*?)<\/user>/gis;
-      const users = [];
+      const userRegex = /<user>([^<]*)<\/user>/gis;
+      const users: string[] = [];
       let userMatch;
 
       while ((userMatch = userRegex.exec(usersXml)) !== null) {
-        const userXml = userMatch[1];
-
-        const username = parseXmlValue(userXml, 'username') ||
-                       parseXmlValue(userXml, 'user_login') ||
-                       parseXmlValue(userXml, 'login') ||
-                       parseXmlValue(userXml, 'name');
-
-        const email = parseXmlValue(userXml, 'email') ||
-                     parseXmlValue(userXml, 'user_email') ||
-                     parseXmlValue(userXml, 'mail');
-
-        const role = parseXmlValue(userXml, 'role') ||
-                    parseXmlValue(userXml, 'user_role') ||
-                    parseXmlValue(userXml, 'roles');
-
-        users.push({
-          username,
-          email,
-          role,
-        });
+        const username = decodeHtmlEntities(userMatch[1].trim());
+        if (username) {
+          users.push(username);
+        }
       }
 
       return users;
@@ -130,9 +134,9 @@ Deno.serve(async (req: Request) => {
 
       if (!url) continue;
 
-      const activePlugins = extractPlugins(webXml, 'active_plugins');
-      const inactivePlugins = extractPlugins(webXml, 'inactive_plugins');
-      const updatePlugins = extractPlugins(webXml, 'update_plugins');
+      const activePlugins = extractSimplePlugins(webXml, 'active_plugins');
+      const inactivePlugins = extractSimplePlugins(webXml, 'inactive_plugins');
+      const updatePlugins = extractUpdatePlugins(webXml);
       const users = extractUsers(webXml);
       const ult = parseXmlValue(webXml, 'ult');
 
