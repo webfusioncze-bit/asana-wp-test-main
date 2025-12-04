@@ -39,9 +39,14 @@ Deno.serve(async (req: Request) => {
     console.log(`Received XML feed, size: ${xmlText.length} bytes`);
 
     const decodeHtmlEntities = (text: string): string => {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(`<!doctype html><body>${text}`, 'text/html');
-      return doc.body.textContent || text;
+      return text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/&#x([0-9A-Fa-f]+);/g, (_match, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_match, dec) => String.fromCharCode(parseInt(dec, 10)));
     };
 
     const parseXmlValue = (xml: string, tag: string): string | null => {
@@ -66,13 +71,17 @@ Deno.serve(async (req: Request) => {
       let pluginMatch;
 
       while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
-        const pluginXml = pluginMatch[1];
+        const pluginContent = pluginMatch[1].trim();
 
-        const nameMatch = /<name>([^<]*)<\/name>/i.exec(pluginXml);
-        if (nameMatch && nameMatch[1].trim()) {
-          plugins.push(decodeHtmlEntities(nameMatch[1].trim()));
-        } else if (pluginXml.indexOf('<') === -1 && pluginXml.trim()) {
-          plugins.push(decodeHtmlEntities(pluginXml.trim()));
+        if (!pluginContent) continue;
+
+        if (pluginContent.includes('<name>')) {
+          const nameMatch = /<name>([^<]*)<\/name>/i.exec(pluginContent);
+          if (nameMatch && nameMatch[1].trim()) {
+            plugins.push(decodeHtmlEntities(nameMatch[1].trim()));
+          }
+        } else {
+          plugins.push(decodeHtmlEntities(pluginContent));
         }
       }
 
@@ -119,22 +128,21 @@ Deno.serve(async (req: Request) => {
       let userMatch;
 
       while ((userMatch = userRegex.exec(usersXml)) !== null) {
-        const userXml = userMatch[1];
+        const userContent = userMatch[1].trim();
 
-        const usernameMatch = /<username>([^<]*)<\/username>/i.exec(userXml);
-        const emailMatch = /<email>([^<]*)<\/email>/i.exec(userXml);
+        if (!userContent) continue;
 
-        let userIdentifier = null;
-        if (usernameMatch && usernameMatch[1].trim()) {
-          userIdentifier = decodeHtmlEntities(usernameMatch[1].trim());
-        } else if (emailMatch && emailMatch[1].trim()) {
-          userIdentifier = decodeHtmlEntities(emailMatch[1].trim());
-        } else if (userXml.indexOf('<') === -1 && userXml.trim()) {
-          userIdentifier = decodeHtmlEntities(userXml.trim());
-        }
+        if (userContent.includes('<username>') || userContent.includes('<email>')) {
+          const usernameMatch = /<username>([^<]*)<\/username>/i.exec(userContent);
+          const emailMatch = /<email>([^<]*)<\/email>/i.exec(userContent);
 
-        if (userIdentifier) {
-          users.push(userIdentifier);
+          if (usernameMatch && usernameMatch[1].trim()) {
+            users.push(decodeHtmlEntities(usernameMatch[1].trim()));
+          } else if (emailMatch && emailMatch[1].trim()) {
+            users.push(decodeHtmlEntities(emailMatch[1].trim()));
+          }
+        } else {
+          users.push(decodeHtmlEntities(userContent));
         }
       }
 
