@@ -7,6 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+const BATCH_SIZE = 10;
+const HEAD_REQUEST_TIMEOUT = 3000;
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -120,15 +123,38 @@ Deno.serve(async (req: Request) => {
       return users;
     };
 
-    const webRegex = /<web>(.*?)<\/web>/gis;
-    let webMatch;
-    const results = [];
+    const checkWebsiteAvailability = async (url: string): Promise<{isAvailable: boolean, responseTimeMs: number | null}> => {
+      const startTime = Date.now();
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), HEAD_REQUEST_TIMEOUT);
 
-    while ((webMatch = webRegex.exec(xmlText)) !== null) {
-      const webXml = webMatch[1];
+        const healthCheck = await fetch(url, {
+          method: 'HEAD',
+          headers: {
+            'User-Agent': 'Supabase-Edge-Function/1.0',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        const responseTimeMs = Date.now() - startTime;
+        return {
+          isAvailable: healthCheck.ok,
+          responseTimeMs,
+        };
+      } catch (error) {
+        return {
+          isAvailable: false,
+          responseTimeMs: null,
+        };
+      }
+    };
+
+    const processWebsite = async (webXml: string) => {
       const webUrl = parseXmlValue(webXml, 'post');
 
-      if (!webUrl) continue;
+      if (!webUrl) return null;
 
       try {
         console.log(`Processing website: ${webUrl}`);
@@ -153,7 +179,11 @@ Deno.serve(async (req: Request) => {
 
           if (insertError) {
             console.error(`Failed to create website ${webUrl}:`, insertError);
-            continue;
+            return {
+              websiteUrl: webUrl,
+              success: false,
+              error: insertError.message,
+            };
           }
 
           websiteId = newWebsite.id;
@@ -161,22 +191,7 @@ Deno.serve(async (req: Request) => {
           websiteId = website.data.id;
         }
 
-        const startTime = Date.now();
-        let isAvailable = true;
-        let responseTimeMs = null;
-
-        try {
-          const healthCheck = await fetch(webUrl, {
-            method: 'HEAD',
-            headers: {
-              'User-Agent': 'Supabase-Edge-Function/1.0',
-            },
-          });
-          responseTimeMs = Date.now() - startTime;
-          isAvailable = healthCheck.ok;
-        } catch (error) {
-          isAvailable = false;
-        }
+        const { isAvailable, responseTimeMs } = await checkWebsiteAvailability(webUrl);
 
         const activePlugins = extractSimplePluginList(webXml, 'active_plugins');
         const inactivePlugins = extractSimplePluginList(webXml, 'inactive_plugins');
@@ -222,7 +237,11 @@ Deno.serve(async (req: Request) => {
 
         if (statusError) {
           console.error(`Failed to insert status for ${webUrl}:`, statusError);
-          continue;
+          return {
+            websiteUrl: webUrl,
+            success: false,
+            error: statusError.message,
+          };
         }
 
         await supabaseAdmin
@@ -237,25 +256,48 @@ Deno.serve(async (req: Request) => {
           })
           .eq('id', websiteId);
 
-        results.push({
+        console.log(`✓ Synced ${webUrl}`);
+
+        return {
           websiteUrl: webUrl,
           success: true,
-        });
-
-        console.log(`✓ Synced ${webUrl}`);
+        };
       } catch (error) {
         console.error(`Failed to process website ${webUrl}:`, error);
-        results.push({
+        return {
           websiteUrl: webUrl,
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        };
       }
+    };
+
+    const webRegex = /<web>(.*?)<\/web>/gis;
+    const websites = [];
+    let webMatch;
+
+    while ((webMatch = webRegex.exec(xmlText)) !== null) {
+      websites.push(webMatch[1]);
+    }
+
+    console.log(`Found ${websites.length} websites in feed`);
+
+    const results = [];
+    for (let i = 0; i < websites.length; i += BATCH_SIZE) {
+      const batch = websites.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(websites.length / BATCH_SIZE)}`);
+
+      const batchResults = await Promise.all(
+        batch.map(webXml => processWebsite(webXml))
+      );
+
+      results.push(...batchResults.filter(r => r !== null));
     }
 
     return new Response(
       JSON.stringify({
         success: true,
+        totalWebsites: websites.length,
         syncedWebsites: results.filter(r => r.success).length,
         failedWebsites: results.filter(r => !r.success).length,
         results,
