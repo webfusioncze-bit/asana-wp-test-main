@@ -9,6 +9,7 @@ import { UserPermissionsManager } from './UserPermissionsManager';
 import { UserGroupManager } from './UserGroupManager';
 import { GlobalFolderManager } from './GlobalFolderManager';
 import { PortalSyncManager } from './PortalSyncManager';
+import { SMTPSettingsManager } from './SMTPSettingsManager';
 
 type TabType = 'overview' | 'users' | 'settings' | 'integrations' | 'permissions' | 'groups' | 'folders' | 'portal';
 
@@ -706,8 +707,14 @@ export function AdminDashboard() {
         {activeTab === 'permissions' && <UserPermissionsManager />}
         {activeTab === 'groups' && <UserGroupManager />}
         {activeTab === 'folders' && <GlobalFolderManager />}
-        {activeTab === 'integrations' && <ZapierIntegrationManager />}
         {activeTab === 'portal' && <PortalSyncManager />}
+
+        {activeTab === 'integrations' && (
+          <div className="space-y-6">
+            <SMTPSettingsManager />
+            <ZapierIntegrationManager />
+          </div>
+        )}
 
         {activeTab === 'settings' && (
           <div className="space-y-6">
