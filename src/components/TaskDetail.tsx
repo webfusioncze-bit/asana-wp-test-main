@@ -1505,7 +1505,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                 let activityText = '';
                 let icon = <ActivityIcon className="w-3 h-3 text-gray-400" />;
 
-                if (log.activity_type === 'email_sent') {
+                if (log.activity_type === 'task_created') {
+                  icon = <PlusIcon className="w-3 h-3 text-green-500" />;
+                  activityText = `Úkol vytvořen`;
+                } else if (log.activity_type === 'email_sent') {
                   icon = <MailIcon className="w-3 h-3 text-blue-500" />;
                   activityText = `Email odeslán na ${log.email_sent_to}`;
                 } else if (log.activity_type === 'status_changed') {
@@ -1522,6 +1525,15 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   const oldUserName = oldUser ? (oldUser.first_name && oldUser.last_name ? `${oldUser.first_name} ${oldUser.last_name}` : oldUser.display_name || oldUser.email) : 'Nepřiřazeno';
                   const newUserName = newUser ? (newUser.first_name && newUser.last_name ? `${newUser.first_name} ${newUser.last_name}` : newUser.display_name || newUser.email) : 'Nepřiřazeno';
                   activityText = `Přiřazení změněno: ${oldUserName} → ${newUserName}`;
+                } else if (log.activity_type === 'priority_changed') {
+                  const priorityMap: { [key: string]: string } = {
+                    'low': 'Nízká',
+                    'medium': 'Střední',
+                    'high': 'Vysoká'
+                  };
+                  const oldPriority = log.old_value && log.old_value !== 'null' ? priorityMap[log.old_value] || log.old_value : 'Střední';
+                  const newPriority = log.new_value && log.new_value !== 'null' ? priorityMap[log.new_value] || log.new_value : 'Střední';
+                  activityText = `Priorita změněna: ${oldPriority} → ${newPriority}`;
                 }
 
                 return (
