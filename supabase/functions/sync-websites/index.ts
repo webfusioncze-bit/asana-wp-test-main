@@ -61,14 +61,18 @@ Deno.serve(async (req: Request) => {
       if (!match || !match[1].trim()) return [];
 
       const pluginsXml = match[1];
-      const pluginRegex = /<plugin>([^<]*)<\/plugin>/gis;
+      const pluginRegex = /<plugin>(.*?)<\/plugin>/gis;
       const plugins: string[] = [];
       let pluginMatch;
 
       while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
-        const pluginName = decodeHtmlEntities(pluginMatch[1].trim());
-        if (pluginName) {
-          plugins.push(pluginName);
+        const pluginXml = pluginMatch[1];
+
+        const nameMatch = /<name>([^<]*)<\/name>/i.exec(pluginXml);
+        if (nameMatch && nameMatch[1].trim()) {
+          plugins.push(decodeHtmlEntities(nameMatch[1].trim()));
+        } else if (pluginXml.indexOf('<') === -1 && pluginXml.trim()) {
+          plugins.push(decodeHtmlEntities(pluginXml.trim()));
         }
       }
 
@@ -110,14 +114,27 @@ Deno.serve(async (req: Request) => {
       if (!match || !match[1].trim()) return [];
 
       const usersXml = match[1];
-      const userRegex = /<user>([^<]*)<\/user>/gis;
+      const userRegex = /<user>(.*?)<\/user>/gis;
       const users: string[] = [];
       let userMatch;
 
       while ((userMatch = userRegex.exec(usersXml)) !== null) {
-        const username = decodeHtmlEntities(userMatch[1].trim());
-        if (username) {
-          users.push(username);
+        const userXml = userMatch[1];
+
+        const usernameMatch = /<username>([^<]*)<\/username>/i.exec(userXml);
+        const emailMatch = /<email>([^<]*)<\/email>/i.exec(userXml);
+
+        let userIdentifier = null;
+        if (usernameMatch && usernameMatch[1].trim()) {
+          userIdentifier = decodeHtmlEntities(usernameMatch[1].trim());
+        } else if (emailMatch && emailMatch[1].trim()) {
+          userIdentifier = decodeHtmlEntities(emailMatch[1].trim());
+        } else if (userXml.indexOf('<') === -1 && userXml.trim()) {
+          userIdentifier = decodeHtmlEntities(userXml.trim());
+        }
+
+        if (userIdentifier) {
+          users.push(userIdentifier);
         }
       }
 
@@ -140,6 +157,12 @@ Deno.serve(async (req: Request) => {
       const users = extractUsers(webXml);
       const ult = parseXmlValue(webXml, 'ult');
 
+      const pluginCounts = {
+        active_plugins_count: activePlugins.length,
+        inactive_plugins_count: inactivePlugins.length,
+        update_plugins_count: updatePlugins.length,
+      };
+
       websites.push({
         url,
         data: {
@@ -152,14 +175,14 @@ Deno.serve(async (req: Request) => {
           num_pages: parseXmlInt(webXml, 'num_pages'),
           num_posts: parseXmlInt(webXml, 'num_posts'),
           num_comments: parseXmlInt(webXml, 'num_comments'),
-          num_users: parseXmlInt(webXml, 'num_users'),
+          num_users: users.length || parseXmlInt(webXml, 'num_users'),
           num_media_files: parseXmlInt(webXml, 'num_media_files'),
           https_status: parseXmlValue(webXml, 'https_status'),
           indexing_allowed: parseXmlValue(webXml, 'indexing_allowed'),
           storage_usage: parseXmlValue(webXml, 'storage_usage'),
-          active_plugins_count: parseXmlInt(webXml, 'active_plugins_count'),
-          inactive_plugins_count: parseXmlInt(webXml, 'inactive_plugins_count'),
-          update_plugins_count: parseXmlInt(webXml, 'update_plugins_count'),
+          active_plugins_count: pluginCounts.active_plugins_count,
+          inactive_plugins_count: pluginCounts.inactive_plugins_count,
+          update_plugins_count: pluginCounts.update_plugins_count,
           theme_name: parseXmlValue(webXml, 'theme_name'),
           theme_version: parseXmlValue(webXml, 'theme_version'),
           server_load: parseXmlValue(webXml, 'server_load'),

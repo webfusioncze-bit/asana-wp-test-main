@@ -68,7 +68,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     setSyncing(true);
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-portal-websites`;
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-websites`;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -82,7 +82,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
         throw new Error('Failed to sync website');
       }
 
-      await loadWebsiteData();
+      const result = await response.json();
+      console.log('Sync result:', result);
+
+      setTimeout(async () => {
+        await loadWebsiteData();
+      }, 2000);
     } catch (error) {
       console.error('Sync error:', error);
       alert('Chyba při synchronizaci webu');
@@ -167,10 +172,52 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     ? `${website.url}?login_token=${latestStatus.ult}`
     : `${website.url}/wp-admin`;
 
-  const activePlugins = latestStatus?.raw_data?.active_plugins || [];
-  const updatePlugins = latestStatus?.raw_data?.update_plugins || [];
-  const inactivePlugins = latestStatus?.raw_data?.inactive_plugins || [];
-  const users = latestStatus?.raw_data?.users || [];
+  const normalizePlugins = (plugins: any[]): string[] => {
+    if (!Array.isArray(plugins)) return [];
+    return plugins
+      .map(p => {
+        if (typeof p === 'string') return p;
+        if (typeof p === 'object' && p !== null) {
+          return p.name || null;
+        }
+        return null;
+      })
+      .filter((name): name is string => !!name && name.trim() !== '');
+  };
+
+  const normalizeUpdatePlugins = (plugins: any[]): Array<{name: string; current_version?: string; new_version?: string}> => {
+    if (!Array.isArray(plugins)) return [];
+    return plugins
+      .map(p => {
+        if (typeof p === 'object' && p !== null && p.name) {
+          return {
+            name: p.name,
+            current_version: p.current_version,
+            new_version: p.new_version,
+          };
+        }
+        return null;
+      })
+      .filter((p): p is {name: string; current_version?: string; new_version?: string} => p !== null);
+  };
+
+  const normalizeUsers = (users: any[]): string[] => {
+    if (!Array.isArray(users)) return [];
+    return users
+      .map(u => {
+        if (typeof u === 'string') return u;
+        if (typeof u === 'object' && u !== null) {
+          return u.username || u.email || null;
+        }
+        return null;
+      })
+      .filter((name): name is string => !!name && name.trim() !== '');
+  };
+
+  const activePlugins = normalizePlugins(latestStatus?.raw_data?.active_plugins || []);
+  const updatePlugins = normalizeUpdatePlugins(latestStatus?.raw_data?.update_plugins || []);
+  const inactivePlugins = normalizePlugins(latestStatus?.raw_data?.inactive_plugins || []);
+  const users = normalizeUsers(latestStatus?.raw_data?.users || []);
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
@@ -446,11 +493,11 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           Vyžadují aktualizaci ({updatePlugins.length})
                         </h3>
                         <div className="flex flex-wrap gap-2">
-                          {updatePlugins.map((plugin: any, index: number) => (
+                          {updatePlugins.map((plugin, index: number) => (
                             <span
                               key={index}
                               className="inline-flex items-center px-3 py-1.5 bg-orange-50 text-orange-700 text-xs font-medium rounded-full border border-orange-200 hover:bg-orange-100 transition-colors"
-                              title={`${plugin.current_version} → ${plugin.new_version}`}
+                              title={plugin.current_version && plugin.new_version ? `${plugin.current_version} → ${plugin.new_version}` : 'Dostupná aktualizace'}
                             >
                               {plugin.name}
                             </span>
