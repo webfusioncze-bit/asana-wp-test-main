@@ -59,7 +59,6 @@ Deno.serve(async (req: Request) => {
         function parseDate(dateStr: string | null): string | null {
           if (!dateStr) return null;
 
-          // Format: YYYYMMDD (např. 20250924)
           if (dateStr.length === 8 && /^\d{8}$/.test(dateStr)) {
             const year = dateStr.substring(0, 4);
             const month = dateStr.substring(4, 6);
@@ -67,7 +66,6 @@ Deno.serve(async (req: Request) => {
             return `${year}-${month}-${day}`;
           }
 
-          // Format: D.M.YYYY nebo DD.MM.YYYY (např. 11.9.2025 nebo 16.09.2025)
           if (dateStr.includes('.')) {
             const parts = dateStr.split('.');
             if (parts.length === 3) {
@@ -78,7 +76,6 @@ Deno.serve(async (req: Request) => {
             }
           }
 
-          // Pokud už je ve formátu YYYY-MM-DD, vrátit jak je
           if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
             return dateStr;
           }
@@ -149,20 +146,40 @@ Deno.serve(async (req: Request) => {
 
         const { data: existingPhases } = await supabaseAdmin
           .from('project_phases')
-          .select('id, position, external_operator_id, name')
-          .eq('project_id', project.id)
-          .order('position');
+          .select('id, external_operator_id, assigned_user_id')
+          .eq('project_id', project.id);
+
+        const operatorUserMap = new Map<string, string>();
+        existingPhases?.forEach(phase => {
+          if (phase.external_operator_id && phase.assigned_user_id) {
+            operatorUserMap.set(phase.external_operator_id, phase.assigned_user_id);
+          }
+        });
+
+        console.log(`Saved ${operatorUserMap.size} operator→user mappings`);
+
+        const { error: deleteError } = await supabaseAdmin
+          .from('project_phases')
+          .delete()
+          .eq('project_id', project.id);
+
+        if (deleteError) {
+          console.error(`Failed to delete phases: ${deleteError.message}`);
+        } else {
+          console.log(`Deleted ${existingPhases?.length || 0} existing phases and their time entries`);
+        }
 
         const phases = acf.faze_projektu || [];
-        console.log(`Project has ${phases.length} phases in API, ${existingPhases?.length || 0} phases in DB`);
-        let phasesUpdated = 0;
+        console.log(`Re-importing ${phases.length} phases from API`);
+        let phasesCreated = 0;
         let timeEntriesAdded = 0;
 
         for (let i = 0; i < phases.length; i++) {
           const phase = phases[i];
-          const existingPhase = existingPhases?.[i];
 
           const phaseData: any = {
+            project_id: project.id,
+            position: i + 1,
             name: phase.nazev_faze || `Fáze ${i + 1}`,
             description: stripHtmlTags(phase.popis_faze),
             status: normalizePhaseStatus(phase.stav_faze || ''),
@@ -174,120 +191,56 @@ Deno.serve(async (req: Request) => {
 
           if (phase.operator_faze) {
             phaseData.external_operator_id = String(phase.operator_faze);
+            const savedUserId = operatorUserMap.get(String(phase.operator_faze));
+            if (savedUserId) {
+              phaseData.assigned_user_id = savedUserId;
+            }
           }
 
-          if (existingPhase) {
-            const { error: phaseError } = await supabaseAdmin
-              .from('project_phases')
-              .update(phaseData)
-              .eq('id', existingPhase.id);
+          const { data: newPhase, error: phaseError } = await supabaseAdmin
+            .from('project_phases')
+            .insert(phaseData)
+            .select('id, assigned_user_id')
+            .single();
 
-            if (!phaseError) {
-              phasesUpdated++;
+          if (!phaseError && newPhase) {
+            phasesCreated++;
+            console.log(`  ✓ Created phase: "${phaseData.name}"`);
 
-              const { data: phaseWithUser } = await supabaseAdmin
-                .from('project_phases')
-                .select('assigned_user_id')
-                .eq('id', existingPhase.id)
-                .single();
+            const timeEntries = phase.polozkovy_vykaz || [];
+            console.log(`  Importing ${timeEntries.length} time entries for phase "${phaseData.name}"`);
 
-              const { data: existingEntries } = await supabaseAdmin
-                .from('project_time_entries')
-                .select('entry_date, hours, description')
-                .eq('phase_id', existingPhase.id);
+            for (const entry of timeEntries) {
+              const entryDate = parseDate(entry.datum);
+              const hours = Number(entry.pocet_hodin) || 0;
+              const description = entry.cinnost || 'Importovaná činnost';
 
-              const existingEntriesSet = new Set(
-                existingEntries?.map(e => `${e.entry_date}|${e.hours}|${e.description}`) || []
-              );
+              if (hours > 0 && entryDate) {
+                const timeEntryInsert: any = {
+                  phase_id: newPhase.id,
+                  description: description,
+                  hours: hours,
+                  entry_date: entryDate,
+                  visible_to_client: !entry.vidi_klient || !entry.vidi_klient.includes('nevidi'),
+                };
 
-              const timeEntries = phase.polozkovy_vykaz || [];
-              console.log(`Phase "${phaseData.name}": ${timeEntries.length} time entries from API, ${existingEntries?.length || 0} existing in DB`);
+                if (newPhase.assigned_user_id) {
+                  timeEntryInsert.user_id = newPhase.assigned_user_id;
+                }
 
-              for (const entry of timeEntries) {
-                const entryDate = parseDate(entry.datum);
-                const hours = Number(entry.pocet_hodin) || 0;
-                const description = entry.cinnost || 'Importovaná činnost';
+                const { error: timeError } = await supabaseAdmin
+                  .from('project_time_entries')
+                  .insert(timeEntryInsert);
 
-                if (hours > 0 && entryDate) {
-                  const entryKey = `${entryDate}|${hours}|${description}`;
-
-                  if (!existingEntriesSet.has(entryKey)) {
-                    const timeEntryInsert: any = {
-                      phase_id: existingPhase.id,
-                      description: description,
-                      hours: hours,
-                      entry_date: entryDate,
-                      visible_to_client: !entry.vidi_klient || !entry.vidi_klient.includes('nevidi'),
-                    };
-
-                    if (phaseWithUser?.assigned_user_id) {
-                      timeEntryInsert.user_id = phaseWithUser.assigned_user_id;
-                    }
-
-                    const { error: timeError } = await supabaseAdmin
-                      .from('project_time_entries')
-                      .insert(timeEntryInsert);
-
-                    if (!timeError) {
-                      timeEntriesAdded++;
-                      console.log(`  ✓ Added time entry: ${entryDate} - ${hours}h - ${description}`);
-                    } else {
-                      console.error(`  ✗ Failed to add time entry: ${timeError.message}`);
-                    }
-                  }
+                if (!timeError) {
+                  timeEntriesAdded++;
+                } else {
+                  console.error(`  ✗ Failed to add time entry: ${timeError.message}`);
                 }
               }
             }
-          } else {
-            phaseData.project_id = project.id;
-            phaseData.position = i + 1;
-
-            const { data: newPhase, error: phaseError } = await supabaseAdmin
-              .from('project_phases')
-              .insert(phaseData)
-              .select('id, assigned_user_id')
-              .single();
-
-            if (!phaseError && newPhase) {
-              phasesUpdated++;
-              console.log(`  ✓ Created new phase: "${phaseData.name}"`);
-
-              const timeEntries = phase.polozkovy_vykaz || [];
-              console.log(`New phase "${phaseData.name}": ${timeEntries.length} time entries from API`);
-
-              for (const entry of timeEntries) {
-                const entryDate = parseDate(entry.datum);
-                const hours = Number(entry.pocet_hodin) || 0;
-                const description = entry.cinnost || 'Importovaná činnost';
-
-                if (hours > 0 && entryDate) {
-                  const timeEntryInsert: any = {
-                    phase_id: newPhase.id,
-                    description: description,
-                    hours: hours,
-                    entry_date: entryDate,
-                    visible_to_client: !entry.vidi_klient || !entry.vidi_klient.includes('nevidi'),
-                  };
-
-                  if (newPhase.assigned_user_id) {
-                    timeEntryInsert.user_id = newPhase.assigned_user_id;
-                  }
-
-                  const { error: timeError } = await supabaseAdmin
-                    .from('project_time_entries')
-                    .insert(timeEntryInsert);
-
-                  if (!timeError) {
-                    timeEntriesAdded++;
-                    console.log(`  ✓ Added time entry: ${entryDate} - ${hours}h - ${description}`);
-                  } else {
-                    console.error(`  ✗ Failed to add time entry: ${timeError.message}`);
-                  }
-                }
-              }
-            } else if (phaseError) {
-              console.error(`  ✗ Failed to create phase: ${phaseError.message}`);
-            }
+          } else if (phaseError) {
+            console.error(`  ✗ Failed to create phase: ${phaseError.message}`);
           }
         }
 
@@ -295,11 +248,11 @@ Deno.serve(async (req: Request) => {
           projectId: project.id,
           projectName: project.name,
           success: true,
-          phasesUpdated,
+          phasesCreated,
           timeEntriesAdded,
         });
 
-        console.log(`Synced ${project.name}: ${phasesUpdated} phases, ${timeEntriesAdded} new time entries`);
+        console.log(`Re-imported ${project.name}: ${phasesCreated} phases, ${timeEntriesAdded} time entries`);
       } catch (error) {
         console.error(`Failed to sync project ${project.name}:`, error);
         results.push({
