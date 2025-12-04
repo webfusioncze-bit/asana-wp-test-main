@@ -68,6 +68,37 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
   }, [projectId]);
 
   useEffect(() => {
+    if (phases.length === 0) return;
+
+    const phaseIds = new Set(phases.map(p => p.id));
+
+    const channel = supabase
+      .channel('project_time_entries_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'project_time_entries'
+        },
+        (payload) => {
+          const newEntry = payload.new as ProjectTimeEntry;
+          if (phaseIds.has(newEntry.phase_id)) {
+            setTimeEntries(prev => ({
+              ...prev,
+              [newEntry.phase_id]: [newEntry, ...(prev[newEntry.phase_id] || [])]
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [phases]);
+
+  useEffect(() => {
     const handleScroll = (e: Event) => {
       const target = e.target as HTMLElement;
       if (!target) return;
