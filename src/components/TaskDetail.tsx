@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon, MailIcon, ActivityIcon } from 'lucide-react';
+import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon, MailIcon, ActivityIcon, UserPlusIcon, AlertCircleIcon, CircleIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { sendTaskAssignmentEmail } from '../lib/emailNotifications';
 import type { Task, TaskComment, Category, Folder, User, TimeEntry, FolderTag } from '../types';
@@ -857,255 +857,256 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
 
         <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              <CalendarIcon className="w-3.5 h-3.5 inline mr-1" />
-              Termín dokončení
-            </label>
-            {editingField === 'due_date' ? (
-              <input
-                type="date"
-                defaultValue={task.due_date ? new Date(task.due_date).toISOString().slice(0, 10) : ''}
-                autoFocus
-                onBlur={(e) => {
-                  updateTaskField('due_date', e.target.value || null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.currentTarget.blur();
-                  } else if (e.key === 'Escape') {
-                    setEditingField(null);
-                  }
-                }}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            ) : (
-              <p
-                className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
-                onClick={() => setEditingField('due_date')}
-              >
-                {task.due_date
-                  ? new Date(task.due_date).toLocaleString('cs-CZ')
-                  : 'Není nastaven'}
-              </p>
-            )}
+            <div className="flex items-center gap-1.5">
+              <CalendarIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Termín dokončení" />
+              {editingField === 'due_date' ? (
+                <input
+                  type="date"
+                  defaultValue={task.due_date ? new Date(task.due_date).toISOString().slice(0, 10) : ''}
+                  autoFocus
+                  onBlur={(e) => {
+                    updateTaskField('due_date', e.target.value || null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    } else if (e.key === 'Escape') {
+                      setEditingField(null);
+                    }
+                  }}
+                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              ) : (
+                <p
+                  className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
+                  onClick={() => setEditingField('due_date')}
+                >
+                  {task.due_date
+                    ? new Date(task.due_date).toLocaleString('cs-CZ')
+                    : 'Není nastaven'}
+                </p>
+              )}
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              <UserIcon className="w-3.5 h-3.5 inline mr-1" />
-              Přiřazeno
-            </label>
-            {editingField === 'assigned_to' ? (
-              <select
-                defaultValue={task.assigned_to}
-                autoFocus
-                onChange={(e) => {
-                  updateTaskField('assigned_to', e.target.value);
-                }}
-                onBlur={() => setEditingField(null)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                {users.map(user => (
-                  <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
-                ))}
-              </select>
-            ) : (
-              <div
-                className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
-                onClick={() => setEditingField('assigned_to')}
-              >
-                {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
+            <div className="flex items-center gap-1.5">
+              <UserIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Přiřazeno" />
+              {editingField === 'assigned_to' ? (
+                <select
+                  defaultValue={task.assigned_to}
+                  autoFocus
+                  onChange={(e) => {
+                    updateTaskField('assigned_to', e.target.value);
+                  }}
+                  onBlur={() => setEditingField(null)}
+                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
+                  ))}
+                </select>
+              ) : (
+                <div
+                  className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
+                  onClick={() => setEditingField('assigned_to')}
+                >
+                  {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
+                    <img
+                      src={users.find(u => u.id === task.assigned_to)?.avatar_url}
+                      alt="Avatar"
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                      <UserIcon className="w-3 h-3 text-gray-500" />
+                    </div>
+                  )}
+                  <p className="text-gray-600 text-xs truncate">
+                    {users.find(u => u.id === task.assigned_to)?.display_name ||
+                     users.find(u => u.id === task.assigned_to)?.email ||
+                     'Neznámý uživatel'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-1.5">
+              <UserPlusIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" title="Zadavatel" />
+              <div className="flex items-center gap-1.5 px-2 py-1.5 flex-1">
+                {users.find(u => u.id === task.created_by)?.avatar_url ? (
                   <img
-                    src={users.find(u => u.id === task.assigned_to)?.avatar_url}
+                    src={users.find(u => u.id === task.created_by)?.avatar_url}
                     alt="Avatar"
-                    className="w-6 h-6 rounded-full object-cover"
+                    className="w-5 h-5 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                    <UserIcon className="w-3 h-3 text-gray-500" />
+                  <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">
+                    <UserIcon className="w-3 h-3 text-blue-600" />
                   </div>
                 )}
                 <p className="text-gray-600 text-xs truncate">
-                  {users.find(u => u.id === task.assigned_to)?.display_name ||
-                   users.find(u => u.id === task.assigned_to)?.email ||
+                  {users.find(u => u.id === task.created_by)?.display_name ||
+                   users.find(u => u.id === task.created_by)?.email ||
                    'Neznámý uživatel'}
                 </p>
               </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Zadavatel</label>
-            <div className="flex items-center gap-1.5 px-2 py-1.5">
-              {users.find(u => u.id === task.created_by)?.avatar_url ? (
-                <img
-                  src={users.find(u => u.id === task.created_by)?.avatar_url}
-                  alt="Avatar"
-                  className="w-6 h-6 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                  <UserIcon className="w-3 h-3 text-blue-600" />
-                </div>
-              )}
-              <p className="text-gray-600 text-xs truncate">
-                {users.find(u => u.id === task.created_by)?.display_name ||
-                 users.find(u => u.id === task.created_by)?.email ||
-                 'Neznámý uživatel'}
-              </p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              <TagIcon className="w-3.5 h-3.5 inline mr-1" />
-              Kategorie
-            </label>
-            {editingField === 'category_id' ? (
-              <select
-                defaultValue={task.category_id || ''}
-                autoFocus
-                onChange={(e) => {
-                  updateTaskField('category_id', e.target.value || null);
-                }}
-                onBlur={() => setEditingField(null)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Žádná kategorie</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            ) : (
-              <p
-                className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
-                onClick={() => setEditingField('category_id')}
-              >
-                {categories.find(c => c.id === task.category_id)?.name || 'Bez kategorie'}
-              </p>
-            )}
+            <div className="flex items-center gap-1.5">
+              <TagIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Kategorie" />
+              {editingField === 'category_id' ? (
+                <select
+                  defaultValue={task.category_id || ''}
+                  autoFocus
+                  onChange={(e) => {
+                    updateTaskField('category_id', e.target.value || null);
+                  }}
+                  onBlur={() => setEditingField(null)}
+                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Žádná kategorie</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <p
+                  className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
+                  onClick={() => setEditingField('category_id')}
+                >
+                  {categories.find(c => c.id === task.category_id)?.name || 'Bez kategorie'}
+                </p>
+              )}
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              <FolderIcon className="w-3.5 h-3.5 inline mr-1" />
-              Složka
-            </label>
-            {editingField === 'folder_id' ? (
-              <select
-                defaultValue={task.folder_id || ''}
-                autoFocus
-                onChange={(e) => {
-                  updateTaskField('folder_id', e.target.value || null);
-                }}
-                onBlur={() => setEditingField(null)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Žádná složka</option>
-                {buildFolderHierarchy(folders)}
-              </select>
-            ) : (
-              <p
-                className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
-                onClick={() => setEditingField('folder_id')}
-              >
-                {folders.find(f => f.id === task.folder_id)?.name || 'Bez složky'}
-              </p>
-            )}
+            <div className="flex items-center gap-1.5">
+              <FolderIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Složka" />
+              {editingField === 'folder_id' ? (
+                <select
+                  defaultValue={task.folder_id || ''}
+                  autoFocus
+                  onChange={(e) => {
+                    updateTaskField('folder_id', e.target.value || null);
+                  }}
+                  onBlur={() => setEditingField(null)}
+                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Žádná složka</option>
+                  {buildFolderHierarchy(folders)}
+                </select>
+              ) : (
+                <p
+                  className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
+                  onClick={() => setEditingField('folder_id')}
+                >
+                  {folders.find(f => f.id === task.folder_id)?.name || 'Bez složky'}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
         {task.folder_id && availableTags.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              <TagIcon className="w-4 h-4 inline mr-2" />
-              Tagy
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {availableTags.map((tag) => {
-                const isSelected = selectedTagIds.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    onClick={() => toggleTag(tag.id)}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all ${
-                      isSelected
-                        ? 'ring-2 ring-offset-1'
-                        : 'opacity-50 hover:opacity-100'
-                    }`}
-                    style={{
-                      backgroundColor: tag.color + (isSelected ? '30' : '20'),
-                      color: tag.color,
-                      borderLeft: `3px solid ${tag.color}`,
-                      ringColor: tag.color
-                    }}
-                  >
-                    <div
-                      className="w-3 h-3 rounded"
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    {tag.name}
-                  </button>
-                );
-              })}
+          <div className="border-t border-gray-100 pt-3">
+            <div className="flex items-start gap-1.5">
+              <TagIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-1" title="Tagy" />
+              <div className="flex flex-wrap gap-2 flex-1">
+                {availableTags.map((tag) => {
+                  const isSelected = selectedTagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleTag(tag.id)}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-offset-1'
+                          : 'opacity-50 hover:opacity-100'
+                      }`}
+                      style={{
+                        backgroundColor: tag.color + (isSelected ? '30' : '20'),
+                        color: tag.color,
+                        borderLeft: `3px solid ${tag.color}`,
+                        ringColor: tag.color
+                      }}
+                    >
+                      <div
+                        className="w-3 h-3 rounded"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Priorita</label>
-            {editingField === 'priority' ? (
-              <select
-                defaultValue={task.priority || 'medium'}
-                autoFocus
-                onChange={(e) => {
-                  updateTaskField('priority', e.target.value as Task['priority']);
-                }}
-                onBlur={() => setEditingField(null)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="low">Nízká</option>
-                <option value="medium">Střední</option>
-                <option value="high">Vysoká</option>
-                <option value="urgent">Urgentní</option>
-              </select>
-            ) : (
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${priorityColors[task.priority]}`}
-                onClick={() => setEditingField('priority')}
-              >
-                {priorityLabels[task.priority]}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5">
+              <AlertCircleIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Priorita" />
+              {editingField === 'priority' ? (
+                <select
+                  defaultValue={task.priority || 'medium'}
+                  autoFocus
+                  onChange={(e) => {
+                    updateTaskField('priority', e.target.value as Task['priority']);
+                  }}
+                  onBlur={() => setEditingField(null)}
+                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="low">Nízká</option>
+                  <option value="medium">Střední</option>
+                  <option value="high">Vysoká</option>
+                  <option value="urgent">Urgentní</option>
+                </select>
+              ) : (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${priorityColors[task.priority]}`}
+                  onClick={() => setEditingField('priority')}
+                >
+                  {priorityLabels[task.priority]}
+                </span>
+              )}
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-            {editingField === 'status' ? (
-              <select
-                defaultValue={task.status || 'todo'}
-                autoFocus
-                onChange={(e) => {
-                  updateTaskField('status', e.target.value as Task['status']);
-                }}
-                onBlur={() => setEditingField(null)}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="todo">K dokončení</option>
-                <option value="in_progress">Probíhá</option>
-                <option value="completed">Dokončeno</option>
-              </select>
-            ) : (
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${statusColors[task.status]}`}
-                onClick={() => setEditingField('status')}
-              >
-                {statusLabels[task.status]}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5">
+              <CircleIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Status" />
+              {editingField === 'status' ? (
+                <select
+                  defaultValue={task.status || 'todo'}
+                  autoFocus
+                  onChange={(e) => {
+                    updateTaskField('status', e.target.value as Task['status']);
+                  }}
+                  onBlur={() => setEditingField(null)}
+                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="todo">K dokončení</option>
+                  <option value="in_progress">Probíhá</option>
+                  <option value="completed">Dokončeno</option>
+                </select>
+              ) : (
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity ${statusColors[task.status]}`}
+                  onClick={() => setEditingField('status')}
+                >
+                  {statusLabels[task.status]}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
