@@ -7,7 +7,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const BATCH_SIZE = 20;
+interface PortalWebsite {
+  id: number;
+  acf?: {
+    url_adresa_webu?: string;
+  };
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -23,250 +28,143 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const portalFeedUrl = "https://portal.webfusion.cz/webs_feed.xml";
+    const { data: config } = await supabaseAdmin
+      .from('portal_sync_config')
+      .select('*')
+      .maybeSingle();
 
-    console.log('Fetching portal feed...');
-    const response = await fetch(portalFeedUrl, {
-      headers: {
-        'User-Agent': 'Supabase-Edge-Function/1.0',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch portal feed: ${response.statusText}`);
-    }
-
-    const xmlText = await response.text();
-
-    const decodeHtmlEntities = (text: string): string => {
-      return text
-        .replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&');
-    };
-
-    const parseXmlValue = (xml: string, tag: string): string | null => {
-      const regex = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i');
-      const match = xml.match(regex);
-      return match ? decodeHtmlEntities(match[1].trim()) : null;
-    };
-
-    const parseXmlInt = (xml: string, tag: string): number => {
-      const value = parseXmlValue(xml, tag);
-      return value ? parseInt(value, 10) : 0;
-    };
-
-    const extractSimplePluginList = (xml: string, containerTag: string): string[] => {
-      const regex = new RegExp(`<${containerTag}>(.*?)</${containerTag}>`, 'is');
-      const match = xml.match(regex);
-      if (!match) return [];
-
-      const pluginsXml = match[1];
-      const pluginRegex = /<plugin>([^<]+)<\/plugin>/gi;
-      const plugins: string[] = [];
-      let pluginMatch;
-
-      while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
-        const pluginName = decodeHtmlEntities(pluginMatch[1].trim());
-        if (pluginName) {
-          plugins.push(pluginName);
-        }
-      }
-
-      return plugins;
-    };
-
-    const extractUpdatePlugins = (xml: string): any[] => {
-      const regex = /<update_plugins>(.*?)<\/update_plugins>/is;
-      const match = xml.match(regex);
-      if (!match) return [];
-
-      const pluginsXml = match[1];
-      const pluginRegex = /<plugin>(.*?)<\/plugin>/gis;
-      const plugins = [];
-      let pluginMatch;
-
-      while ((pluginMatch = pluginRegex.exec(pluginsXml)) !== null) {
-        const pluginXml = pluginMatch[1];
-        plugins.push({
-          name: parseXmlValue(pluginXml, 'name'),
-          current_version: parseXmlValue(pluginXml, 'current_version'),
-          new_version: parseXmlValue(pluginXml, 'new_version'),
-        });
-      }
-
-      return plugins;
-    };
-
-    const extractUsers = (xml: string): string[] => {
-      const regex = /<users>(.*?)<\/users>/is;
-      const match = xml.match(regex);
-      if (!match) return [];
-
-      const usersXml = match[1];
-      const userRegex = /<user>([^<]+)<\/user>/gi;
-      const users: string[] = [];
-      let userMatch;
-
-      while ((userMatch = userRegex.exec(usersXml)) !== null) {
-        const username = decodeHtmlEntities(userMatch[1].trim());
-        if (username) {
-          users.push(username);
-        }
-      }
-
-      return users;
-    };
-
-    const processWebsite = async (webXml: string) => {
-      const webUrl = parseXmlValue(webXml, 'post');
-
-      if (!webUrl) return null;
-
-      try {
-        console.log(`Processing website: ${webUrl}`);
-
-        let website = await supabaseAdmin
-          .from('websites')
-          .select('id')
-          .eq('url', webUrl)
-          .maybeSingle();
-
-        let websiteId;
-
-        if (!website.data) {
-          const { data: newWebsite, error: insertError } = await supabaseAdmin
-            .from('websites')
-            .insert({
-              url: webUrl,
-              name: webUrl,
-            })
-            .select('id')
-            .single();
-
-          if (insertError) {
-            console.error(`Failed to create website ${webUrl}:`, insertError);
-            return {
-              websiteUrl: webUrl,
-              success: false,
-              error: insertError.message,
-            };
-          }
-
-          websiteId = newWebsite.id;
-        } else {
-          websiteId = website.data.id;
-        }
-
-        const activePlugins = extractSimplePluginList(webXml, 'active_plugins');
-        const inactivePlugins = extractSimplePluginList(webXml, 'inactive_plugins');
-        const updatePlugins = extractUpdatePlugins(webXml);
-        const users = extractUsers(webXml);
-        const ult = parseXmlValue(webXml, 'ult');
-
-        const statusData = {
-          website_id: websiteId,
-          last_updated: parseXmlValue(webXml, 'last_updated'),
-          wordpress_version: parseXmlValue(webXml, 'wordpress_version'),
-          php_version: parseXmlValue(webXml, 'php_version'),
-          mysql_version: parseXmlValue(webXml, 'mysql_version'),
-          memory_limit: parseXmlValue(webXml, 'memory_limit'),
-          upload_max_filesize: parseXmlValue(webXml, 'upload_max_filesize'),
-          num_pages: parseXmlInt(webXml, 'num_pages'),
-          num_posts: parseXmlInt(webXml, 'num_posts'),
-          num_comments: parseXmlInt(webXml, 'num_comments'),
-          num_users: parseXmlInt(webXml, 'num_users'),
-          num_media_files: parseXmlInt(webXml, 'num_media_files'),
-          https_status: parseXmlValue(webXml, 'https_status'),
-          indexing_allowed: parseXmlValue(webXml, 'indexing_allowed'),
-          storage_usage: parseXmlValue(webXml, 'storage_usage'),
-          active_plugins_count: parseXmlInt(webXml, 'active_plugins_count'),
-          inactive_plugins_count: parseXmlInt(webXml, 'inactive_plugins_count'),
-          update_plugins_count: parseXmlInt(webXml, 'update_plugins_count'),
-          theme_name: parseXmlValue(webXml, 'theme_name'),
-          theme_version: parseXmlValue(webXml, 'theme_version'),
-          server_load: parseXmlValue(webXml, 'server_load'),
-          uptime: parseXmlValue(webXml, 'uptime'),
-          ult: ult,
-          raw_data: {
-            active_plugins: activePlugins.map(name => ({ name, version: null, author: null })),
-            inactive_plugins: inactivePlugins.map(name => ({ name, version: null, author: null })),
-            update_plugins: updatePlugins,
-            users: users.map(username => ({ username, email: null, role: null })),
-          },
-        };
-
-        const { error: statusError } = await supabaseAdmin
-          .from('website_status')
-          .insert(statusData);
-
-        if (statusError) {
-          console.error(`Failed to insert status for ${webUrl}:`, statusError);
-          return {
-            websiteUrl: webUrl,
-            success: false,
-            error: statusError.message,
-          };
-        }
-
-        await supabaseAdmin
-          .from('websites')
-          .update({
-            last_sync_at: new Date().toISOString(),
-            sync_error: null,
-            login_token: ult,
-          })
-          .eq('id', websiteId);
-
-        console.log(`✓ Synced ${webUrl}`);
-
-        return {
-          websiteUrl: webUrl,
-          success: true,
-        };
-      } catch (error) {
-        console.error(`Failed to process website ${webUrl}:`, error);
-        return {
-          websiteUrl: webUrl,
+    if (!config || !config.is_enabled) {
+      return new Response(
+        JSON.stringify({
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
-    };
-
-    const webRegex = /<web>(.*?)<\/web>/gis;
-    const websites = [];
-    let webMatch;
-
-    while ((webMatch = webRegex.exec(xmlText)) !== null) {
-      websites.push(webMatch[1]);
-    }
-
-    console.log(`Found ${websites.length} websites in feed`);
-
-    const results = [];
-    for (let i = 0; i < websites.length; i += BATCH_SIZE) {
-      const batch = websites.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(websites.length / BATCH_SIZE)}`);
-
-      const batchResults = await Promise.all(
-        batch.map(webXml => processWebsite(webXml))
+          error: 'Portal sync is not configured or disabled',
+        }),
+        {
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
       );
-
-      results.push(...batchResults.filter(r => r !== null));
     }
+
+    const portalApiUrl = config.portal_url;
+
+    console.log('Fetching websites from portal API...');
+    let allPortalWebsites: PortalWebsite[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const url = `${portalApiUrl}?per_page=100&page=${page}`;
+      console.log(`Fetching page ${page}: ${url}`);
+
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Supabase-Edge-Function/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch portal API: ${response.statusText}`);
+      }
+
+      const pageData: PortalWebsite[] = await response.json();
+
+      if (pageData.length === 0) {
+        hasMore = false;
+      } else {
+        allPortalWebsites = allPortalWebsites.concat(pageData);
+        page++;
+      }
+    }
+
+    console.log(`Fetched ${allPortalWebsites.length} websites from portal`);
+
+    const portalUrls = allPortalWebsites
+      .map(w => w.acf?.url_adresa_webu)
+      .filter((url): url is string => !!url && url.trim() !== '');
+
+    console.log(`Found ${portalUrls.length} valid website URLs`);
+
+    const { data: existingWebsites } = await supabaseAdmin
+      .from('websites')
+      .select('id, url');
+
+    const existingUrls = new Set(existingWebsites?.map(w => w.url) || []);
+
+    const urlsToAdd = portalUrls.filter(url => !existingUrls.has(url));
+    const urlsInPortal = new Set(portalUrls);
+    const websitesToRemove = existingWebsites?.filter(w => !urlsInPortal.has(w.url)) || [];
+
+    console.log(`URLs to add: ${urlsToAdd.length}`);
+    console.log(`URLs to remove: ${websitesToRemove.length}`);
+
+    let added = 0;
+    let removed = 0;
+    let skipped = 0;
+
+    for (const url of urlsToAdd) {
+      try {
+        const { error } = await supabaseAdmin
+          .from('websites')
+          .insert({
+            url: url,
+            name: url,
+          });
+
+        if (error) {
+          console.error(`Failed to add ${url}:`, error);
+          skipped++;
+        } else {
+          console.log(`✓ Added ${url}`);
+          added++;
+        }
+      } catch (error) {
+        console.error(`Error adding ${url}:`, error);
+        skipped++;
+      }
+    }
+
+    for (const website of websitesToRemove) {
+      try {
+        const { error } = await supabaseAdmin
+          .from('websites')
+          .delete()
+          .eq('id', website.id);
+
+        if (error) {
+          console.error(`Failed to remove ${website.url}:`, error);
+          skipped++;
+        } else {
+          console.log(`✓ Removed ${website.url}`);
+          removed++;
+        }
+      } catch (error) {
+        console.error(`Error removing ${website.url}:`, error);
+        skipped++;
+      }
+    }
+
+    await supabaseAdmin
+      .from('portal_sync_config')
+      .update({
+        last_sync_at: new Date().toISOString(),
+        sync_error: null,
+      })
+      .eq('id', config.id);
+
+    console.log(`Sync completed: ${added} added, ${removed} removed, ${skipped} skipped`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        totalWebsites: websites.length,
-        syncedWebsites: results.filter(r => r.success).length,
-        failedWebsites: results.filter(r => !r.success).length,
-        results,
+        total: portalUrls.length,
+        added,
+        removed,
+        skipped,
+        message: `Sync completed successfully`,
       }),
       {
         status: 200,
@@ -278,6 +176,26 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     console.error('Sync error:', error);
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { data: config } = await supabaseAdmin
+      .from('portal_sync_config')
+      .select('id')
+      .maybeSingle();
+
+    if (config) {
+      await supabaseAdmin
+        .from('portal_sync_config')
+        .update({
+          sync_error: error instanceof Error ? error.message : 'Unknown error',
+        })
+        .eq('id', config.id);
+    }
+
     return new Response(
       JSON.stringify({
         success: false,
