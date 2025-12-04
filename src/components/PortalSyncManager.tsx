@@ -26,17 +26,43 @@ export function PortalSyncManager() {
 
   async function loadConfig() {
     setLoading(true);
-    const { data, error } = await supabase
+
+    const { data: configData, error: configError } = await supabase
       .from('portal_sync_config')
       .select('*')
       .maybeSingle();
 
-    if (error) {
-      console.error('Error loading config:', error);
-    } else if (data) {
-      setConfig(data);
-      setPortalUrl(data.portal_url);
-      setIsEnabled(data.is_enabled);
+    if (configError) {
+      console.error('Error loading config:', configError);
+    }
+
+    const { data: websitesData } = await supabase
+      .from('websites')
+      .select('last_sync_at')
+      .order('last_sync_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (configData) {
+      const updatedConfig = {
+        ...configData,
+        last_sync_at: websitesData?.last_sync_at || configData.last_sync_at
+      };
+      setConfig(updatedConfig);
+      setPortalUrl(configData.portal_url || 'https://portal.webfusion.cz/webs_feed.xml');
+      setIsEnabled(true);
+    } else {
+      setConfig({
+        id: '',
+        portal_url: 'https://portal.webfusion.cz/webs_feed.xml',
+        is_enabled: true,
+        last_sync_at: websitesData?.last_sync_at || null,
+        sync_error: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+      setPortalUrl('https://portal.webfusion.cz/webs_feed.xml');
+      setIsEnabled(true);
     }
     setLoading(false);
   }
@@ -100,7 +126,12 @@ export function PortalSyncManager() {
       }
 
       await loadConfig();
-      alert(`Synchronizace dokončena:\n\nPřidáno: ${result.added}\nOdstraněno: ${result.removed}\nPřeskočeno: ${result.skipped}\nCelkem v portálu: ${result.total}`);
+
+      if (result.success) {
+        alert(`Synchronizace dokončena:\n\nSynchronizováno: ${result.syncedWebsites} webů\nCelkem v portálu: ${result.totalWebsites}${result.failedWebsites > 0 ? `\nSelhalo: ${result.failedWebsites}` : ''}`);
+      } else {
+        alert('Chyba při synchronizaci: ' + (result.error || 'Unknown error'));
+      }
     } catch (error) {
       console.error('Sync error:', error);
       alert('Chyba při synchronizaci: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -144,12 +175,11 @@ export function PortalSyncManager() {
             <input
               type="text"
               value={portalUrl}
-              onChange={(e) => setPortalUrl(e.target.value)}
-              placeholder="https://portal.webfusion.cz/wp-json/wp/v2/web"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              readOnly
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
             />
             <p className="text-xs text-gray-500 mt-1">
-              URL API endpointu, který vrací seznam webů ve formátu JSON
+              URL XML feedu, který vrací seznam webů z portálu
             </p>
           </div>
 
@@ -157,12 +187,13 @@ export function PortalSyncManager() {
             <input
               type="checkbox"
               id="is_enabled"
-              checked={isEnabled}
-              onChange={(e) => setIsEnabled(e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              checked={true}
+              readOnly
+              disabled
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded"
             />
             <label htmlFor="is_enabled" className="text-sm font-medium text-gray-700">
-              Povolit automatickou synchronizaci každou hodinu
+              Automatická synchronizace každých 5 minut (aktivní)
             </label>
           </div>
 
@@ -196,11 +227,11 @@ export function PortalSyncManager() {
               <div className="text-sm text-blue-900">
                 <h3 className="font-medium mb-2">Jak to funguje?</h3>
                 <ul className="list-disc list-inside space-y-1 text-blue-800">
-                  <li>Systém načte seznam webů z portálu</li>
-                  <li>Pro každý web v portálu zkontroluje pole <code className="bg-blue-100 px-1 py-0.5 rounded">acf.url_adresa_webu</code></li>
-                  <li>Pokud web v databázi neexistuje, přidá ho</li>
-                  <li>Pokud web v databázi existuje, ale není v portálu, odstraní ho</li>
-                  <li>Po přidání webů se automaticky spustí synchronizace jejich stavů</li>
+                  <li>Systém načte seznam webů z portálu z XML feedu</li>
+                  <li>Pro každý web v portálu zjistí všechny dostupné údaje</li>
+                  <li>Pokud web v databázi neexistuje, automaticky ho přidá</li>
+                  <li>Data se ukládají do databáze včetně historie stavů</li>
+                  <li>Synchronizace probíhá automaticky každých 5 minut na pozadí</li>
                 </ul>
               </div>
             </div>
@@ -208,15 +239,8 @@ export function PortalSyncManager() {
 
           <div className="flex gap-3">
             <button
-              onClick={saveConfig}
-              disabled={saving || !portalUrl.trim()}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Ukládání...' : 'Uložit konfiguraci'}
-            </button>
-            <button
               onClick={syncNow}
-              disabled={syncing || !config || !config.is_enabled}
+              disabled={syncing}
               className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
