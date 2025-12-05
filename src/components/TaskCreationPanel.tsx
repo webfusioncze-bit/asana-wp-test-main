@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { XIcon, PlusIcon, Trash2Icon, FileIcon, RepeatIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { sendTaskAssignmentEmail } from '../lib/emailNotifications';
@@ -30,6 +30,9 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
   const [recurrenceDayOfMonth, setRecurrenceDayOfMonth] = useState<number | null>(null);
   const [recurrenceMonth, setRecurrenceMonth] = useState<number | null>(null);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadCategories();
@@ -38,12 +41,45 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
     loadCurrentUser();
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    }
+
+    if (showUserDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showUserDropdown]);
+
   async function loadCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setAssignedTo(user.id);
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.display_name) {
+        setUserSearchQuery(profile.display_name);
+      }
     }
   }
+
+  const filteredUsers = users.filter(user => {
+    const searchLower = userSearchQuery.toLowerCase();
+    return (
+      user.display_name?.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower) ||
+      user.first_name?.toLowerCase().includes(searchLower) ||
+      user.last_name?.toLowerCase().includes(searchLower)
+    );
+  });
 
   async function loadCategories() {
     const { data, error } = await supabase
@@ -94,14 +130,21 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
   async function loadUsers() {
     const { data: profiles, error } = await supabase
       .from('user_profiles')
-      .select('id, email');
+      .select('id, email, first_name, last_name, avatar_url, display_name');
 
     if (error) {
       console.error('Error loading user profiles:', error);
       return;
     }
 
-    setUsers((profiles || []).map(p => ({ id: p.id, email: p.email || '' })));
+    setUsers((profiles || []).map(p => ({
+      id: p.id,
+      email: p.email || '',
+      first_name: p.first_name,
+      last_name: p.last_name,
+      avatar_url: p.avatar_url,
+      display_name: p.display_name
+    })));
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -171,14 +214,14 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
       }
 
       if (task && assignedTo && assignedTo !== user.id) {
-        await sendTaskAssignmentEmail({
+        sendTaskAssignmentEmail({
           taskId: task.id,
           taskTitle: title,
           assignedUserId: assignedTo,
           assignedByUserId: user.id,
           dueDate: dueDate || undefined,
           isReassignment: false
-        });
+        }).catch(err => console.error('Error sending email:', err));
       }
 
       if (attachments.length > 0 && task) {
@@ -297,20 +340,61 @@ export function TaskCreationPanel({ folderId, onClose, onTaskCreated }: TaskCrea
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div>
+          <div className="relative" ref={userDropdownRef}>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Přiřazeno *
             </label>
-            <select
-              value={assignedTo}
-              onChange={(e) => setAssignedTo(e.target.value)}
+            <input
+              type="text"
+              value={userSearchQuery}
+              onChange={(e) => {
+                setUserSearchQuery(e.target.value);
+                setShowUserDropdown(true);
+              }}
+              onFocus={() => setShowUserDropdown(true)}
+              placeholder="Začněte psát jméno nebo email..."
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Vyberte uživatele</option>
-              {users.map(user => (
-                <option key={user.id} value={user.id}>{user.email}</option>
-              ))}
-            </select>
+            />
+            {showUserDropdown && filteredUsers.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {filteredUsers.map(user => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => {
+                      setAssignedTo(user.id);
+                      setUserSearchQuery(user.display_name || user.email);
+                      setShowUserDropdown(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                      assignedTo === user.id ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt=""
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-xs text-gray-600">
+                          {(user.first_name?.[0] || user.email[0]).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">
+                        {user.display_name || user.email}
+                      </div>
+                      {user.display_name && (
+                        <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
