@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { CheckCircleIcon } from 'lucide-react';
 
 export function Auth() {
   const [loading, setLoading] = useState(false);
@@ -7,6 +8,15 @@ export function Auth() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('password_changed') === 'true') {
+      setSuccessMessage('Heslo bylo úspěšně změněno. Můžete se přihlásit.');
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
@@ -89,6 +99,13 @@ export function Auth() {
               placeholder="••••••••"
             />
           </div>
+
+          {successMessage && (
+            <div className="p-3 border rounded-lg flex items-center gap-2" style={{ backgroundColor: '#e8f7f6', borderColor: '#239a93' }}>
+              <CheckCircleIcon className="w-5 h-5" style={{ color: '#239a93' }} />
+              <p className="text-sm" style={{ color: '#239a93' }}>{successMessage}</p>
+            </div>
+          )}
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">

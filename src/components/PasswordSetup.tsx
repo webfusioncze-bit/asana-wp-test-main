@@ -1,15 +1,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { KeyIcon, EyeIcon, EyeOffIcon, CheckCircleIcon } from 'lucide-react';
+import { KeyIcon, EyeIcon, EyeOffIcon, CheckCircleIcon, UserIcon, Upload } from 'lucide-react';
+
+type SetupStep = 'password' | 'profile' | 'complete';
 
 export function PasswordSetup() {
+  const [step, setStep] = useState<SetupStep>('password');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
 
   useEffect(() => {
     async function checkToken() {
@@ -18,6 +27,7 @@ export function PasswordSetup() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setIsValidToken(true);
+          setUserId(session.user.id);
         } else {
           setIsValidToken(false);
         }
@@ -51,15 +61,31 @@ export function PasswordSetup() {
 
       if (updateError) {
         setError(updateError.message);
+        setLoading(false);
         return;
       }
 
-      setSuccess(true);
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('first_name, last_name, avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (!profile || !profile.first_name || !profile.last_name) {
+          setNeedsProfileSetup(true);
+          setStep('profile');
+          setLoading(false);
+          return;
+        }
+      }
+
+      setStep('complete');
 
       setTimeout(async () => {
         await supabase.auth.signOut();
         window.location.hash = '';
-        window.location.href = '/';
+        window.location.href = '/?password_changed=true';
       }, 2000);
     } catch (err) {
       setError('Došlo k chybě při nastavování hesla');
@@ -69,12 +95,84 @@ export function PasswordSetup() {
     }
   }
 
+  async function handleProfileSetup(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('Jméno a příjmení jsou povinné');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let avatarUrl = '';
+
+      if (avatarFile && userId) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${userId}-${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('attachments')
+          .upload(`avatars/${fileName}`, avatarFile);
+
+        if (uploadError) {
+          console.error('Avatar upload error:', uploadError);
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('attachments')
+            .getPublicUrl(`avatars/${fileName}`);
+          avatarUrl = publicUrl;
+        }
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          avatar_url: avatarUrl || null
+        }
+      });
+
+      if (updateError) {
+        setError(updateError.message);
+        setLoading(false);
+        return;
+      }
+
+      setStep('complete');
+
+      setTimeout(async () => {
+        await supabase.auth.signOut();
+        window.location.hash = '';
+        window.location.href = '/?password_changed=true';
+      }, 2000);
+    } catch (err) {
+      setError('Došlo k chybě při nastavování profilu');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
   if (isValidToken === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center p-4 webfusion-gradient">
+        <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: '#239a93' }}></div>
             <p className="mt-4 text-gray-600">Načítání...</p>
           </div>
         </div>
@@ -84,9 +182,16 @@ export function PasswordSetup() {
 
   if (isValidToken === false) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center p-4 webfusion-gradient">
+        <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
           <div className="text-center">
+            <div className="mx-auto mb-8 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-xl shadow-lg inline-block">
+              <img
+                src="https://webfusion.io/wp-content/uploads/2021/02/webfusion-logo-white-com.png"
+                alt="Webfusion Logo"
+                className="h-10 object-contain"
+              />
+            </div>
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <KeyIcon className="w-8 h-8 text-red-600" />
             </div>
@@ -96,7 +201,7 @@ export function PasswordSetup() {
             </p>
             <a
               href="/"
-              className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-block px-6 py-3 text-white rounded-lg transition-colors font-medium webfusion-button"
             >
               Zpět na přihlášení
             </a>
@@ -106,17 +211,28 @@ export function PasswordSetup() {
     );
   }
 
-  if (success) {
+  if (step === 'complete') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center p-4 webfusion-gradient">
+        <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
           <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircleIcon className="w-8 h-8 text-green-600" />
+            <div className="mx-auto mb-8 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-xl shadow-lg inline-block">
+              <img
+                src="https://webfusion.io/wp-content/uploads/2021/02/webfusion-logo-white-com.png"
+                alt="Webfusion Logo"
+                className="h-10 object-contain"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Heslo nastaveno</h1>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#e8f7f6' }}>
+              <CheckCircleIcon className="w-8 h-8" style={{ color: '#239a93' }} />
+            </div>
+            <h1 className="text-2xl font-bold mb-2" style={{ color: '#333' }}>
+              {needsProfileSetup ? 'Profil dokončen' : 'Heslo změněno'}
+            </h1>
             <p className="text-gray-600 mb-6">
-              Vaše heslo bylo úspěšně nastaveno. Budete přesměrováni na přihlašovací stránku.
+              {needsProfileSetup
+                ? 'Váš profil byl úspěšně nastaven. Nyní se můžete přihlásit.'
+                : 'Vaše heslo bylo úspěšně změněno. Nyní se můžete přihlásit s novým heslem.'}
             </p>
           </div>
         </div>
@@ -124,14 +240,121 @@ export function PasswordSetup() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <KeyIcon className="w-8 h-8 text-blue-600" />
+  if (step === 'profile') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 webfusion-gradient">
+        <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="mx-auto mb-8 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-xl shadow-lg inline-block">
+              <img
+                src="https://webfusion.io/wp-content/uploads/2021/02/webfusion-logo-white-com.png"
+                alt="Webfusion Logo"
+                className="h-10 object-contain"
+              />
+            </div>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#e8f7f6' }}>
+              <UserIcon className="w-8 h-8" style={{ color: '#239a93' }} />
+            </div>
+            <h1 className="text-2xl font-bold mb-2" style={{ color: '#333' }}>Dokončete svůj profil</h1>
+            <p className="text-gray-600">
+              Vyplňte prosím své základní údaje
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Nastavit heslo</h1>
+
+          <form onSubmit={handleProfileSetup} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Jméno *
+              </label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Zadejte vaše jméno"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                style={{ '--tw-ring-color': '#239a93' } as React.CSSProperties}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Příjmení *
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Zadejte vaše příjmení"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                style={{ '--tw-ring-color': '#239a93' } as React.CSSProperties}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Profilová fotka (volitelné)
+              </label>
+              <div className="flex items-center gap-4">
+                {avatarPreview && (
+                  <img
+                    src={avatarPreview}
+                    alt="Avatar preview"
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                )}
+                <label className="flex-1 cursor-pointer">
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <Upload className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm text-gray-600">
+                      {avatarFile ? avatarFile.name : 'Vybrat obrázek'}
+                    </span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium webfusion-button"
+            >
+              {loading ? 'Ukládám...' : 'Dokončit nastavení'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 webfusion-gradient">
+      <div className="bg-white rounded-2xl shadow-2xl p-10 w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="mx-auto mb-8 bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-xl shadow-lg inline-block">
+            <img
+              src="https://webfusion.io/wp-content/uploads/2021/02/webfusion-logo-white-com.png"
+              alt="Webfusion Logo"
+              className="h-10 object-contain"
+            />
+          </div>
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#e8f7f6' }}>
+            <KeyIcon className="w-8 h-8" style={{ color: '#239a93' }} />
+          </div>
+          <h1 className="text-2xl font-bold mb-2" style={{ color: '#333' }}>Nastavit nové heslo</h1>
           <p className="text-gray-600">
             Vytvořte si silné heslo pro přístup do systému
           </p>
@@ -148,7 +371,8 @@ export function PasswordSetup() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Zadejte nové heslo (min. 6 znaků)"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all pr-10"
+                style={{ '--tw-ring-color': '#239a93' } as React.CSSProperties}
                 required
               />
               <button
@@ -174,7 +398,8 @@ export function PasswordSetup() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Zadejte heslo znovu"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+              style={{ '--tw-ring-color': '#239a93' } as React.CSSProperties}
               required
             />
           </div>
@@ -188,7 +413,7 @@ export function PasswordSetup() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="w-full py-3 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium webfusion-button"
           >
             {loading ? 'Nastavuji heslo...' : 'Nastavit heslo'}
           </button>
