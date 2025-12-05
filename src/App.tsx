@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
+import { PasswordSetup } from './components/PasswordSetup';
 import { FolderSidebar } from './components/FolderSidebar';
 import { TaskListNew } from './components/TaskListNew';
 import { TaskDetail } from './components/TaskDetail';
@@ -188,6 +189,11 @@ function App() {
         <p className="text-gray-600">Načítání...</p>
       </div>
     );
+  }
+
+  const hash = window.location.hash;
+  if (hash && hash.includes('type=recovery')) {
+    return <PasswordSetup />;
   }
 
   if (!user) {

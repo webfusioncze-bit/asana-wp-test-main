@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon, GlobeIcon } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon, GlobeIcon, MailIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -24,6 +24,7 @@ interface AuthUser {
   id: string;
   email: string;
   created_at: string;
+  last_sign_in_at?: string | null;
   first_name?: string;
   last_name?: string;
   display_name?: string;
@@ -68,7 +69,7 @@ export function AdminDashboard() {
   async function loadUsers() {
     const { data: profiles, error: profilesError } = await supabase
       .from('user_profiles')
-      .select('id, email, role, first_name, last_name, display_name, avatar_url, external_id');
+      .select('id, email, role, first_name, last_name, display_name, avatar_url, external_id, last_sign_in_at');
 
     if (profilesError) {
       console.error('Error loading profiles:', profilesError);
@@ -79,6 +80,7 @@ export function AdminDashboard() {
       id: profile.id,
       email: profile.email || '',
       created_at: '',
+      last_sign_in_at: profile.last_sign_in_at,
       role: profile.role || 'user',
       display_name: profile.display_name,
       first_name: profile.first_name,
@@ -123,10 +125,10 @@ export function AdminDashboard() {
     loadUsers();
   }
 
-  async function resetUserPassword(userId: string, email: string) {
-    const newPassword = prompt(`Zadejte nové heslo pro uživatele ${email}:`);
-    if (!newPassword || newPassword.length < 6) {
-      alert('Heslo musí mít alespoň 6 znaků');
+  async function sendInvitationEmail(userId: string, email: string, hasLoggedIn: boolean) {
+    const action = hasLoggedIn ? 'Email na změnu hesla' : 'Pozvánkový email';
+
+    if (!confirm(`Opravdu chcete odeslat ${action.toLowerCase()} na adresu ${email}?`)) {
       return;
     }
 
@@ -145,24 +147,23 @@ export function AdminDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'reset-password',
+          action: 'send-invitation',
           userId,
-          newPassword,
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        console.error('Error resetting password:', result.error);
-        alert('Chyba při resetování hesla: ' + result.error);
+        console.error('Error sending invitation:', result.error);
+        alert('Chyba při odesílání emailu: ' + result.error);
         return;
       }
 
-      alert('Heslo bylo úspěšně změněno');
+      alert(hasLoggedIn ? 'Email pro změnu hesla byl úspěšně odeslán' : 'Pozvánka byla úspěšně odeslána');
     } catch (error) {
       console.error('Error:', error);
-      alert('Došlo k chybě při resetování hesla');
+      alert('Došlo k chybě při odesílání emailu');
     }
   }
 
@@ -580,6 +581,9 @@ export function AdminDashboard() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Role
                     </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Poslední přihlášení
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Akce
                     </th>
@@ -661,6 +665,19 @@ export function AdminDashboard() {
                           {user.role === 'admin' ? 'Admin' : 'Uživatel'}
                         </span>
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                        {user.last_sign_in_at ? (
+                          new Date(user.last_sign_in_at).toLocaleString('cs-CZ', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })
+                        ) : (
+                          <span className="text-gray-400 italic">Nikdy</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -681,11 +698,11 @@ export function AdminDashboard() {
                             <Edit2Icon className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => resetUserPassword(user.id, user.email)}
+                            onClick={() => sendInvitationEmail(user.id, user.email, !!user.last_sign_in_at)}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Resetovat heslo"
+                            title={user.last_sign_in_at ? 'Odeslat email na změnu hesla' : 'Odeslat pozvánku'}
                           >
-                            <KeyIcon className="w-4 h-4" />
+                            <MailIcon className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => deleteUser(user.id, user.email)}

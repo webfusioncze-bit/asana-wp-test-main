@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'reset-password' | 'delete-user' | 'set-external-id' | 'update-user-profile';
+  action: 'reset-password' | 'delete-user' | 'set-external-id' | 'update-user-profile' | 'send-invitation';
   userId: string;
   newPassword?: string;
   externalId?: string;
@@ -183,8 +183,69 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    if (action === 'send-invitation') {
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email: (await supabaseAdmin.auth.admin.getUserById(userId)).data.user?.email || '',
+      });
+
+      if (linkError || !linkData) {
+        console.error('Error generating invitation link:', linkError);
+        return new Response(
+          JSON.stringify({ error: linkError?.message || 'Failed to generate invitation link' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      const resetUrl = linkData.properties.action_link;
+
+      const emailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`;
+      const emailResponse = await fetch(emailUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': req.headers.get('Authorization')!,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: (await supabaseAdmin.auth.admin.getUserById(userId)).data.user?.email || '',
+          subject: 'Pozvánka do systému',
+          html: `
+            <h2>Vítejte v systému Task Manager</h2>
+            <p>Byli jste pozváni do systému. Pro nastavení hesla a přihlášení klikněte na následující odkaz:</p>
+            <p><a href="${resetUrl}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Nastavit heslo</a></p>
+            <p>Odkaz je platný 60 minut.</p>
+            <p>Pokud jste tuto pozvánku neočekávali, ignorujte tento email.</p>
+          `,
+          text: `Vítejte v systému Task Manager\n\nByli jste pozváni do systému. Pro nastavení hesla a přihlášení použijte následující odkaz:\n\n${resetUrl}\n\nOdkaz je platný 60 minut.\n\nPokud jste tuto pozvánku neočekávali, ignorujte tento email.`,
+        }),
+      });
+
+      const emailResult = await emailResponse.json();
+
+      if (!emailResponse.ok) {
+        console.error('Error sending invitation email:', emailResult);
+        return new Response(
+          JSON.stringify({ error: 'Pozvánka byla vytvořena, ale email se nepodařilo odeslat: ' + (emailResult.error || 'Neznámá chyba') }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Pozvánka byla úspěšně odeslána' }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      );
+    }
+
     if (action === 'delete-user') {
-      // Kontrola globálních dat před smazáním
       const { data: globalFolders } = await supabaseClient
         .from('folders')
         .select('id, name')
@@ -196,7 +257,6 @@ Deno.serve(async (req: Request) => {
         console.warn(`User ${userId} has global folders that will become ownerless: ${folderNames}`);
       }
 
-      // Kontrola kategorií
       const { data: categories } = await supabaseClient
         .from('categories')
         .select('id, name')
@@ -206,7 +266,6 @@ Deno.serve(async (req: Request) => {
         console.warn(`User ${userId} has ${categories.length} categories that will become ownerless`);
       }
 
-      // Kontrola request types
       const { data: requestTypes } = await supabaseClient
         .from('request_types')
         .select('id, name')
@@ -216,7 +275,6 @@ Deno.serve(async (req: Request) => {
         console.warn(`User ${userId} has ${requestTypes.length} request types that will become ownerless`);
       }
 
-      // Smazat uživatele - jeho globální data zůstanou s owner_id = NULL
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
       if (error) {
