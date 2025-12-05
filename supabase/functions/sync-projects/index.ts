@@ -21,21 +21,35 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    const url = new URL(req.url);
+    const batchSize = parseInt(url.searchParams.get('batch_size') || '5');
+    const delayMs = parseInt(url.searchParams.get('delay_ms') || '2000');
+
     const { data: projects, error: projectsError } = await supabaseAdmin
       .from('projects')
       .select('id, name, import_source_url, last_sync_at')
       .eq('sync_enabled', true)
-      .not('import_source_url', 'is', null);
+      .not('import_source_url', 'is', null)
+      .order('last_sync_at', { ascending: true, nullsFirst: true })
+      .limit(batchSize);
 
     if (projectsError) {
       throw new Error(`Failed to fetch projects: ${projectsError.message}`);
     }
 
-    console.log(`Found ${projects.length} projects to sync`);
+    console.log(`Found ${projects.length} projects to sync (batch size: ${batchSize})`);
 
     const results = [];
+    const startTime = Date.now();
+    const maxExecutionTime = 50000;
 
-    for (const project of projects) {
+    for (let i = 0; i < projects.length; i++) {
+      const project = projects[i];
+
+      if (Date.now() - startTime > maxExecutionTime) {
+        console.log(`Execution time limit reached, stopping after ${i} projects`);
+        break;
+      }
       try {
         console.log(`Syncing project: ${project.name} (${project.id})`);
         
@@ -262,13 +276,31 @@ Deno.serve(async (req: Request) => {
           error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
+
+      if (i < projects.length - 1) {
+        console.log(`Waiting ${delayMs}ms before next project...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
     }
+
+    const executionTime = Date.now() - startTime;
+    const { count: totalPendingProjects } = await supabaseAdmin
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('sync_enabled', true)
+      .not('import_source_url', 'is', null)
+      .or(`last_sync_at.is.null,last_sync_at.lt.${new Date(Date.now() - 5 * 60 * 1000).toISOString()}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         syncedProjects: results.filter(r => r.success).length,
         failedProjects: results.filter(r => !r.success).length,
+        totalProjectsInBatch: projects.length,
+        remainingProjects: (totalPendingProjects || 0) - projects.length,
+        executionTimeMs: executionTime,
+        batchSize,
+        delayMs,
         results,
       }),
       {
