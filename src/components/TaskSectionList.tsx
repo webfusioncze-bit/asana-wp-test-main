@@ -9,9 +9,10 @@ interface TaskSectionListProps {
   onTaskClick: (taskId: string) => void;
   refreshTrigger?: number;
   isCompletedFolder?: boolean;
+  isUnassignedFolder?: boolean;
 }
 
-export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompletedFolder }: TaskSectionListProps) {
+export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompletedFolder, isUnassignedFolder }: TaskSectionListProps) {
   const [sections, setSections] = useState<TaskSection[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -66,7 +67,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
   }, [folderId]);
 
   async function loadSections() {
-    if (isCompletedFolder) {
+    if (isCompletedFolder || isUnassignedFolder) {
       setSections([]);
       return;
     }
@@ -120,6 +121,23 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
         .select('*')
         .is('parent_task_id', null)
         .eq('status', 'completed')
+        .order('position', { ascending: true });
+
+      if (error) {
+        console.error('Error loading tasks:', error);
+        return;
+      }
+
+      setTasks(data || []);
+      return;
+    }
+
+    if (isUnassignedFolder) {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .is('parent_task_id', null)
+        .is('folder_id', null)
         .order('position', { ascending: true });
 
       if (error) {
