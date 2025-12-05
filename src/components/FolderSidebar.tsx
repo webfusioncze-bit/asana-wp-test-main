@@ -172,14 +172,20 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         return isInGlobalHierarchy(parent);
       };
 
-      const getFolderTaskCount = async (folderId: string, includeCompleted: boolean): Promise<number> => {
+      const getFolderTaskCount = async (folderId: string, folderName: string, includeCompleted: boolean): Promise<number> => {
         const childFolderIds = allFolders.filter(f => f.parent_id === folderId).map(f => f.id);
 
         let query = supabase
           .from('tasks')
           .select('*', { count: 'exact', head: true })
-          .eq('folder_id', folderId)
           .is('parent_task_id', null);
+
+        // Special handling for "Nepřiřazené" folder - show tasks with no folder
+        if (folderName === 'Nepřiřazené') {
+          query = query.is('folder_id', null);
+        } else {
+          query = query.eq('folder_id', folderId);
+        }
 
         if (!includeCompleted) {
           query = query.neq('status', 'completed');
@@ -189,7 +195,10 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         let totalCount = count || 0;
 
         for (const childId of childFolderIds) {
-          totalCount += await getFolderTaskCount(childId, includeCompleted);
+          const childFolder = allFolders.find(f => f.id === childId);
+          if (childFolder) {
+            totalCount += await getFolderTaskCount(childId, childFolder.name, includeCompleted);
+          }
         }
 
         return totalCount;
@@ -197,7 +206,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
 
       for (const folder of allFolders) {
         const includeCompleted = folder.name === 'Dokončené';
-        const itemCount = await getFolderTaskCount(folder.id, includeCompleted);
+        const itemCount = await getFolderTaskCount(folder.id, folder.name, includeCompleted);
         const folderWithCount = { ...folder, item_count: itemCount };
 
         // Složky v globální hierarchii jdou do "global" kategorie
@@ -377,7 +386,12 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
             isSelected ? 'bg-blue-50' : ''
           } ${level > 0 ? 'bg-gray-50/50' : ''}`}
           style={{ paddingLeft: `${8 + level * 24}px` }}
-          onClick={() => onSelectFolder(folder.id)}
+          onClick={() => {
+            if (hasChildren) {
+              toggleFolder(folder.id);
+            }
+            onSelectFolder(folder.id);
+          }}
         >
           {isSelected && (
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600" />
