@@ -186,17 +186,19 @@ Deno.serve(async (req: Request) => {
 
         const { data: existingPhases } = await supabaseAdmin
           .from('project_phases')
-          .select('id, external_operator_id, assigned_user_id')
+          .select('id')
           .eq('project_id', project.id);
 
+        const { data: globalMappings } = await supabaseAdmin
+          .from('operator_user_mappings')
+          .select('external_operator_id, user_id');
+
         const operatorUserMap = new Map<string, string>();
-        existingPhases?.forEach(phase => {
-          if (phase.external_operator_id && phase.assigned_user_id) {
-            operatorUserMap.set(phase.external_operator_id, phase.assigned_user_id);
-          }
+        globalMappings?.forEach(mapping => {
+          operatorUserMap.set(mapping.external_operator_id, mapping.user_id);
         });
 
-        console.log(`Saved ${operatorUserMap.size} operator→user mappings`);
+        console.log(`Loaded ${operatorUserMap.size} operator→user mappings from global table`);
 
         const { error: deleteError } = await supabaseAdmin
           .from('project_phases')
