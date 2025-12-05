@@ -127,28 +127,29 @@ export function PasswordSetup() {
 
       if (avatarFile && userId) {
         const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
+        const fileName = `${userId}/avatar.${fileExt}`;
         const { error: uploadError } = await supabase.storage
-          .from('attachments')
-          .upload(`avatars/${fileName}`, avatarFile);
+          .from('avatars')
+          .upload(fileName, avatarFile, { upsert: true });
 
         if (uploadError) {
           console.error('Avatar upload error:', uploadError);
         } else {
           const { data: { publicUrl } } = supabase.storage
-            .from('attachments')
-            .getPublicUrl(`avatars/${fileName}`);
+            .from('avatars')
+            .getPublicUrl(fileName);
           avatarUrl = publicUrl;
         }
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: {
-          first_name: firstName,
-          last_name: lastName,
+      const { error: updateError } = await supabase
+        .from('user_roles')
+        .update({
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
           avatar_url: avatarUrl || null
-        }
-      });
+        })
+        .eq('user_id', userId);
 
       if (updateError) {
         setError(updateError.message);
