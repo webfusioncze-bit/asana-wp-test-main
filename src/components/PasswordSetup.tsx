@@ -22,13 +22,29 @@ export function PasswordSetup() {
 
   useEffect(() => {
     async function checkToken() {
-      const hash = window.location.hash;
-      if (hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token')) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setIsValidToken(true);
-          setUserId(session.user.id);
-        } else {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const accessToken = params.get('access_token');
+      const type = params.get('type');
+
+      if (accessToken && (type === 'recovery' || type === 'invite')) {
+        try {
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: accessToken,
+            type: 'recovery'
+          });
+
+          if (error) {
+            console.error('Token verification error:', error);
+            setIsValidToken(false);
+          } else if (data.session) {
+            setIsValidToken(true);
+            setUserId(data.session.user.id);
+          } else {
+            setIsValidToken(false);
+          }
+        } catch (err) {
+          console.error('Token check error:', err);
           setIsValidToken(false);
         }
       } else {

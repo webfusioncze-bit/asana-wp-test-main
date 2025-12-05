@@ -216,11 +216,13 @@ Deno.serve(async (req: Request) => {
 
       const originalUrl = new URL(linkData.properties.action_link);
 
-      const hashParams = originalUrl.hash.substring(1);
+      const token = originalUrl.searchParams.get('token');
+      const tokenHash = originalUrl.searchParams.get('token_hash');
+      const type = originalUrl.searchParams.get('type') || 'recovery';
 
-      const resetUrl = hashParams
-        ? `https://task.webfusion.cz#${hashParams}`
-        : `https://task.webfusion.cz#access_token=${linkData.properties.hashed_token}&type=recovery`;
+      const accessToken = tokenHash || token || linkData.properties.hashed_token;
+
+      const resetUrl = `https://task.webfusion.cz#access_token=${accessToken}&type=${type}`;
 
       const { data: userProfile } = await supabaseClient
         .from('user_profiles')
