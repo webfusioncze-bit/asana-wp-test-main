@@ -215,10 +215,12 @@ Deno.serve(async (req: Request) => {
       }
 
       const originalUrl = new URL(linkData.properties.action_link);
-      const token = originalUrl.searchParams.get('token');
-      const type = originalUrl.searchParams.get('type');
 
-      const resetUrl = `https://task.webfusion.cz#access_token=${token}&type=${type}`;
+      const hashParams = originalUrl.hash.substring(1);
+
+      const resetUrl = hashParams
+        ? `https://task.webfusion.cz#${hashParams}`
+        : `https://task.webfusion.cz#access_token=${linkData.properties.hashed_token}&type=recovery`;
 
       const { data: userProfile } = await supabaseClient
         .from('user_profiles')
