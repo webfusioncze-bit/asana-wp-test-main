@@ -24,12 +24,16 @@ Deno.serve(async (req: Request) => {
     const url = new URL(req.url);
     const batchSize = parseInt(url.searchParams.get('batch_size') || '5');
     const delayMs = parseInt(url.searchParams.get('delay_ms') || '2000');
+    const syncIntervalMinutes = parseInt(url.searchParams.get('sync_interval') || '5');
+
+    const syncThreshold = new Date(Date.now() - syncIntervalMinutes * 60 * 1000).toISOString();
 
     const { data: projects, error: projectsError } = await supabaseAdmin
       .from('projects')
       .select('id, name, import_source_url, last_sync_at')
       .eq('sync_enabled', true)
       .not('import_source_url', 'is', null)
+      .or(`last_sync_at.is.null,last_sync_at.lt.${syncThreshold}`)
       .order('last_sync_at', { ascending: true, nullsFirst: true })
       .limit(batchSize);
 
@@ -37,7 +41,29 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to fetch projects: ${projectsError.message}`);
     }
 
-    console.log(`Found ${projects.length} projects to sync (batch size: ${batchSize})`);
+    console.log(`Found ${projects.length} projects to sync (batch size: ${batchSize}, threshold: ${syncThreshold})`);
+
+    if (projects.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'No projects need synchronization at this time',
+          syncedProjects: 0,
+          failedProjects: 0,
+          totalProjectsInBatch: 0,
+          remainingProjects: 0,
+          batchSize,
+          delayMs,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
 
     const results = [];
     const startTime = Date.now();
@@ -289,7 +315,7 @@ Deno.serve(async (req: Request) => {
       .select('*', { count: 'exact', head: true })
       .eq('sync_enabled', true)
       .not('import_source_url', 'is', null)
-      .or(`last_sync_at.is.null,last_sync_at.lt.${new Date(Date.now() - 5 * 60 * 1000).toISOString()}`);
+      .or(`last_sync_at.is.null,last_sync_at.lt.${syncThreshold}`);
 
     return new Response(
       JSON.stringify({
@@ -301,6 +327,7 @@ Deno.serve(async (req: Request) => {
         executionTimeMs: executionTime,
         batchSize,
         delayMs,
+        syncIntervalMinutes,
         results,
       }),
       {
