@@ -48,31 +48,39 @@ function App() {
   const [showRequestCreation, setShowRequestCreation] = useState(false);
 
   useEffect(() => {
-    if (isPasswordSetup) {
-      return;
+    const hash = window.location.hash;
+    const isRecoveryLink = hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token');
+
+    if (!isRecoveryLink) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          ensureUserRoleExists(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      });
+    } else {
+      setLoading(false);
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        ensureUserRoleExists(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        ensureUserRoleExists(session.user.id);
-      } else {
-        setUserRole(null);
-        setShowAdmin(false);
+      const currentHash = window.location.hash;
+      const isCurrentlyRecovery = currentHash && (currentHash.includes('type=recovery') || currentHash.includes('type=invite')) && currentHash.includes('access_token');
+
+      if (!isCurrentlyRecovery) {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          ensureUserRoleExists(session.user.id);
+        } else {
+          setUserRole(null);
+          setShowAdmin(false);
+        }
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [isPasswordSetup]);
+  }, []);
 
   useEffect(() => {
     if (selectedRequestId) {
