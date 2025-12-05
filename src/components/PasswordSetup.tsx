@@ -13,7 +13,7 @@ export function PasswordSetup() {
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash && hash.includes('type=recovery')) {
+    if (hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token')) {
       setIsValidToken(true);
     } else {
       setIsValidToken(false);

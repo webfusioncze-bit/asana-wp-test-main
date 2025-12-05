@@ -183,17 +183,17 @@ function App() {
     await supabase.auth.signOut();
   }
 
+  const hash = window.location.hash;
+  if (hash && (hash.includes('type=recovery') || hash.includes('type=invite'))) {
+    return <PasswordSetup />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <p className="text-gray-600">Načítání...</p>
       </div>
     );
-  }
-
-  const hash = window.location.hash;
-  if (hash && hash.includes('type=recovery')) {
-    return <PasswordSetup />;
   }
 
   if (!user) {

@@ -201,9 +201,6 @@ Deno.serve(async (req: Request) => {
       const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
         email: userEmail,
-        options: {
-          redirectTo: 'https://task.webfusion.cz'
-        }
       });
 
       if (linkError || !linkData) {
@@ -217,7 +214,11 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const resetUrl = linkData.properties.action_link;
+      const originalUrl = new URL(linkData.properties.action_link);
+      const token = originalUrl.searchParams.get('token');
+      const type = originalUrl.searchParams.get('type');
+
+      const resetUrl = `https://task.webfusion.cz#access_token=${token}&type=${type}`;
 
       const { data: userProfile } = await supabaseClient
         .from('user_profiles')
