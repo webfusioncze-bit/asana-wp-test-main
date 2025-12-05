@@ -12,12 +12,20 @@ export function PasswordSetup() {
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token')) {
-      setIsValidToken(true);
-    } else {
-      setIsValidToken(false);
+    async function checkToken() {
+      const hash = window.location.hash;
+      if (hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token')) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setIsValidToken(true);
+        } else {
+          setIsValidToken(false);
+        }
+      } else {
+        setIsValidToken(false);
+      }
     }
+    checkToken();
   }, []);
 
   async function handleSetPassword(e: React.FormEvent) {
@@ -48,7 +56,9 @@ export function PasswordSetup() {
 
       setSuccess(true);
 
-      setTimeout(() => {
+      setTimeout(async () => {
+        await supabase.auth.signOut();
+        window.location.hash = '';
         window.location.href = '/';
       }, 2000);
     } catch (err) {

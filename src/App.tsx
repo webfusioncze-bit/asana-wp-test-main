@@ -23,6 +23,9 @@ import type { User, UserRole, Request } from './types';
 type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites';
 
 function App() {
+  const hash = window.location.hash;
+  const isPasswordSetup = hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token');
+
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +48,10 @@ function App() {
   const [showRequestCreation, setShowRequestCreation] = useState(false);
 
   useEffect(() => {
+    if (isPasswordSetup) {
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -65,7 +72,7 @@ function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isPasswordSetup]);
 
   useEffect(() => {
     if (selectedRequestId) {
@@ -183,8 +190,7 @@ function App() {
     await supabase.auth.signOut();
   }
 
-  const hash = window.location.hash;
-  if (hash && (hash.includes('type=recovery') || hash.includes('type=invite'))) {
+  if (isPasswordSetup) {
     return <PasswordSetup />;
   }
 
