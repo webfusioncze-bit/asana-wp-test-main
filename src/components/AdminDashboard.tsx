@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon, GlobeIcon, MailIcon } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon, GlobeIcon, MailIcon, CheckCircleIcon, AlertCircleIcon, Loader2Icon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -44,6 +44,8 @@ export function AdminDashboard() {
   const [users, setUsers] = useState<(AuthUser & { role?: string })[]>([]);
   const [editingExternalId, setEditingExternalId] = useState<string | null>(null);
   const [editingExternalIdValue, setEditingExternalIdValue] = useState<string>('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailModalMessage, setEmailModalMessage] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     totalTasks: 0,
@@ -126,16 +128,14 @@ export function AdminDashboard() {
   }
 
   async function sendInvitationEmail(userId: string, email: string, hasLoggedIn: boolean) {
-    const action = hasLoggedIn ? 'Email na změnu hesla' : 'Pozvánkový email';
-
-    if (!confirm(`Opravdu chcete odeslat ${action.toLowerCase()} na adresu ${email}?`)) {
-      return;
-    }
+    setSendingEmail(true);
+    setEmailModalMessage(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        alert('Nejste přihlášeni');
+        setEmailModalMessage({ type: 'error', message: 'Nejste přihlášeni' });
+        setSendingEmail(false);
         return;
       }
 
@@ -156,14 +156,20 @@ export function AdminDashboard() {
 
       if (!response.ok) {
         console.error('Error sending invitation:', result.error);
-        alert('Chyba při odesílání emailu: ' + result.error);
+        setEmailModalMessage({ type: 'error', message: result.error || 'Chyba při odesílání emailu' });
+        setSendingEmail(false);
         return;
       }
 
-      alert(hasLoggedIn ? 'Email pro změnu hesla byl úspěšně odeslán' : 'Pozvánka byla úspěšně odeslána');
+      setEmailModalMessage({
+        type: 'success',
+        message: hasLoggedIn ? 'Email pro změnu hesla byl úspěšně odeslán' : 'Pozvánka byla úspěšně odeslána'
+      });
+      setSendingEmail(false);
     } catch (error) {
       console.error('Error:', error);
-      alert('Došlo k chybě při odesílání emailu');
+      setEmailModalMessage({ type: 'error', message: 'Došlo k chybě při odesílání emailu' });
+      setSendingEmail(false);
     }
   }
 
@@ -832,6 +838,50 @@ export function AdminDashboard() {
                 <SaveIcon className="w-4 h-4" />
                 Uložit
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(sendingEmail || emailModalMessage) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              {sendingEmail ? (
+                <div className="text-center">
+                  <Loader2Icon className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">Odesílání emailu</h2>
+                  <p className="text-gray-600">Prosím vyčkejte...</p>
+                </div>
+              ) : emailModalMessage ? (
+                <div className="text-center">
+                  {emailModalMessage.type === 'success' ? (
+                    <>
+                      <CheckCircleIcon className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                      <h2 className="text-xl font-bold text-gray-900 mb-2">Úspěch</h2>
+                      <p className="text-gray-600">{emailModalMessage.message}</p>
+                      <button
+                        onClick={() => setEmailModalMessage(null)}
+                        className="mt-6 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        Zavřít
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircleIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                      <h2 className="text-xl font-bold text-gray-900 mb-2">Chyba</h2>
+                      <p className="text-gray-600">{emailModalMessage.message}</p>
+                      <button
+                        onClick={() => setEmailModalMessage(null)}
+                        className="mt-6 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Zavřít
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

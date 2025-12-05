@@ -184,9 +184,26 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'send-invitation') {
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+
+      if (userError || !userData.user) {
+        return new Response(
+          JSON.stringify({ error: 'User not found' }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      const userEmail = userData.user.email || '';
+
       const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
         type: 'recovery',
-        email: (await supabaseAdmin.auth.admin.getUserById(userId)).data.user?.email || '',
+        email: userEmail,
+        options: {
+          redirectTo: 'https://task.webfusion.cz'
+        }
       });
 
       if (linkError || !linkData) {
@@ -202,6 +219,196 @@ Deno.serve(async (req: Request) => {
 
       const resetUrl = linkData.properties.action_link;
 
+      const { data: userProfile } = await supabaseClient
+        .from('user_profiles')
+        .select('display_name, first_name, last_name, last_sign_in_at')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const userName = userProfile?.first_name && userProfile?.last_name
+        ? `${userProfile.first_name} ${userProfile.last_name}`
+        : userProfile?.display_name || userEmail;
+
+      const userInitials = userProfile?.first_name && userProfile?.last_name
+        ? `${userProfile.first_name[0]}${userProfile.last_name[0]}`.toUpperCase()
+        : userProfile?.display_name?.[0]?.toUpperCase() || userEmail[0].toUpperCase();
+
+      const isNewUser = !userProfile?.last_sign_in_at;
+      const subject = isNewUser ? 'Pozvánka do Task Manager' : 'Odkaz pro změnu hesla - Task Manager';
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+                line-height: 1.5;
+                color: #151b26;
+                background-color: #f6f8fa;
+                padding: 40px 20px;
+              }
+              .email-wrapper {
+                max-width: 600px;
+                margin: 0 auto;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                background-color: #ffffff;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+              }
+              .header { padding: 32px 40px 24px; border-bottom: 1px solid #f3f4f6; }
+              .logo img { max-width: 120px; height: auto; }
+              .user-section {
+                padding: 24px 40px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+              }
+              .avatar {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #2ab8b8 0%, #22a0a0 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: 600;
+                font-size: 16px;
+                flex-shrink: 0;
+              }
+              .user-text {
+                flex: 1;
+              }
+              .user-name {
+                font-size: 18px;
+                font-weight: 600;
+                color: #151b26;
+                line-height: 1.4;
+                margin-bottom: 4px;
+              }
+              .user-subtitle {
+                font-size: 14px;
+                color: #6b7280;
+              }
+              .content-section {
+                padding: 0 40px 24px;
+              }
+              .message {
+                font-size: 15px;
+                color: #374151;
+                line-height: 1.6;
+                margin-bottom: 24px;
+              }
+              .btn {
+                display: inline-block;
+                background-color: #22a0a0;
+                color: #ffffff !important;
+                text-decoration: none;
+                padding: 14px 28px;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 15px;
+              }
+              .info-box {
+                margin: 24px 40px 32px;
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                padding: 20px;
+                background-color: #fafafa;
+              }
+              .info-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
+                margin-bottom: 8px;
+              }
+              .info-text {
+                font-size: 13px;
+                color: #6b7280;
+                line-height: 1.6;
+              }
+              .footer {
+                padding: 24px 40px 32px;
+                border-top: 1px solid #e5e7eb;
+                font-size: 12px;
+                color: #6b7280;
+                line-height: 1.6;
+              }
+              .footer-link {
+                color: #22a0a0;
+                text-decoration: none;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="email-wrapper">
+              <div class="header">
+                <div class="logo">
+                  <img src="https://webfusion.sk/wp-content/uploads/2021/02/Webfusion-logo.png" alt="Webfusion" />
+                </div>
+              </div>
+
+              <div class="user-section">
+                <div class="avatar">${userInitials}</div>
+                <div class="user-text">
+                  <div class="user-name">${isNewUser ? 'Vítejte v Task Manager' : 'Resetování hesla'}</div>
+                  <div class="user-subtitle">${userName}</div>
+                </div>
+              </div>
+
+              <div class="content-section">
+                <p class="message">
+                  ${isNewUser
+                    ? 'Byli jste pozváni do systému Task Manager. Pro dokončení registrace a nastavení hesla klikněte na tlačítko níže.'
+                    : 'Obdrželi jste žádost o změnu hesla. Pro nastavení nového hesla klikněte na tlačítko níže.'}
+                </p>
+                <a href="${resetUrl}" class="btn">${isNewUser ? 'Nastavit heslo a přihlásit se' : 'Změnit heslo'}</a>
+              </div>
+
+              <div class="info-box">
+                <div class="info-title">Důležité informace:</div>
+                <div class="info-text">
+                  • Odkaz je platný pouze 60 minut<br>
+                  • Po kliknutí na odkaz budete vyzváni k nastavení nového hesla<br>
+                  • ${isNewUser ? 'Po nastavení hesla se budete moci přihlásit do systému' : 'Po změně hesla použijte nové heslo pro přihlášení'}<br>
+                  • Pokud jste tuto akci nevyžádali, tento email ignorujte
+                </div>
+              </div>
+
+              <div class="footer">
+                Toto je automaticky generovaný email ze systému Task Manager.<br>
+                Pro více informací navštivte <a href="https://task.webfusion.cz" class="footer-link">task.webfusion.cz</a>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const text = `
+${isNewUser ? 'Vítejte v Task Manager' : 'Resetování hesla'}
+${userName}
+
+${isNewUser
+  ? 'Byli jste pozváni do systému Task Manager. Pro dokončení registrace a nastavení hesla použijte následující odkaz:'
+  : 'Obdrželi jste žádost o změnu hesla. Pro nastavení nového hesla použijte následující odkaz:'}
+
+${resetUrl}
+
+Důležité informace:
+• Odkaz je platný pouze 60 minut
+• Po kliknutí na odkaz budete vyzváni k nastavení nového hesla
+• ${isNewUser ? 'Po nastavení hesla se budete moci přihlásit do systému' : 'Po změně hesla použijte nové heslo pro přihlášení'}
+• Pokud jste tuto akci nevyžádali, tento email ignorujte
+
+---
+Toto je automaticky generovaný email ze systému Task Manager.
+Pro více informací navštivte task.webfusion.cz
+      `.trim();
+
       const emailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`;
       const emailResponse = await fetch(emailUrl, {
         method: 'POST',
@@ -210,16 +417,10 @@ Deno.serve(async (req: Request) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          to: (await supabaseAdmin.auth.admin.getUserById(userId)).data.user?.email || '',
-          subject: 'Pozvánka do systému',
-          html: `
-            <h2>Vítejte v systému Task Manager</h2>
-            <p>Byli jste pozváni do systému. Pro nastavení hesla a přihlášení klikněte na následující odkaz:</p>
-            <p><a href="${resetUrl}" style="background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Nastavit heslo</a></p>
-            <p>Odkaz je platný 60 minut.</p>
-            <p>Pokud jste tuto pozvánku neočekávali, ignorujte tento email.</p>
-          `,
-          text: `Vítejte v systému Task Manager\n\nByli jste pozváni do systému. Pro nastavení hesla a přihlášení použijte následující odkaz:\n\n${resetUrl}\n\nOdkaz je platný 60 minut.\n\nPokud jste tuto pozvánku neočekávali, ignorujte tento email.`,
+          to: userEmail,
+          subject,
+          html,
+          text,
         }),
       });
 
@@ -237,7 +438,7 @@ Deno.serve(async (req: Request) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: 'Pozvánka byla úspěšně odeslána' }),
+        JSON.stringify({ success: true, message: isNewUser ? 'Pozvánka byla úspěšně odeslána' : 'Email pro změnu hesla byl úspěšně odeslán' }),
         {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
