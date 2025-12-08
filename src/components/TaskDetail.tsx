@@ -815,45 +815,12 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
             />
           ) : (
-            <div>
-              <div
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
-                onClick={() => setEditingField('title')}
-              >
-                <h3 className="text-base font-semibold text-gray-800 flex-1">
-                  {task.title}
-                </h3>
-                {task.due_date && (() => {
-                  const deadline = new Date(task.due_date);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  deadline.setHours(0, 0, 0, 0);
-
-                  const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                  const getDeadlineStyle = () => {
-                    if (daysUntil < 0) {
-                      return 'bg-red-100 text-red-700';
-                    } else if (daysUntil <= 3) {
-                      return 'bg-orange-100 text-orange-700';
-                    } else {
-                      return 'bg-gray-100 text-gray-700';
-                    }
-                  };
-
-                  return (
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${getDeadlineStyle()}`}>
-                      {deadline.toLocaleDateString('cs-CZ')}
-                    </span>
-                  );
-                })()}
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-gray-500 px-2">
-                <span>{users.find(u => u.id === task.created_by)?.display_name || users.find(u => u.id === task.created_by)?.email || 'Neznámý'}</span>
-                <span className="text-gray-400">→</span>
-                <span>{users.find(u => u.id === task.assigned_to)?.display_name || users.find(u => u.id === task.assigned_to)?.email || 'Nepřiřazeno'}</span>
-              </div>
-            </div>
+            <h3
+              className="text-base font-semibold text-gray-800 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
+              onClick={() => setEditingField('title')}
+            >
+              {task.title}
+            </h3>
           )}
         </div>
 
@@ -910,14 +877,37 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               ) : (
-                <p
-                  className="text-gray-600 text-xs cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
+                <div
+                  className="cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
                   onClick={() => setEditingField('due_date')}
                 >
-                  {task.due_date
-                    ? new Date(task.due_date).toLocaleString('cs-CZ')
-                    : 'Není nastaven'}
-                </p>
+                  {task.due_date ? (() => {
+                    const deadline = new Date(task.due_date);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    deadline.setHours(0, 0, 0, 0);
+
+                    const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+                    const getDeadlineStyle = () => {
+                      if (daysUntil < 0) {
+                        return 'bg-red-100 text-red-700';
+                      } else if (daysUntil <= 3) {
+                        return 'bg-orange-100 text-orange-700';
+                      } else {
+                        return 'bg-gray-100 text-gray-700';
+                      }
+                    };
+
+                    return (
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${getDeadlineStyle()}`}>
+                        {deadline.toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </span>
+                    );
+                  })() : (
+                    <span className="text-gray-600 text-xs">Není nastaven</span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -944,21 +934,40 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
                   className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
                   onClick={() => setEditingField('assigned_to')}
                 >
-                  {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
+                  {/* Creator */}
+                  {users.find(u => u.id === task.created_by)?.avatar_url ? (
                     <img
-                      src={users.find(u => u.id === task.assigned_to)?.avatar_url}
-                      alt="Avatar"
+                      src={users.find(u => u.id === task.created_by)?.avatar_url}
+                      alt="Creator"
                       className="w-5 h-5 rounded-full object-cover"
+                      title={users.find(u => u.id === task.created_by)?.display_name || users.find(u => u.id === task.created_by)?.email}
                     />
                   ) : (
-                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center" title="Creator">
                       <UserIcon className="w-3 h-3 text-gray-500" />
                     </div>
                   )}
+
+                  <span className="text-gray-400 text-xs">→</span>
+
+                  {/* Assigned to */}
+                  {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
+                    <img
+                      src={users.find(u => u.id === task.assigned_to)?.avatar_url}
+                      alt="Assigned"
+                      className="w-5 h-5 rounded-full object-cover"
+                      title={users.find(u => u.id === task.assigned_to)?.display_name || users.find(u => u.id === task.assigned_to)?.email}
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center" title="Assigned">
+                      <UserIcon className="w-3 h-3 text-gray-500" />
+                    </div>
+                  )}
+
                   <p className="text-gray-600 text-xs truncate">
                     {users.find(u => u.id === task.assigned_to)?.display_name ||
                      users.find(u => u.id === task.assigned_to)?.email ||
-                     'Neznámý uživatel'}
+                     'Nepřiřazeno'}
                   </p>
                 </div>
               )}
