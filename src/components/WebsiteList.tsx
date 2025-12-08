@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { GlobeIcon, Trash2Icon, RefreshCwIcon, AlertCircleIcon, CheckCircleIcon, AlertTriangleIcon, ClockIcon } from 'lucide-react';
+import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Website } from '../types';
+import type { Website, WebsiteStatus } from '../types';
 
 interface WebsiteListProps {
   selectedWebsiteId: string | null;
@@ -9,10 +9,15 @@ interface WebsiteListProps {
   canManage: boolean;
 }
 
+interface WebsiteWithStatus extends Website {
+  latestStatus?: WebsiteStatus | null;
+}
+
 export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: WebsiteListProps) {
-  const [websites, setWebsites] = useState<Website[]>([]);
+  const [websites, setWebsites] = useState<WebsiteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadWebsites();
@@ -20,16 +25,36 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
 
   async function loadWebsites() {
     setLoading(true);
-    const { data, error } = await supabase
+
+    const { data: websitesData, error } = await supabase
       .from('websites')
       .select('*')
       .order('name');
 
     if (error) {
       console.error('Error loading websites:', error);
-    } else {
-      setWebsites(data || []);
+      setLoading(false);
+      return;
     }
+
+    const websitesWithStatus = await Promise.all(
+      (websitesData || []).map(async (website) => {
+        const { data: statusData } = await supabase
+          .from('website_status')
+          .select('*')
+          .eq('website_id', website.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        return {
+          ...website,
+          latestStatus: statusData,
+        };
+      })
+    );
+
+    setWebsites(websitesWithStatus);
     setLoading(false);
   }
 
@@ -88,52 +113,10 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
     }
   }
 
-  const formatDate = (date: string | null) => {
-    if (!date) return 'Nikdy';
-    return new Date(date).toLocaleString('cs-CZ', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getSyncStatus = (lastSyncAt: string | null) => {
-    if (!lastSyncAt) {
-      return { status: 'never', icon: ClockIcon, color: 'text-gray-400', bgColor: 'bg-gray-50', label: 'Nikdy' };
-    }
-
-    const now = new Date();
-    const lastSync = new Date(lastSyncAt);
-    const minutesDiff = Math.floor((now.getTime() - lastSync.getTime()) / (1000 * 60));
-
-    if (minutesDiff <= 5) {
-      return {
-        status: 'current',
-        icon: CheckCircleIcon,
-        color: 'text-green-600',
-        bgColor: 'bg-green-50',
-        label: `Před ${minutesDiff} min`
-      };
-    } else if (minutesDiff <= 10) {
-      return {
-        status: 'warning',
-        icon: AlertTriangleIcon,
-        color: 'text-orange-500',
-        bgColor: 'bg-orange-50',
-        label: `Před ${minutesDiff} min`
-      };
-    } else {
-      return {
-        status: 'stale',
-        icon: AlertCircleIcon,
-        color: 'text-red-600',
-        bgColor: 'bg-red-50',
-        label: formatDate(lastSyncAt)
-      };
-    }
-  };
+  const filteredWebsites = websites.filter((website) =>
+    website.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    website.url.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -146,91 +129,142 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
       <div className="border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-semibold text-gray-900">Weby</h1>
-          <div className="flex gap-2">
-            <button
-              onClick={syncAllWebsites}
-              disabled={syncing}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Synchronizuji z feedu...' : 'Synchronizovat z feedu'}
-            </button>
-          </div>
+          <button
+            onClick={syncAllWebsites}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Synchronizuji...' : 'Synchronizovat'}
+          </button>
+        </div>
+
+        <div className="relative">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Vyhledat web..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto">
         {websites.length === 0 ? (
           <div className="text-center py-12">
             <GlobeIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 mb-4">Zatím nejsou synchronizovány žádné weby</p>
             <p className="text-gray-400 text-sm">Weby se synchronizují automaticky každých 5 minut z portálu</p>
           </div>
+        ) : filteredWebsites.length === 0 ? (
+          <div className="text-center py-12">
+            <SearchIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">Žádné weby neodpovídají vyhledávání</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {websites.map((website) => (
-              <div
-                key={website.id}
-                onClick={() => onSelectWebsite(website.id)}
-                className={`group p-5 border rounded-xl cursor-pointer transition-all hover:shadow-md ${
-                  selectedWebsiteId === website.id
-                    ? 'border-blue-500 bg-blue-50 shadow-sm'
-                    : 'border-gray-200 bg-white hover:border-blue-300'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <GlobeIcon className={`w-5 h-5 ${
-                        selectedWebsiteId === website.id ? 'text-blue-600' : 'text-gray-400'
-                      }`} />
-                      <h3 className="font-semibold text-gray-900">{website.name}</h3>
-                    </div>
-                    <a
-                      href={website.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-sm text-blue-600 hover:underline break-all"
-                    >
-                      {website.url.replace(/^https?:\/\//, '')}
-                    </a>
-                  </div>
-                  {canManage && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteWebsite(website.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all"
-                    >
-                      <Trash2Icon className="w-4 h-4 text-red-600" />
-                    </button>
-                  )}
-                </div>
+          <div className="divide-y divide-gray-100">
+            {filteredWebsites.map((website) => {
+              const status = website.latestStatus;
+              const hasUpdates = status?.update_plugins_count && status.update_plugins_count > 0;
+              const adminLoginUrl = status?.ult
+                ? `${website.url}?login_token=${status.ult}`
+                : `${website.url}/wp-admin`;
 
-                {website.sync_error ? (
-                  <div className="flex items-start gap-2 p-2 bg-red-50 rounded-lg">
-                    <AlertCircleIcon className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-red-700">{website.sync_error}</p>
-                  </div>
-                ) : (() => {
-                  const syncStatus = getSyncStatus(website.last_sync_at);
-                  const Icon = syncStatus.icon;
-                  return (
-                    <div className={`flex items-center gap-2 p-2 rounded-lg ${syncStatus.bgColor}`}>
-                      <Icon className={`w-4 h-4 ${syncStatus.color} flex-shrink-0`} />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium text-gray-700">Synchronizace</span>
-                        <span className={`text-xs ${syncStatus.color}`}>{syncStatus.label}</span>
+              return (
+                <div
+                  key={website.id}
+                  onClick={() => onSelectWebsite(website.id)}
+                  className={`group px-6 py-4 cursor-pointer transition-all hover:bg-gray-50 ${
+                    selectedWebsiteId === website.id ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {website.is_available ? (
+                          <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <XCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 truncate">{website.name}</h3>
+                          <a
+                            href={website.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-sm text-gray-500 hover:text-blue-600 hover:underline truncate block"
+                          >
+                            {website.url.replace(/^https?:\/\//, '')}
+                          </a>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 flex-shrink-0">
+                        {status && (
+                          <>
+                            <div className="flex items-center gap-2 text-sm">
+                              <ServerIcon className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-600">
+                                WP {status.wordpress_version || '-'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-sm">
+                              <ServerIcon className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-600">
+                                PHP {status.php_version || '-'}
+                              </span>
+                            </div>
+
+                            {hasUpdates && (
+                              <div className="flex items-center gap-2">
+                                <PackageIcon className="w-4 h-4 text-orange-500" />
+                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                  {status.update_plugins_count} aktualizací
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
-            ))}
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {status?.ult && (
+                        <a
+                          href={adminLoginUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <LogInIcon className="w-4 h-4" />
+                          WP-Login
+                        </a>
+                      )}
+
+                      {canManage && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteWebsite(website.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-lg transition-all"
+                        >
+                          <Trash2Icon className="w-4 h-4 text-red-600" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
