@@ -473,7 +473,12 @@ function App() {
             </div>
           ) : viewMode === 'clients' ? (
             <div className="flex h-full">
-              {selectedClientId ? (
+              <ClientList
+                selectedClientId={selectedClientId}
+                onSelectClient={setSelectedClientId}
+                canManage={hasClientsPermission}
+              />
+              {selectedClientId && (
                 <ClientDetail
                   clientId={selectedClientId}
                   onClose={() => setSelectedClientId(null)}
@@ -481,12 +486,6 @@ function App() {
                     setViewMode('websites');
                     setSelectedWebsiteId(websiteId);
                   }}
-                />
-              ) : (
-                <ClientList
-                  selectedClientId={selectedClientId}
-                  onSelectClient={setSelectedClientId}
-                  canManage={hasClientsPermission}
                 />
               )}
             </div>
