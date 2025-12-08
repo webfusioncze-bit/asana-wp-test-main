@@ -237,14 +237,11 @@ function App() {
       )}
       <div className="flex-1 flex flex-col">
         <header className="bg-dark border-b border-gray-700 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-bold text-white">
-              {showAdmin ? 'Admin Dashboard' : 'Task Manager'}
-            </h1>
+          <div className="flex items-center gap-4">
             {!showAdmin && viewMode !== 'projects' && (
               <button
                 onClick={() => viewMode === 'tasks' ? setShowTaskCreation(true) : setShowRequestCreation(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 border border-gray-600 text-gray-200 rounded-lg hover:bg-dark-light hover:border-gray-500 transition-colors text-sm font-medium"
               >
                 <PlusIcon className="w-4 h-4" />
                 {viewMode === 'tasks' ? 'Nový úkol' : 'Nová poptávka'}
@@ -319,12 +316,6 @@ function App() {
                   </>
                 )}
               </button>
-            )}
-            {isAdmin && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
-                <ShieldIcon className="w-3 h-3" />
-                Admin
-              </div>
             )}
             <button
               onClick={() => setShowProfileSettings(true)}
