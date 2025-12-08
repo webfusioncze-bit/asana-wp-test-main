@@ -855,147 +855,121 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <CalendarIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Termín dokončení" />
-              {editingField === 'due_date' ? (
-                <input
-                  type="date"
-                  defaultValue={task.due_date ? new Date(task.due_date).toISOString().slice(0, 10) : ''}
-                  autoFocus
-                  onBlur={(e) => {
-                    updateTaskField('due_date', e.target.value || null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur();
-                    } else if (e.key === 'Escape') {
-                      setEditingField(null);
+        <div className="border-t border-gray-100 pt-3">
+          <div className="flex items-center gap-1.5 mb-3">
+            <CalendarIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Termín dokončení" />
+            {editingField === 'due_date' ? (
+              <input
+                type="date"
+                defaultValue={task.due_date ? new Date(task.due_date).toISOString().slice(0, 10) : ''}
+                autoFocus
+                onBlur={(e) => {
+                  updateTaskField('due_date', e.target.value || null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  } else if (e.key === 'Escape') {
+                    setEditingField(null);
+                  }
+                }}
+                className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            ) : (
+              <div
+                className="cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
+                onClick={() => setEditingField('due_date')}
+              >
+                {task.due_date ? (() => {
+                  const deadline = new Date(task.due_date);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  deadline.setHours(0, 0, 0, 0);
+
+                  const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+                  const getDeadlineStyle = () => {
+                    if (daysUntil < 0) {
+                      return 'bg-red-100 text-red-700';
+                    } else if (daysUntil <= 3) {
+                      return 'bg-orange-100 text-orange-700';
+                    } else {
+                      return 'bg-gray-100 text-gray-700';
                     }
-                  }}
-                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              ) : (
-                <div
-                  className="cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
-                  onClick={() => setEditingField('due_date')}
-                >
-                  {task.due_date ? (() => {
-                    const deadline = new Date(task.due_date);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    deadline.setHours(0, 0, 0, 0);
+                  };
 
-                    const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                    const getDeadlineStyle = () => {
-                      if (daysUntil < 0) {
-                        return 'bg-red-100 text-red-700';
-                      } else if (daysUntil <= 3) {
-                        return 'bg-orange-100 text-orange-700';
-                      } else {
-                        return 'bg-gray-100 text-gray-700';
-                      }
-                    };
-
-                    return (
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${getDeadlineStyle()}`}>
-                        {deadline.toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                      </span>
-                    );
-                  })() : (
-                    <span className="text-gray-600 text-xs">Není nastaven</span>
-                  )}
-                </div>
-              )}
-            </div>
+                  return (
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${getDeadlineStyle()}`}>
+                      {deadline.toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </span>
+                  );
+                })() : (
+                  <span className="text-gray-600 text-xs">Není nastaven</span>
+                )}
+              </div>
+            )}
           </div>
 
-          <div>
-            <div className="flex items-center gap-1.5">
-              <UserIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Přiřazeno" />
-              {editingField === 'assigned_to' ? (
-                <select
-                  defaultValue={task.assigned_to}
-                  autoFocus
-                  onChange={(e) => {
-                    updateTaskField('assigned_to', e.target.value);
-                  }}
-                  onBlur={() => setEditingField(null)}
-                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  {users.map(user => (
-                    <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
-                  ))}
-                </select>
-              ) : (
-                <div
-                  className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
-                  onClick={() => setEditingField('assigned_to')}
-                >
-                  {/* Creator */}
-                  {users.find(u => u.id === task.created_by)?.avatar_url ? (
-                    <img
-                      src={users.find(u => u.id === task.created_by)?.avatar_url}
-                      alt="Creator"
-                      className="w-5 h-5 rounded-full object-cover"
-                      title={users.find(u => u.id === task.created_by)?.display_name || users.find(u => u.id === task.created_by)?.email}
-                    />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center" title="Creator">
-                      <UserIcon className="w-3 h-3 text-gray-500" />
-                    </div>
-                  )}
-
-                  <span className="text-gray-400 text-xs">→</span>
-
-                  {/* Assigned to */}
-                  {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
-                    <img
-                      src={users.find(u => u.id === task.assigned_to)?.avatar_url}
-                      alt="Assigned"
-                      className="w-5 h-5 rounded-full object-cover"
-                      title={users.find(u => u.id === task.assigned_to)?.display_name || users.find(u => u.id === task.assigned_to)?.email}
-                    />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center" title="Assigned">
-                      <UserIcon className="w-3 h-3 text-gray-500" />
-                    </div>
-                  )}
-
-                  <p className="text-gray-600 text-xs truncate">
-                    {users.find(u => u.id === task.assigned_to)?.display_name ||
-                     users.find(u => u.id === task.assigned_to)?.email ||
-                     'Nepřiřazeno'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-1.5">
-              <UserPlusIcon className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" title="Zadavatel" />
-              <div className="flex items-center gap-1.5 px-2 py-1.5 flex-1">
+          <div className="flex items-center gap-2">
+            <UserIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Přiřazení" />
+            {editingField === 'assigned_to' ? (
+              <select
+                defaultValue={task.assigned_to}
+                autoFocus
+                onChange={(e) => {
+                  updateTaskField('assigned_to', e.target.value);
+                }}
+                onBlur={() => setEditingField(null)}
+                className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {users.map(user => (
+                  <option key={user.id} value={user.id}>{user.display_name || user.email}</option>
+                ))}
+              </select>
+            ) : (
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors flex-1"
+                onClick={() => setEditingField('assigned_to')}
+              >
+                {/* Creator */}
                 {users.find(u => u.id === task.created_by)?.avatar_url ? (
                   <img
                     src={users.find(u => u.id === task.created_by)?.avatar_url}
-                    alt="Avatar"
+                    alt="Creator"
                     className="w-5 h-5 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">
-                    <UserIcon className="w-3 h-3 text-blue-600" />
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                    <UserIcon className="w-3 h-3 text-gray-500" />
                   </div>
                 )}
-                <p className="text-gray-600 text-xs truncate">
+                <span className="text-gray-600 text-xs">
                   {users.find(u => u.id === task.created_by)?.display_name ||
                    users.find(u => u.id === task.created_by)?.email ||
-                   'Neznámý uživatel'}
-                </p>
+                   'Neznámý'}
+                </span>
+
+                <span className="text-gray-400 text-sm">→</span>
+
+                {/* Assigned to */}
+                {users.find(u => u.id === task.assigned_to)?.avatar_url ? (
+                  <img
+                    src={users.find(u => u.id === task.assigned_to)?.avatar_url}
+                    alt="Assigned"
+                    className="w-5 h-5 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                    <UserIcon className="w-3 h-3 text-gray-500" />
+                  </div>
+                )}
+                <span className="text-gray-600 text-xs">
+                  {users.find(u => u.id === task.assigned_to)?.display_name ||
+                   users.find(u => u.id === task.assigned_to)?.email ||
+                   'Nepřiřazeno'}
+                </span>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
