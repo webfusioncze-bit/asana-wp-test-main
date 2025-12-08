@@ -131,8 +131,10 @@ Deno.serve(async (req: Request) => {
     return new Response(html, {
       status: 200,
       headers: {
-        ...corsHeaders,
         'Content-Type': 'text/html; charset=utf-8',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
       },
     });
   } catch (error) {
