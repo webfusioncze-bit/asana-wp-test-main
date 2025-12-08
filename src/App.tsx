@@ -257,7 +257,7 @@ function App() {
           folderType={viewMode}
         />
       )}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-dark border-b border-gray-700 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {!showAdmin && (viewMode === 'tasks' || viewMode === 'requests') && (
@@ -375,7 +375,7 @@ function App() {
             </button>
           </div>
         </header>
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-hidden">
           {showAdmin ? (
             <AdminDashboard />
           ) : viewMode === 'tasks' ? (
