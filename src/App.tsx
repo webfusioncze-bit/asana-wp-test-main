@@ -448,6 +448,7 @@ function App() {
               <ProjectList
                 canManage={hasProjectsPermission}
                 onSelectProject={setSelectedProjectId}
+                selectedProjectId={selectedProjectId}
               />
             )
           ) : viewMode === 'websites' ? (
