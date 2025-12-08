@@ -815,12 +815,45 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
             />
           ) : (
-            <h3
-              className="text-base font-semibold text-gray-800 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
-              onClick={() => setEditingField('title')}
-            >
-              {task.title}
-            </h3>
+            <div>
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded transition-colors"
+                onClick={() => setEditingField('title')}
+              >
+                <h3 className="text-base font-semibold text-gray-800 flex-1">
+                  {task.title}
+                </h3>
+                {task.due_date && (() => {
+                  const deadline = new Date(task.due_date);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  deadline.setHours(0, 0, 0, 0);
+
+                  const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+                  const getDeadlineStyle = () => {
+                    if (daysUntil < 0) {
+                      return 'bg-red-100 text-red-700';
+                    } else if (daysUntil <= 3) {
+                      return 'bg-orange-100 text-orange-700';
+                    } else {
+                      return 'bg-gray-100 text-gray-700';
+                    }
+                  };
+
+                  return (
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium flex-shrink-0 ${getDeadlineStyle()}`}>
+                      {deadline.toLocaleDateString('cs-CZ')}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 px-2">
+                <span>{users.find(u => u.id === task.created_by)?.display_name || users.find(u => u.id === task.created_by)?.email || 'Neznámý'}</span>
+                <span className="text-gray-400">→</span>
+                <span>{users.find(u => u.id === task.assigned_to)?.display_name || users.find(u => u.id === task.assigned_to)?.email || 'Nepřiřazeno'}</span>
+              </div>
+            </div>
           )}
         </div>
 

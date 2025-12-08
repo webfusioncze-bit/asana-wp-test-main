@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BriefcaseIcon, SearchIcon, DollarSignIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon } from 'lucide-react';
+import { BriefcaseIcon, SearchIcon, CalendarIcon, DollarSignIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, TrendingUpIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Project } from '../types';
 
@@ -15,8 +15,6 @@ interface ProjectWithStats extends Project {
   total_hours: number;
   hour_budget_percentage: number;
   is_over_budget: boolean;
-  creator_name: string;
-  assigned_user_names: string[];
 }
 
 export function ProjectList({ canManage, onSelectProject, selectedProjectId, showCompleted, onToggleCompleted }: ProjectListProps) {
@@ -46,41 +44,30 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
       return;
     }
 
-    // Load user profiles first
-    const { data: userProfiles } = await supabase
-      .from('user_profiles')
-      .select('user_id, full_name');
-
-    const userMap = new Map((userProfiles || []).map(u => [u.user_id, u.full_name]));
-
     const projectsWithStats = await Promise.all(
       (projectsData || []).map(async (project) => {
         const { data: phases } = await supabase
           .from('project_phases')
-          .select('id, assigned_user_id')
+          .select('id')
           .eq('project_id', project.id);
 
-        let total_hours = 0;
-        const assignedUsers = new Set<string>();
-
-        if (phases && phases.length > 0) {
-          const phaseIds = phases.map(p => p.id);
-
-          // Collect assigned users
-          phases.forEach(phase => {
-            if (phase.assigned_user_id) {
-              assignedUsers.add(phase.assigned_user_id);
-            }
-          });
-
-          const { data: timeEntries } = await supabase
-            .from('project_time_entries')
-            .select('hours')
-            .in('phase_id', phaseIds);
-
-          total_hours = (timeEntries || []).reduce((sum, entry) => sum + (entry.hours || 0), 0);
+        if (!phases || phases.length === 0) {
+          return {
+            ...project,
+            total_hours: 0,
+            hour_budget_percentage: 0,
+            is_over_budget: false,
+          };
         }
 
+        const phaseIds = phases.map(p => p.id);
+
+        const { data: timeEntries } = await supabase
+          .from('project_time_entries')
+          .select('hours')
+          .in('phase_id', phaseIds);
+
+        const total_hours = (timeEntries || []).reduce((sum, entry) => sum + (entry.hours || 0), 0);
         const hour_budget = project.hour_budget || 0;
         const hour_budget_percentage = hour_budget > 0 ? (total_hours / hour_budget) * 100 : 0;
         const is_over_budget = hour_budget > 0 && total_hours > hour_budget;
@@ -90,8 +77,6 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
           total_hours,
           hour_budget_percentage,
           is_over_budget,
-          creator_name: userMap.get(project.created_by) || 'Neznámý',
-          assigned_user_names: Array.from(assignedUsers).map(id => userMap.get(id) || 'Neznámý').filter(Boolean),
         };
       })
     );
@@ -227,42 +212,6 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
                         }
                       ) : null;
 
-                      // Determine deadline status
-                      const getDeadlineStatus = () => {
-                        if (!project.delivery_date) return null;
-                        const deadline = new Date(project.delivery_date);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        deadline.setHours(0, 0, 0, 0);
-
-                        const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-                        if (daysUntil < 0) {
-                          return {
-                            label: deadline.toLocaleDateString('cs-CZ'),
-                            color: 'text-red-700',
-                            bgColor: 'bg-red-100',
-                            status: 'Zpožděno'
-                          };
-                        } else if (daysUntil <= 7) {
-                          return {
-                            label: deadline.toLocaleDateString('cs-CZ'),
-                            color: 'text-orange-700',
-                            bgColor: 'bg-orange-100',
-                            status: 'Blízko termínu'
-                          };
-                        } else {
-                          return {
-                            label: deadline.toLocaleDateString('cs-CZ'),
-                            color: 'text-gray-700',
-                            bgColor: 'bg-gray-100',
-                            status: 'V pořádku'
-                          };
-                        }
-                      };
-
-                      const deadlineStatus = getDeadlineStatus();
-
                       return (
                         <div
                           key={project.id}
@@ -277,26 +226,15 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
                                 <BriefcaseIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
 
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2">
                                     <h3 className="text-sm font-medium text-gray-900 truncate">{project.name}</h3>
-                                    {deadlineStatus && (
-                                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${deadlineStatus.bgColor} ${deadlineStatus.color}`}>
-                                        {deadlineStatus.label}
-                                      </span>
-                                    )}
                                     {project.sync_enabled && project.last_sync_at && (
                                       <RefreshCwIcon className="w-3 h-3 text-green-500" title="Synchronizováno z portálu" />
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                    <span className="truncate">{project.creator_name}</span>
-                                    {project.assigned_user_names.length > 0 && (
-                                      <>
-                                        <span className="text-gray-400">→</span>
-                                        <span className="truncate">{project.assigned_user_names.join(', ')}</span>
-                                      </>
-                                    )}
-                                  </div>
+                                  {project.client_company_name && (
+                                    <p className="text-xs text-gray-500 truncate">{project.client_company_name}</p>
+                                  )}
                                 </div>
                               </div>
 
@@ -327,6 +265,15 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
                                     <DollarSignIcon className="w-3.5 h-3.5 text-gray-400" />
                                     <span className="text-gray-600">
                                       {project.price_offer.toLocaleString('cs-CZ')} Kč
+                                    </span>
+                                  </div>
+                                )}
+
+                                {project.delivery_date && (
+                                  <div className="flex items-center gap-1.5 text-xs">
+                                    <CalendarIcon className="w-3.5 h-3.5 text-gray-400" />
+                                    <span className="text-gray-600">
+                                      {new Date(project.delivery_date).toLocaleDateString('cs-CZ')}
                                     </span>
                                   </div>
                                 )}
