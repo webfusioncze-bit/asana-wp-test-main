@@ -110,13 +110,8 @@ export function EmailDigestPreview({ userEmail }: EmailDigestPreviewProps) {
               Zavřít
             </button>
           </div>
-          <div className="overflow-auto">
-            <iframe
-              srcDoc={previewHtml}
-              className="w-full h-[600px] border-0"
-              title="Email Preview"
-              sandbox="allow-same-origin"
-            />
+          <div className="overflow-auto p-4" style={{ backgroundColor: '#f6f8fa' }}>
+            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
           </div>
         </div>
       )}
