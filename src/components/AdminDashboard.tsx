@@ -10,6 +10,7 @@ import { UserGroupManager } from './UserGroupManager';
 import { GlobalFolderManager } from './GlobalFolderManager';
 import { PortalSyncManager } from './PortalSyncManager';
 import { SMTPSettingsManager } from './SMTPSettingsManager';
+import { EmailDigestPreview } from './EmailDigestPreview';
 
 type TabType = 'overview' | 'users' | 'settings' | 'integrations' | 'permissions' | 'groups' | 'folders' | 'portal';
 
@@ -42,6 +43,7 @@ interface Stats {
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [users, setUsers] = useState<(AuthUser & { role?: string })[]>([]);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
   const [editingExternalId, setEditingExternalId] = useState<string | null>(null);
   const [editingExternalIdValue, setEditingExternalIdValue] = useState<string>('');
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -64,9 +66,17 @@ export function AdminDashboard() {
   });
 
   useEffect(() => {
+    loadCurrentUser();
     loadUsers();
     loadStats();
   }, []);
+
+  async function loadCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      setCurrentUserEmail(user.email);
+    }
+  }
 
   async function loadUsers() {
     const { data: profiles, error: profilesError } = await supabase
@@ -746,6 +756,7 @@ export function AdminDashboard() {
               <RequestTypeManager />
             </div>
             <RequestStatusManager />
+            {currentUserEmail && <EmailDigestPreview userEmail={currentUserEmail} />}
           </div>
         )}
       </div>
