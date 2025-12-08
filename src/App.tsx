@@ -50,6 +50,7 @@ function App() {
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [showTaskCreation, setShowTaskCreation] = useState(false);
   const [showRequestCreation, setShowRequestCreation] = useState(false);
+  const [showCompletedProjects, setShowCompletedProjects] = useState(false);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -244,6 +245,8 @@ function App() {
           selectedFolderId={selectedProjectId}
           onSelectFolder={setSelectedProjectId}
           folderType={viewMode}
+          showCompletedProjects={showCompletedProjects}
+          onToggleCompletedProjects={setShowCompletedProjects}
         />
       )}
       {!showAdmin && viewMode !== 'projects' && (
@@ -449,6 +452,8 @@ function App() {
                 canManage={hasProjectsPermission}
                 onSelectProject={setSelectedProjectId}
                 selectedProjectId={selectedProjectId}
+                showCompleted={showCompletedProjects}
+                onToggleCompleted={setShowCompletedProjects}
               />
             )
           ) : viewMode === 'websites' ? (

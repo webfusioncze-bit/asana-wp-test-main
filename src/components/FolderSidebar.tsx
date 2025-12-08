@@ -10,9 +10,11 @@ interface FolderSidebarProps {
   selectedFolderId: string | null;
   onSelectFolder: (folderId: string | null) => void;
   folderType: 'tasks' | 'requests' | 'projects';
+  showCompletedProjects?: boolean;
+  onToggleCompletedProjects?: (show: boolean) => void;
 }
 
-export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: FolderSidebarProps) {
+export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, showCompletedProjects, onToggleCompletedProjects }: FolderSidebarProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [globalFolders, setGlobalFolders] = useState<Folder[]>([]);
   const [sharedFolders, setSharedFolders] = useState<Folder[]>([]);
@@ -43,7 +45,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
     if (currentUserId) {
       loadData();
     }
-  }, [folderType, currentUserId]);
+  }, [folderType, currentUserId, showCompletedProjects]);
 
   useEffect(() => {
     if (!currentUserId || folderType === 'projects') return;
@@ -84,9 +86,12 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
   }
 
   async function loadProjects() {
+    const statusFilter = showCompletedProjects ? 'dokončen' : 'aktivní';
+
     const { data, error } = await supabase
       .from('projects')
       .select('*')
+      .eq('status', statusFilter)
       .order('name');
 
     if (error) {
@@ -668,6 +673,30 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
             </button>
           )}
         </div>
+        {folderType === 'projects' && onToggleCompletedProjects && (
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5 mb-3">
+            <button
+              onClick={() => onToggleCompletedProjects(false)}
+              className={`flex-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                !showCompletedProjects
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Aktivní
+            </button>
+            <button
+              onClick={() => onToggleCompletedProjects(true)}
+              className={`flex-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                showCompletedProjects
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Dokončené
+            </button>
+          </div>
+        )}
         {isCreating && (
           <div className="flex gap-2">
             <input

@@ -7,6 +7,8 @@ interface ProjectListProps {
   canManage: boolean;
   onSelectProject: (projectId: string) => void;
   selectedProjectId: string | null;
+  showCompleted: boolean;
+  onToggleCompleted: (show: boolean) => void;
 }
 
 interface ProjectWithStats extends Project {
@@ -15,7 +17,7 @@ interface ProjectWithStats extends Project {
   is_over_budget: boolean;
 }
 
-export function ProjectList({ canManage, onSelectProject, selectedProjectId }: ProjectListProps) {
+export function ProjectList({ canManage, onSelectProject, selectedProjectId, showCompleted, onToggleCompleted }: ProjectListProps) {
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,14 +25,17 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId }: P
 
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [showCompleted]);
 
   async function loadProjects() {
     setLoading(true);
 
+    const statusFilter = showCompleted ? 'dokončen' : 'aktivní';
+
     const { data: projectsData, error } = await supabase
       .from('projects')
       .select('*')
+      .eq('status', statusFilter)
       .order('name');
 
     if (error) {
@@ -41,12 +46,28 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId }: P
 
     const projectsWithStats = await Promise.all(
       (projectsData || []).map(async (project) => {
-        const { data: timeEntries } = await supabase
-          .from('project_time_entries')
-          .select('hours_spent')
+        const { data: phases } = await supabase
+          .from('project_phases')
+          .select('id')
           .eq('project_id', project.id);
 
-        const total_hours = (timeEntries || []).reduce((sum, entry) => sum + (entry.hours_spent || 0), 0);
+        if (!phases || phases.length === 0) {
+          return {
+            ...project,
+            total_hours: 0,
+            hour_budget_percentage: 0,
+            is_over_budget: false,
+          };
+        }
+
+        const phaseIds = phases.map(p => p.id);
+
+        const { data: timeEntries } = await supabase
+          .from('project_time_entries')
+          .select('hours')
+          .in('phase_id', phaseIds);
+
+        const total_hours = (timeEntries || []).reduce((sum, entry) => sum + (entry.hours || 0), 0);
         const hour_budget = project.hour_budget || 0;
         const hour_budget_percentage = hour_budget > 0 ? (total_hours / hour_budget) * 100 : 0;
         const is_over_budget = hour_budget > 0 && total_hours > hour_budget;
@@ -111,6 +132,28 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId }: P
       <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-semibold text-gray-900">Projekty</h1>
+          <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => onToggleCompleted(false)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                !showCompleted
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Aktivní
+            </button>
+            <button
+              onClick={() => onToggleCompleted(true)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                showCompleted
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Dokončené
+            </button>
+          </div>
         </div>
 
         <div className="relative">
