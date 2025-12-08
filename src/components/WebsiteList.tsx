@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus } from '../types';
@@ -18,6 +18,7 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const letterRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
     loadWebsites();
@@ -113,10 +114,41 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
     }
   }
 
+  const getFirstLetter = (name: string): string => {
+    const cleanName = name.replace(/^https?:\/\/(www\.)?/i, '');
+    const firstChar = cleanName.charAt(0).toUpperCase();
+    return /[A-Z]/.test(firstChar) ? firstChar : '#';
+  };
+
   const filteredWebsites = websites.filter((website) =>
     website.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     website.url.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const sortedWebsites = [...filteredWebsites].sort((a, b) => {
+    const nameA = a.name.replace(/^https?:\/\/(www\.)?/i, '');
+    const nameB = b.name.replace(/^https?:\/\/(www\.)?/i, '');
+    return nameA.localeCompare(nameB, 'cs');
+  });
+
+  const websitesByLetter: { [key: string]: WebsiteWithStatus[] } = {};
+  sortedWebsites.forEach((website) => {
+    const letter = getFirstLetter(website.name);
+    if (!websitesByLetter[letter]) {
+      websitesByLetter[letter] = [];
+    }
+    websitesByLetter[letter].push(website);
+  });
+
+  const availableLetters = Object.keys(websitesByLetter).sort();
+  const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ#'.split('');
+
+  const scrollToLetter = (letter: string) => {
+    const element = letterRefs.current[letter];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   if (loading) {
     return (
@@ -128,8 +160,8 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
-      <div className="border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
+      <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
+        <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-semibold text-gray-900">Weby</h1>
           <button
             onClick={syncAllWebsites}
@@ -148,121 +180,158 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Vyhledat web..."
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        {websites.length === 0 ? (
-          <div className="text-center py-12">
-            <GlobeIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">Zatím nejsou synchronizovány žádné weby</p>
-            <p className="text-gray-400 text-sm">Weby se synchronizují automaticky každých 5 minut z portálu</p>
-          </div>
-        ) : filteredWebsites.length === 0 ? (
-          <div className="text-center py-12">
-            <SearchIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">Žádné weby neodpovídají vyhledávání</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {filteredWebsites.map((website) => {
-              const status = website.latestStatus;
-              const hasUpdates = status?.update_plugins_count && status.update_plugins_count > 0;
-              const adminLoginUrl = status?.ult
-                ? `${website.url}?login_token=${status.ult}`
-                : `${website.url}/wp-admin`;
+      <div className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 overflow-auto">
+          {websites.length === 0 ? (
+            <div className="text-center py-12">
+              <GlobeIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-4">Zatím nejsou synchronizovány žádné weby</p>
+              <p className="text-gray-400 text-sm">Weby se synchronizují automaticky každých 5 minut z portálu</p>
+            </div>
+          ) : filteredWebsites.length === 0 ? (
+            <div className="text-center py-12">
+              <SearchIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">Žádné weby neodpovídají vyhledávání</p>
+            </div>
+          ) : (
+            <div>
+              {availableLetters.map((letter) => (
+                <div key={letter}>
+                  <div
+                    ref={(el) => (letterRefs.current[letter] = el)}
+                    className="sticky top-0 bg-gray-50 border-b border-gray-200 px-6 py-2 z-10"
+                  >
+                    <h2 className="text-lg font-semibold text-gray-700">{letter}</h2>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {websitesByLetter[letter].map((website) => {
+                      const status = website.latestStatus;
+                      const hasUpdates = status?.update_plugins_count && status.update_plugins_count > 0;
+                      const adminLoginUrl = status?.ult
+                        ? `${website.url}?login_token=${status.ult}`
+                        : `${website.url}/wp-admin`;
 
-              return (
-                <div
-                  key={website.id}
-                  onClick={() => onSelectWebsite(website.id)}
-                  className={`group px-6 py-4 cursor-pointer transition-all hover:bg-gray-50 ${
-                    selectedWebsiteId === website.id ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {website.is_available ? (
-                          <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        ) : (
-                          <XCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
-                        )}
+                      return (
+                        <div
+                          key={website.id}
+                          onClick={() => onSelectWebsite(website.id)}
+                          className={`group px-6 py-2.5 cursor-pointer transition-all hover:bg-gray-50 ${
+                            selectedWebsiteId === website.id ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                {website.is_available ? (
+                                  <CheckCircleIcon className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                ) : (
+                                  <XCircleIcon className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                )}
 
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900 truncate">{website.name}</h3>
-                          <a
-                            href={website.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-sm text-gray-500 hover:text-blue-600 hover:underline truncate block"
-                          >
-                            {website.url.replace(/^https?:\/\//, '')}
-                          </a>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-6 flex-shrink-0">
-                        {status && (
-                          <>
-                            <div className="flex items-center gap-2 text-sm">
-                              <ServerIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-gray-600">
-                                WP {status.wordpress_version || '-'}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-sm">
-                              <ServerIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-gray-600">
-                                PHP {status.php_version || '-'}
-                              </span>
-                            </div>
-
-                            {hasUpdates && (
-                              <div className="flex items-center gap-2">
-                                <PackageIcon className="w-4 h-4 text-orange-500" />
-                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
-                                  {status.update_plugins_count} aktualizací
-                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="text-sm font-medium text-gray-900 truncate">{website.name}</h3>
+                                  <a
+                                    href={website.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="text-xs text-gray-500 hover:text-blue-600 hover:underline truncate block"
+                                  >
+                                    {website.url.replace(/^https?:\/\//, '')}
+                                  </a>
+                                </div>
                               </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {status?.ult && (
-                        <a
-                          href={adminLoginUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <LogInIcon className="w-4 h-4" />
-                          WP-Login
-                        </a>
-                      )}
+                              <div className="flex items-center gap-4 flex-shrink-0">
+                                {status && (
+                                  <>
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                      <ServerIcon className="w-3.5 h-3.5 text-gray-400" />
+                                      <span className="text-gray-600">
+                                        WP {status.wordpress_version || '-'}
+                                      </span>
+                                    </div>
 
-                      {canManage && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteWebsite(website.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-50 rounded-lg transition-all"
-                        >
-                          <Trash2Icon className="w-4 h-4 text-red-600" />
-                        </button>
-                      )}
-                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs">
+                                      <ServerIcon className="w-3.5 h-3.5 text-gray-400" />
+                                      <span className="text-gray-600">
+                                        PHP {status.php_version || '-'}
+                                      </span>
+                                    </div>
+
+                                    {hasUpdates && (
+                                      <div className="flex items-center gap-1.5">
+                                        <PackageIcon className="w-3.5 h-3.5 text-orange-500" />
+                                        <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                          {status.update_plugins_count}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {status?.ult && (
+                                <a
+                                  href={adminLoginUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                  <LogInIcon className="w-3.5 h-3.5" />
+                                  WP-Login
+                                </a>
+                              )}
+
+                              {canManage && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteWebsite(website.id);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-50 rounded-lg transition-all"
+                                >
+                                  <Trash2Icon className="w-3.5 h-3.5 text-red-600" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {sortedWebsites.length > 0 && (
+          <div className="flex flex-col items-center justify-center py-4 px-2 bg-gray-50 border-l border-gray-200">
+            {allLetters.map((letter) => {
+              const isAvailable = availableLetters.includes(letter);
+              return (
+                <button
+                  key={letter}
+                  onClick={() => scrollToLetter(letter)}
+                  disabled={!isAvailable}
+                  className={`text-xs font-medium py-0.5 px-1 transition-colors ${
+                    isAvailable
+                      ? 'text-blue-600 hover:text-blue-800 cursor-pointer'
+                      : 'text-gray-300 cursor-default'
+                  }`}
+                  title={isAvailable ? `Přejít na ${letter}` : `Žádné weby na ${letter}`}
+                >
+                  {letter}
+                </button>
               );
             })}
           </div>
