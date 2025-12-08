@@ -472,7 +472,7 @@ function App() {
               )}
             </div>
           ) : viewMode === 'clients' ? (
-            <div className="flex h-full">
+            <div className="flex h-full overflow-hidden">
               <ClientList
                 selectedClientId={selectedClientId}
                 onSelectClient={setSelectedClientId}

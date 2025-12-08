@@ -88,7 +88,7 @@ export function ClientDetail({ clientId, onClose, onNavigateToWebsite }: ClientD
 
   if (loading) {
     return (
-      <div className="w-[600px] h-full bg-white border-l border-gray-200 flex items-center justify-center">
+      <div className="w-[600px] flex-shrink-0 h-full bg-white border-l border-gray-200 flex items-center justify-center">
         <p className="text-gray-500">Načítání...</p>
       </div>
     );
@@ -96,7 +96,7 @@ export function ClientDetail({ clientId, onClose, onNavigateToWebsite }: ClientD
 
   if (!client) {
     return (
-      <div className="w-[600px] h-full bg-white border-l border-gray-200 flex items-center justify-center">
+      <div className="w-[600px] flex-shrink-0 h-full bg-white border-l border-gray-200 flex items-center justify-center">
         <p className="text-gray-500">Klient nebyl nalezen</p>
       </div>
     );
@@ -107,7 +107,7 @@ export function ClientDetail({ clientId, onClose, onNavigateToWebsite }: ClientD
 
   return (
     <>
-      <div className="w-[600px] h-full bg-white border-l border-gray-200 flex flex-col overflow-hidden">
+      <div className="w-[600px] flex-shrink-0 h-full bg-white border-l border-gray-200 flex flex-col overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">

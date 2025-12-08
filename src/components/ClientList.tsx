@@ -177,7 +177,7 @@ export function ClientList({ selectedClientId, onSelectClient, canManage }: Clie
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white overflow-hidden min-w-0">
       <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-semibold text-gray-900">Klienti</h1>
