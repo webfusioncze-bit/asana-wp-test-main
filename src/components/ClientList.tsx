@@ -254,48 +254,52 @@ export function ClientList({ selectedClientId, onSelectClient, canManage }: Clie
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-3 mt-0.5">
-                                    {client.company_name && (
-                                      <div className="flex items-center gap-1">
-                                        <BuildingIcon className="w-3 h-3 text-gray-400" />
-                                        <span className="text-xs text-gray-500 truncate">{client.company_name}</span>
-                                      </div>
-                                    )}
-                                    {client.email && (
-                                      <div className="flex items-center gap-1">
-                                        <MailIcon className="w-3 h-3 text-gray-400" />
-                                        <span className="text-xs text-gray-500 truncate">{client.email}</span>
-                                      </div>
-                                    )}
-                                    {client.phone && (
-                                      <div className="flex items-center gap-1">
-                                        <PhoneIcon className="w-3 h-3 text-gray-400" />
-                                        <span className="text-xs text-gray-500">{client.phone}</span>
-                                      </div>
-                                    )}
-                                  </div>
+                                  {!selectedClientId && (
+                                    <div className="flex items-center gap-3 mt-0.5">
+                                      {client.company_name && (
+                                        <div className="flex items-center gap-1">
+                                          <BuildingIcon className="w-3 h-3 text-gray-400" />
+                                          <span className="text-xs text-gray-500 truncate">{client.company_name}</span>
+                                        </div>
+                                      )}
+                                      {client.email && (
+                                        <div className="flex items-center gap-1">
+                                          <MailIcon className="w-3 h-3 text-gray-400" />
+                                          <span className="text-xs text-gray-500 truncate">{client.email}</span>
+                                        </div>
+                                      )}
+                                      {client.phone && (
+                                        <div className="flex items-center gap-1">
+                                          <PhoneIcon className="w-3 h-3 text-gray-400" />
+                                          <span className="text-xs text-gray-500">{client.phone}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-4 flex-shrink-0">
-                                {(client.invoices?.length || 0) > 0 && (
-                                  <div className="flex items-center gap-1.5">
-                                    <FileTextIcon className="w-3.5 h-3.5 text-gray-400" />
-                                    <span className="text-xs text-gray-600">
-                                      {client.invoices?.length} faktur
-                                    </span>
-                                  </div>
-                                )}
+                              {!selectedClientId && (
+                                <div className="flex items-center gap-4 flex-shrink-0">
+                                  {(client.invoices?.length || 0) > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <FileTextIcon className="w-3.5 h-3.5 text-gray-400" />
+                                      <span className="text-xs text-gray-600">
+                                        {client.invoices?.length} faktur
+                                      </span>
+                                    </div>
+                                  )}
 
-                                {hasWebsites && (
-                                  <div className="flex items-center gap-1.5">
-                                    <GlobeIcon className="w-3.5 h-3.5 text-gray-400" />
-                                    <span className="text-xs text-gray-600">
-                                      {client.websites?.length} webů
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
+                                  {hasWebsites && (
+                                    <div className="flex items-center gap-1.5">
+                                      <GlobeIcon className="w-3.5 h-3.5 text-gray-400" />
+                                      <span className="text-xs text-gray-600">
+                                        {client.websites?.length} webů
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-2 flex-shrink-0">
