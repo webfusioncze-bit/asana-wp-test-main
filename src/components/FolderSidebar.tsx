@@ -204,6 +204,14 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         return totalCount;
       };
 
+      // Načíst seznam skutečně sdílených složek
+      const { data: sharedFolderData } = await supabase
+        .from('folder_shares')
+        .select('folder_id')
+        .or(`user_id.eq.${currentUserId},group_id.in.(SELECT group_id FROM user_group_members WHERE user_id = '${currentUserId}')`);
+
+      const sharedFolderIds = new Set((sharedFolderData || []).map(s => s.folder_id));
+
       for (const folder of allFolders) {
         const includeCompleted = folder.name === 'Dokončené';
         const itemCount = await getFolderTaskCount(folder.id, folder.name, includeCompleted);
@@ -212,11 +220,14 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType }: 
         // Složky v globální hierarchii jdou do "global" kategorie
         if (folder.is_global || isInGlobalHierarchy(folder)) {
           global.push(folderWithCount);
-        } else if (folder.owner_id !== currentUserId) {
-          shared.push(folderWithCount);
-        } else {
+        } else if (folder.owner_id === currentUserId) {
+          // Moje vlastní složky
           my.push(folderWithCount);
+        } else if (sharedFolderIds.has(folder.id)) {
+          // Složky, které mi byly explicitně sdíleny
+          shared.push(folderWithCount);
         }
+        // Ignorovat všechny ostatní složky (cizí nessdílené)
       }
 
       setGlobalFolders(global);
