@@ -409,3 +409,43 @@ export interface WebsiteStatus {
   ult: string | null;
   created_at: string;
 }
+
+export interface Client {
+  id: string;
+  external_id: string | null;
+  portal_id: number;
+  name: string;
+  slug: string | null;
+  status: string;
+  company_name: string | null;
+  ic: string | null;
+  dic: string | null;
+  email: string | null;
+  phone: string | null;
+  street: string | null;
+  city: string | null;
+  postal_code: string | null;
+  portal_link: string | null;
+  created_at: string;
+  updated_at: string;
+  last_sync_at: string | null;
+  sync_error: string | null;
+}
+
+export interface ClientInvoice {
+  id: string;
+  client_id: string;
+  invoice_number: string;
+  invoice_date: string | null;
+  status: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientWebsite {
+  id: string;
+  client_id: string;
+  website_id: string | null;
+  website_url: string;
+  created_at: string;
+}

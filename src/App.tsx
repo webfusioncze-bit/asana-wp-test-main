@@ -16,11 +16,13 @@ import { ProjectList } from './components/ProjectList';
 import { ProjectDetail } from './components/ProjectDetail';
 import { WebsiteList } from './components/WebsiteList';
 import { WebsiteDetail } from './components/WebsiteDetail';
+import { ClientList } from './components/ClientList';
+import { ClientDetail } from './components/ClientDetail';
 import { DataCacheProvider } from './contexts/DataCacheContext';
 import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
-type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites';
+type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites' | 'clients';
 
 function App() {
   const hash = window.location.hash;
@@ -35,6 +37,7 @@ function App() {
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('tasks');
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
@@ -42,6 +45,7 @@ function App() {
   const [hasRequestsPermission, setHasRequestsPermission] = useState(false);
   const [hasProjectsPermission, setHasProjectsPermission] = useState(false);
   const [hasWebsitesPermission, setHasWebsitesPermission] = useState(false);
+  const [hasClientsPermission, setHasClientsPermission] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [showTaskCreation, setShowTaskCreation] = useState(false);
@@ -134,6 +138,9 @@ function App() {
     // Zkontroluj oprávnění pro weby
     await checkWebsitesPermission(userId);
 
+    // Zkontroluj oprávnění pro klienty
+    await checkClientsPermission(userId);
+
     // Načti profil uživatele
     await loadUserProfile(userId);
 
@@ -192,6 +199,18 @@ function App() {
       .maybeSingle();
 
     setHasWebsitesPermission(!!data);
+  }
+
+  async function checkClientsPermission(userId: string) {
+    // Zkontroluj, jestli má uživatel oprávnění manage_clients
+    const { data } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('permission', 'manage_clients')
+      .maybeSingle();
+
+    setHasClientsPermission(!!data);
   }
 
   async function handleSignOut() {
@@ -293,6 +312,18 @@ function App() {
                     }`}
                   >
                     Weby
+                  </button>
+                )}
+                {hasClientsPermission && (
+                  <button
+                    onClick={() => setViewMode('clients')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'clients'
+                        ? 'bg-primary text-white'
+                        : 'text-gray-300 hover:bg-dark-light'
+                    }`}
+                  >
+                    Klienti
                   </button>
                 )}
               </div>
@@ -431,6 +462,25 @@ function App() {
                   selectedWebsiteId={selectedWebsiteId}
                   onSelectWebsite={setSelectedWebsiteId}
                   canManage={hasWebsitesPermission}
+                />
+              )}
+            </div>
+          ) : viewMode === 'clients' ? (
+            <div className="flex h-full">
+              {selectedClientId ? (
+                <ClientDetail
+                  clientId={selectedClientId}
+                  onClose={() => setSelectedClientId(null)}
+                  onNavigateToWebsite={(websiteId) => {
+                    setViewMode('websites');
+                    setSelectedWebsiteId(websiteId);
+                  }}
+                />
+              ) : (
+                <ClientList
+                  selectedClientId={selectedClientId}
+                  onSelectClient={setSelectedClientId}
+                  canManage={hasClientsPermission}
                 />
               )}
             </div>
