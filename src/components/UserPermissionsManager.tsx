@@ -18,6 +18,7 @@ const AVAILABLE_PERMISSIONS = [
   { value: 'view_requests', label: 'Zobrazit všechny poptávky', description: 'Uživatel vidí všechny poptávky bez omezení' },
   { value: 'manage_projects', label: 'Spravovat projekty', description: 'Uživatel může zobrazit a spravovat všechny projekty' },
   { value: 'manage_websites', label: 'Spravovat weby', description: 'Uživatel může zobrazit a spravovat všechny weby' },
+  { value: 'manage_clients', label: 'Spravovat klienty', description: 'Uživatel může zobrazit a spravovat všechny klienty' },
 ];
 
 export function UserPermissionsManager() {
