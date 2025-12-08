@@ -32,6 +32,7 @@ export function ClientDetail({ clientId, onClose, onNavigateToWebsite }: ClientD
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [websites, setWebsites] = useState<ClientWebsiteWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedInvoice, setSelectedInvoice] = useState<ClientInvoice | null>(null);
 
   useEffect(() => {
     loadClientData();
@@ -279,14 +280,15 @@ export function ClientDetail({ clientId, onClose, onNavigateToWebsite }: ClientD
                       const isPaid = invoice.status?.toLowerCase().includes('uhrazena');
 
                       return (
-                        <div
+                        <button
                           key={invoice.id}
-                          className={`p-3 rounded-lg border ${
+                          onClick={() => setSelectedInvoice(invoice)}
+                          className={`w-full p-3 rounded-lg border text-left hover:shadow-md transition-all ${
                             isOverdue
-                              ? 'bg-red-50 border-red-200'
+                              ? 'bg-red-50 border-red-200 hover:bg-red-100'
                               : isPaid
-                              ? 'bg-green-50 border-green-200'
-                              : 'bg-gray-50 border-gray-200'
+                              ? 'bg-green-50 border-green-200 hover:bg-green-100'
+                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -324,7 +326,7 @@ export function ClientDetail({ clientId, onClose, onNavigateToWebsite }: ClientD
                               </span>
                             )}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -334,6 +336,131 @@ export function ClientDetail({ clientId, onClose, onNavigateToWebsite }: ClientD
           </div>
         </div>
       </div>
+
+      {selectedInvoice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Detail faktury</h2>
+              <button
+                onClick={() => setSelectedInvoice(null)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <XIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Číslo faktury
+                    </label>
+                    <p className="text-lg font-semibold text-gray-900">
+                      #{selectedInvoice.invoice_number}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stav
+                    </label>
+                    <span
+                      className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
+                        selectedInvoice.status?.includes('splatnosti')
+                          ? 'bg-red-100 text-red-700'
+                          : selectedInvoice.status?.toLowerCase().includes('uhrazena')
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {selectedInvoice.status || 'Neznámý'}
+                    </span>
+                  </div>
+                </div>
+
+                {selectedInvoice.invoice_date && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Datum vystavení
+                    </label>
+                    <div className="flex items-center gap-2 text-gray-900">
+                      <CalendarIcon className="w-5 h-5 text-gray-400" />
+                      <p className="text-base">{selectedInvoice.invoice_date}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Informace o klientovi</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Jméno:</span>
+                      <span className="text-sm font-medium text-gray-900">{client?.name}</span>
+                    </div>
+                    {client?.company_name && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Společnost:</span>
+                        <span className="text-sm font-medium text-gray-900">{client.company_name}</span>
+                      </div>
+                    )}
+                    {client?.ic && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">IČ:</span>
+                        <span className="text-sm font-medium text-gray-900">{client.ic}</span>
+                      </div>
+                    )}
+                    {client?.dic && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">DIČ:</span>
+                        <span className="text-sm font-medium text-gray-900">{client.dic}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedInvoice.status?.includes('splatnosti') && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="font-medium text-red-900 mb-1">Faktura po splatnosti</h3>
+                        <p className="text-sm text-red-700">
+                          Tato faktura je po datu splatnosti a měla by být uhrazena co nejdříve.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedInvoice.status?.toLowerCase().includes('uhrazena') && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="font-medium text-green-900 mb-1">Faktura uhrazena</h3>
+                        <p className="text-sm text-green-700">
+                          Tato faktura byla úspěšně uhrazena.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setSelectedInvoice(null)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Zavřít
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

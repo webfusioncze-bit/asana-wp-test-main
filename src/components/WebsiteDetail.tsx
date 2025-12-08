@@ -34,6 +34,7 @@ type TabType = 'overview' | 'plugins' | 'users';
 export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const [website, setWebsite] = useState<Website | null>(null);
   const [latestStatus, setLatestStatus] = useState<WebsiteStatus | null>(null);
+  const [clientInfo, setClientInfo] = useState<{ name: string; company_name: string | null; id: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -58,6 +59,24 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    const { data: clientWebsiteData } = await supabase
+      .from('client_websites')
+      .select('client_id')
+      .eq('website_id', websiteId)
+      .maybeSingle();
+
+    if (clientWebsiteData?.client_id) {
+      const { data: clientData } = await supabase
+        .from('clients')
+        .select('id, name, company_name')
+        .eq('id', clientWebsiteData.client_id)
+        .maybeSingle();
+
+      setClientInfo(clientData);
+    } else {
+      setClientInfo(null);
+    }
 
     setWebsite(websiteData);
     setLatestStatus(statusData);
@@ -246,7 +265,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-3 mt-0.5">
                 <a
                   href={website.url}
                   target="_blank"
@@ -256,6 +275,15 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                   {website.url}
                   <ExternalLinkIcon className="w-3 h-3" />
                 </a>
+                {clientInfo && (
+                  <>
+                    <span className="text-xs text-gray-400">•</span>
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <UsersIcon className="w-3 h-3" />
+                      <span>{clientInfo.company_name || clientInfo.name}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

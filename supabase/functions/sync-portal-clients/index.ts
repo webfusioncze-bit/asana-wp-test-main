@@ -54,11 +54,30 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const API_BASE_URL = 'https://portal.webfusion.cz/wp-json/webfusion/v1/klienti';
+    const { data: configData } = await supabase
+      .from('portal_sync_config')
+      .select('clients_portal_url')
+      .maybeSingle();
+
+    const API_BASE_URL = configData?.clients_portal_url || 'https://portal.webfusion.cz/wp-json/webfusion/v1/klienti';
     let syncedClients = 0;
     let failedClients = 0;
     let currentPage = 1;
     let totalPages = 1;
+
+    const allWebsites = new Map();
+    const { data: existingWebsites } = await supabase
+      .from('websites')
+      .select('id, url');
+
+    if (existingWebsites) {
+      for (const website of existingWebsites) {
+        allWebsites.set(website.url, website.id);
+        allWebsites.set(website.url.replace(/\/$/, ''), website.id);
+        allWebsites.set(website.url.replace(/^https?:\/\//, ''), website.id);
+        allWebsites.set(website.url.replace(/^https?:\/\//, '').replace(/\/$/, ''), website.id);
+      }
+    }
 
     while (currentPage <= totalPages) {
       const apiUrl = `${API_BASE_URL}?page=${currentPage}`;
@@ -74,7 +93,7 @@ Deno.serve(async (req: Request) => {
       for (const clientData of data.items) {
         try {
           const billing = clientData.acf?.fakturacni_udaje || {};
-          
+
           const { data: client, error: clientError } = await supabase
             .from('clients')
             .upsert(
@@ -110,19 +129,21 @@ Deno.serve(async (req: Request) => {
             continue;
           }
 
-          if (billing.faktury && Array.isArray(billing.faktury)) {
+          if (billing.faktury && Array.isArray(billing.faktury) && billing.faktury.length > 0) {
             await supabase
               .from('client_invoices')
               .delete()
               .eq('client_id', client.id);
 
-            for (const invoice of billing.faktury) {
-              await supabase.from('client_invoices').insert({
-                client_id: client.id,
-                invoice_number: invoice.cislo_faktury,
-                invoice_date: invoice.datum,
-                status: invoice.stav,
-              });
+            const invoices = billing.faktury.map(invoice => ({
+              client_id: client.id,
+              invoice_number: invoice.cislo_faktury,
+              invoice_date: invoice.datum,
+              status: invoice.stav,
+            }));
+
+            if (invoices.length > 0) {
+              await supabase.from('client_invoices').insert(invoices);
             }
           }
 
@@ -133,18 +154,22 @@ Deno.serve(async (req: Request) => {
               .delete()
               .eq('client_id', client.id);
 
+            const websiteLinks = [];
             for (const websiteUrl of websites) {
-              const { data: matchedWebsite } = await supabase
-                .from('websites')
-                .select('id')
-                .or(`url.eq.${websiteUrl},url.eq.${websiteUrl}/,url.eq.https://${websiteUrl},url.eq.http://${websiteUrl}`)
-                .maybeSingle();
+              let websiteId = allWebsites.get(websiteUrl) ||
+                             allWebsites.get(websiteUrl.replace(/\/$/, '')) ||
+                             allWebsites.get(`https://${websiteUrl}`) ||
+                             allWebsites.get(`http://${websiteUrl}`);
 
-              await supabase.from('client_websites').insert({
+              websiteLinks.push({
                 client_id: client.id,
-                website_id: matchedWebsite?.id || null,
+                website_id: websiteId || null,
                 website_url: websiteUrl,
               });
+            }
+
+            if (websiteLinks.length > 0) {
+              await supabase.from('client_websites').insert(websiteLinks);
             }
           }
 
@@ -157,6 +182,14 @@ Deno.serve(async (req: Request) => {
 
       currentPage++;
     }
+
+    await supabase
+      .from('portal_sync_config')
+      .update({
+        clients_last_sync_at: new Date().toISOString(),
+        clients_sync_error: null,
+      })
+      .eq('id', configData?.id || '');
 
     return new Response(
       JSON.stringify({
@@ -172,6 +205,22 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     console.error('Sync error:', error);
+
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      await supabase
+        .from('portal_sync_config')
+        .update({
+          clients_sync_error: error instanceof Error ? error.message : 'Unknown error',
+        })
+        .limit(1);
+    } catch (updateError) {
+      console.error('Failed to update sync error:', updateError);
+    }
+
     return new Response(
       JSON.stringify({
         success: false,

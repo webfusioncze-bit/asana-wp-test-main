@@ -11,6 +11,8 @@ interface WebsiteListProps {
 
 interface WebsiteWithStatus extends Website {
   latestStatus?: WebsiteStatus | null;
+  clientName?: string | null;
+  clientCompany?: string | null;
 }
 
 export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: WebsiteListProps) {
@@ -48,9 +50,33 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
           .limit(1)
           .maybeSingle();
 
+        const { data: clientWebsiteData } = await supabase
+          .from('client_websites')
+          .select('client_id')
+          .eq('website_id', website.id)
+          .maybeSingle();
+
+        let clientName = null;
+        let clientCompany = null;
+
+        if (clientWebsiteData?.client_id) {
+          const { data: clientData } = await supabase
+            .from('clients')
+            .select('name, company_name')
+            .eq('id', clientWebsiteData.client_id)
+            .maybeSingle();
+
+          if (clientData) {
+            clientName = clientData.name;
+            clientCompany = clientData.company_name;
+          }
+        }
+
         return {
           ...website,
           latestStatus: statusData,
+          clientName,
+          clientCompany,
         };
       })
     );
@@ -122,7 +148,9 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
 
   const filteredWebsites = websites.filter((website) =>
     website.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    website.url.toLowerCase().includes(searchQuery.toLowerCase())
+    website.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (website.clientName && website.clientName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (website.clientCompany && website.clientCompany.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const sortedWebsites = [...filteredWebsites].sort((a, b) => {
@@ -235,15 +263,21 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
 
                                 <div className="flex-1 min-w-0">
                                   <h3 className="text-sm font-medium text-gray-900 truncate">{website.name}</h3>
-                                  <a
-                                    href={website.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-xs text-gray-500 hover:text-blue-600 hover:underline truncate block"
-                                  >
-                                    {website.url.replace(/^https?:\/\//, '')}
-                                  </a>
+                                  {website.clientCompany || website.clientName ? (
+                                    <p className="text-xs text-gray-500 truncate">
+                                      {website.clientCompany || website.clientName}
+                                    </p>
+                                  ) : (
+                                    <a
+                                      href={website.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-xs text-gray-500 hover:text-blue-600 hover:underline truncate block"
+                                    >
+                                      {website.url.replace(/^https?:\/\//, '')}
+                                    </a>
+                                  )}
                                 </div>
                               </div>
 
