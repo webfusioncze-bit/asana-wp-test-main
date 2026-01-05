@@ -851,7 +851,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                     <div className="flex flex-wrap gap-2">
                       {requestType && (
                         <span
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                          className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium"
                           style={{ backgroundColor: requestType.color + '20', color: requestType.color }}
                         >
                           {requestType.name}
@@ -859,22 +859,22 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                       )}
                       {requestStatus ? (
                         <span
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                          className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium"
                           style={{ backgroundColor: requestStatus.color + '20', color: requestStatus.color }}
                         >
                           {requestStatus.name}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700">
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
                           Nová poptávka
                         </span>
                       )}
                       {!request.assigned_to ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
                           Nepřevzata
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
                           Převzata
                         </span>
                       )}
