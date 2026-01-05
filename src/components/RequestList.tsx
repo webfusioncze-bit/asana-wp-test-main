@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -28,9 +28,12 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const [requestStats, setRequestStats] = useState<Record<string, RequestStats>>({});
   const { loadRequests: loadCachedRequests, invalidateRequests, isLoading: cacheLoading } = useDataCache();
 
-  const isEshopRequest = (title: string) => {
-    const eshopKeywords = ['Chci začít prodávat', 'Chci zvýšit prodeje', 'Chci nový design', 'Přechod z jiného řešení'];
-    return eshopKeywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase()));
+  const isEshopRequest = (request: Request) => {
+    return !!(request.favorite_eshop || request.product_count);
+  };
+
+  const isPPCRequest = (request: Request) => {
+    return !!(request.marketing_goal || request.competitor_url || request.monthly_management_budget || request.monthly_credits_budget);
   };
 
   useEffect(() => {
@@ -244,9 +247,14 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                           <ZapIcon className="w-3 h-3" />
                         </div>
                       )}
-                      {isEshopRequest(request.title) && (
+                      {isEshopRequest(request) && (
                         <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop poptávka">
                           <ShoppingCartIcon className="w-3 h-3" />
+                        </div>
+                      )}
+                      {isPPCRequest(request) && (
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC poptávka">
+                          <TrendingUpIcon className="w-3 h-3" />
                         </div>
                       )}
                     </div>

@@ -437,9 +437,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
 
   const totalHours = timeEntries.reduce((sum, entry) => sum + parseFloat(entry.hours.toString()), 0);
 
-  const isEshopRequest = (title: string) => {
-    const eshopKeywords = ['Chci začít prodávat', 'Chci zvýšit prodeje', 'Chci nový design', 'Přechod z jiného řešení'];
-    return eshopKeywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase()));
+  const isEshopRequest = (req: Request) => {
+    return !!(req.favorite_eshop || req.product_count);
   };
 
   const isPPCRequest = (req: Request) => {
@@ -880,20 +879,20 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                         </span>
                       )}
                       {request.source === 'zapier' && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700 gap-1">
-                          <ZapIcon className="w-4 h-4" />
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 gap-1">
+                          <ZapIcon className="w-3 h-3" />
                           Zapier
                         </span>
                       )}
-                      {isEshopRequest(request.title) && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-700 gap-1">
-                          <ShoppingCartIcon className="w-4 h-4" />
+                      {isEshopRequest(request) && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 gap-1">
+                          <ShoppingCartIcon className="w-3 h-3" />
                           E-shop
                         </span>
                       )}
                       {isPPCRequest(request) && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-700 gap-1">
-                          <TrendingUpIcon className="w-4 h-4" />
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 gap-1">
+                          <TrendingUpIcon className="w-3 h-3" />
                           PPC
                         </span>
                       )}
