@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
 
@@ -48,7 +48,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     project_materials_link: '',
     deadline: '',
     favorite_eshop: '',
-    product_count: 0,
+    product_count: '',
   });
 
   const [newNote, setNewNote] = useState('');
@@ -126,7 +126,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       project_materials_link: requestData.project_materials_link || '',
       deadline: requestData.deadline ? new Date(requestData.deadline).toISOString().split('T')[0] : '',
       favorite_eshop: requestData.favorite_eshop || '',
-      product_count: requestData.product_count || 0,
+      product_count: requestData.product_count || '',
     });
 
     if (requestData.request_type_id) {
@@ -425,6 +425,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
 
   const totalHours = timeEntries.reduce((sum, entry) => sum + parseFloat(entry.hours.toString()), 0);
 
+  const isEshopRequest = (title: string) => {
+    const eshopKeywords = ['Chci začít prodávat', 'Chci zvýšit prodeje', 'Chci nový design', 'Přechod z jiného řešení'];
+    return eshopKeywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase()));
+  };
+
   return (
     <div className="w-[600px] border-l border-gray-200 bg-white flex flex-col">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
@@ -707,11 +712,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Počet produktů e-shopu</label>
                     <input
-                      type="number"
+                      type="text"
                       value={editForm.product_count}
-                      onChange={(e) => setEditForm({ ...editForm, product_count: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setEditForm({ ...editForm, product_count: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="0"
+                      placeholder="např. 50-200"
                     />
                   </div>
                 </div>
@@ -810,6 +815,18 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                           Převzata
                         </span>
                       )}
+                      {request.source === 'zapier' && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700 gap-1">
+                          <ZapIcon className="w-4 h-4" />
+                          Zapier
+                        </span>
+                      )}
+                      {isEshopRequest(request.title) && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-700 gap-1">
+                          <ShoppingCartIcon className="w-4 h-4" />
+                          E-shop
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -872,7 +889,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                             </a>
                           </div>
                         )}
-                        {request.product_count && request.product_count > 0 && (
+                        {request.product_count && (
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Počet produktů e-shopu</p>
                             <p className="text-gray-700">{request.product_count}</p>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -27,6 +27,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const [showCreationPanel, setShowCreationPanel] = useState(false);
   const [requestStats, setRequestStats] = useState<Record<string, RequestStats>>({});
   const { loadRequests: loadCachedRequests, invalidateRequests, isLoading: cacheLoading } = useDataCache();
+
+  const isEshopRequest = (title: string) => {
+    const eshopKeywords = ['Chci začít prodávat', 'Chci zvýšit prodeje', 'Chci nový design', 'Přechod z jiného řešení'];
+    return eshopKeywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase()));
+  };
 
   useEffect(() => {
     loadData();
@@ -233,11 +238,18 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                 >
                   <div className="flex items-start justify-between mb-1.5">
                     <h3 className="font-medium text-sm text-gray-900 flex-1">{request.title}</h3>
-                    {request.source === 'zapier' && (
-                      <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm flex-shrink-0">
-                        <ZapIcon className="w-3 h-3" />
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {request.source === 'zapier' && (
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier integrace">
+                          <ZapIcon className="w-3 h-3" />
+                        </div>
+                      )}
+                      {isEshopRequest(request.title) && (
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop poptávka">
+                          <ShoppingCartIcon className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {request.client_name && (
@@ -297,6 +309,12 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       <ClockIcon className="w-3 h-3" />
                       <span className="text-xs font-medium">{stats.totalTime}h</span>
                     </div>
+                    {request.product_count && (
+                      <div className="flex items-center gap-0.5 text-indigo-600" title="Počet produktů e-shopu">
+                        <ShoppingCartIcon className="w-3 h-3" />
+                        <span className="text-xs font-medium">{request.product_count}</span>
+                      </div>
+                    )}
                     <div className="ml-auto flex items-center gap-1.5">
                       {request.budget && (
                         <span className="text-xs font-medium text-gray-700">
