@@ -159,6 +159,8 @@ export interface Request {
   delivery_speed: string | null;
   ai_usage: string | null;
   project_materials_link: string | null;
+  favorite_eshop: string | null;
+  product_count: number | null;
 }
 
 export interface RequestAction {

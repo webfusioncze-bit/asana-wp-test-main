@@ -47,6 +47,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     ai_usage: '',
     project_materials_link: '',
     deadline: '',
+    favorite_eshop: '',
+    product_count: 0,
   });
 
   const [newNote, setNewNote] = useState('');
@@ -123,6 +125,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       ai_usage: requestData.ai_usage || '',
       project_materials_link: requestData.project_materials_link || '',
       deadline: requestData.deadline ? new Date(requestData.deadline).toISOString().split('T')[0] : '',
+      favorite_eshop: requestData.favorite_eshop || '',
+      product_count: requestData.product_count || 0,
     });
 
     if (requestData.request_type_id) {
@@ -250,6 +254,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         ai_usage: editForm.ai_usage || null,
         project_materials_link: editForm.project_materials_link || null,
         deadline: editForm.deadline || null,
+        favorite_eshop: editForm.favorite_eshop || null,
+        product_count: editForm.product_count || null,
       })
       .eq('id', requestId);
 
@@ -688,6 +694,30 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">E-shop, který se mi líbí</label>
+                    <input
+                      type="url"
+                      value={editForm.favorite_eshop}
+                      onChange={(e) => setEditForm({ ...editForm, favorite_eshop: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Počet produktů e-shopu</label>
+                    <input
+                      type="number"
+                      value={editForm.product_count}
+                      onChange={(e) => setEditForm({ ...editForm, product_count: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet</label>
                     <input
                       type="text"
@@ -800,7 +830,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                     </div>
                   )}
 
-                  {(request.delivery_speed || request.ai_usage || request.project_materials_link) && (
+                  {(request.delivery_speed || request.ai_usage || request.project_materials_link || request.favorite_eshop || request.product_count) && (
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">Doplňující informace</h4>
                       <div className="grid grid-cols-3 gap-4">
@@ -827,6 +857,25 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                             >
                               Odkaz <ExternalLinkIcon className="w-3 h-3" />
                             </a>
+                          </div>
+                        )}
+                        {request.favorite_eshop && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">E-shop, který se mi líbí</p>
+                            <a
+                              href={request.favorite_eshop}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              Odkaz <ExternalLinkIcon className="w-3 h-3" />
+                            </a>
+                          </div>
+                        )}
+                        {request.product_count && request.product_count > 0 && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Počet produktů e-shopu</p>
+                            <p className="text-gray-700">{request.product_count}</p>
                           </div>
                         )}
                       </div>

@@ -36,6 +36,8 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
     current_website_url: '',
     additional_services: '',
     accepted_price: '',
+    favorite_eshop: '',
+    product_count: '',
   });
 
   useEffect(() => {
@@ -136,6 +138,8 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
         source: formData.source || null,
         storage_url: formData.storage_url || null,
         current_website_url: formData.current_website_url || null,
+        favorite_eshop: formData.favorite_eshop || null,
+        product_count: formData.product_count ? parseInt(formData.product_count) : null,
       });
 
     setLoading(false);
@@ -398,6 +402,35 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
                 type="date"
                 value={formData.deadline}
                 onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                E-shop, který se mi líbí
+              </label>
+              <input
+                type="url"
+                value={formData.favorite_eshop}
+                onChange={(e) => setFormData({ ...formData, favorite_eshop: e.target.value })}
+                placeholder="https://..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Počet produktů e-shopu
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.product_count}
+                onChange={(e) => setFormData({ ...formData, product_count: e.target.value })}
+                placeholder="0"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
