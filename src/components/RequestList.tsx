@@ -225,29 +225,28 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                 <div
                   key={request.id}
                   onClick={() => onSelectRequest(request.id)}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
                     selectedRequestId === request.id
                       ? 'border-primary bg-primary/5'
                       : 'border-gray-200 hover:border-blue-300 bg-white'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium text-gray-900 flex-1">{request.title}</h3>
+                  <div className="flex items-start justify-between mb-1.5">
+                    <h3 className="font-medium text-sm text-gray-900 flex-1">{request.title}</h3>
                     {request.source === 'zapier' && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full text-xs font-medium shadow-sm">
+                      <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm flex-shrink-0">
                         <ZapIcon className="w-3 h-3" />
-                        Zapier
                       </div>
                     )}
                   </div>
 
                   {request.client_name && (
-                    <div className="text-sm text-gray-600 mb-2">
+                    <div className="text-xs text-gray-600 mb-1.5">
                       <p>Klient: {request.client_name}</p>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                  <div className="flex items-center gap-1 flex-wrap mb-2">
                     {requestType && (
                       <span
                         className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
@@ -285,20 +284,20 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-                    <div className="flex items-center gap-1 text-gray-600" title="Počet poznámek">
-                      <MessageSquareIcon className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2 pt-1.5 border-t border-gray-100">
+                    <div className="flex items-center gap-0.5 text-gray-600" title="Počet poznámek">
+                      <MessageSquareIcon className="w-3 h-3" />
                       <span className="text-xs font-medium">{stats.notesCount}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-gray-600" title="Počet úkolů">
-                      <CheckSquareIcon className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-0.5 text-gray-600" title="Počet úkolů">
+                      <CheckSquareIcon className="w-3 h-3" />
                       <span className="text-xs font-medium">{stats.tasksCount}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-gray-600" title="Celkový strávený čas">
-                      <ClockIcon className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-0.5 text-gray-600" title="Celkový strávený čas">
+                      <ClockIcon className="w-3 h-3" />
                       <span className="text-xs font-medium">{stats.totalTime}h</span>
                     </div>
-                    <div className="ml-auto flex items-center gap-2">
+                    <div className="ml-auto flex items-center gap-1.5">
                       {request.budget && (
                         <span className="text-xs font-medium text-gray-700">
                           {request.budget}
