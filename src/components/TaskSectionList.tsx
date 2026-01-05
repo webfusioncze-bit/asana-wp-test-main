@@ -501,7 +501,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
               </div>
             </div>
             <div
-              className={`p-2 space-y-1 min-h-[60px] transition-colors ${
+              className={`p-2 space-y-0.5 min-h-[60px] transition-colors ${
                 dragOverSection === section.id ? 'bg-blue-50 border-2 border-blue-300 border-dashed' : ''
               }`}
               onDragOver={(e) => handleDragOver(e, section.id)}

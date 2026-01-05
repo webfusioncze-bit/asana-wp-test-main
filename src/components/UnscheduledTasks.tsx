@@ -168,15 +168,15 @@ export function UnscheduledTasks({ onTaskClick }: UnscheduledTasksProps) {
           </h3>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-2">
           {sortedFolders.map(([folderId, { folder, tasks }]) => (
-            <div key={folderId} className="bg-gray-50 rounded-lg p-4">
-              <div className="mb-3">
+            <div key={folderId} className="bg-gray-50 rounded-lg p-2">
+              <div className="mb-2">
                 <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
                   {folder?.name || 'Bez složky'} ({tasks.length})
                 </h4>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-1.5">
                 {tasks.map(task => {
                   const category = categories.find(c => c.id === task.category_id);
                   const assignedUser = users.find(u => u.id === task.assigned_to);

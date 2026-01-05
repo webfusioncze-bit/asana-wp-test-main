@@ -204,7 +204,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
               Zpožděné ({overdueTasks.length})
             </h3>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-0.5">
             {overdueTasks.map(task => {
               const category = categories.find(c => c.id === task.category_id);
               const assignedUser = users.find(u => u.id === task.assigned_to);
@@ -239,7 +239,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
           </span>
         </div>
         {currentWeekTasks.length > 0 ? (
-          <div className="space-y-1.5">
+          <div className="space-y-0.5">
             {currentWeekTasks.map(task => {
               const category = categories.find(c => c.id === task.category_id);
               const assignedUser = users.find(u => u.id === task.assigned_to);
@@ -303,7 +303,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
           </div>
         </div>
         {nextWeekTasks.length > 0 ? (
-          <div className="space-y-1.5">
+          <div className="space-y-0.5">
             {nextWeekTasks.map(task => {
               const category = categories.find(c => c.id === task.category_id);
               const assignedUser = users.find(u => u.id === task.assigned_to);
