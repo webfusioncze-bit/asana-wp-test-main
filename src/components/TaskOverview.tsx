@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AlertCircleIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TaskItemSimple } from './TaskItemSimple';
+import { UnscheduledTasks } from './UnscheduledTasks';
 import type { Task, Category, User } from '../types';
 
 interface TaskOverviewProps {
@@ -193,6 +194,8 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
 
   return (
     <div className="space-y-6">
+      <UnscheduledTasks onTaskClick={onTaskClick} />
+
       {overdueTasks.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
