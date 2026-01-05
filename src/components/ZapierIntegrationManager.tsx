@@ -33,6 +33,10 @@ export function ZapierIntegrationManager() {
     { value: 'project_materials_link', label: 'Podklady k projektu' },
     { value: 'favorite_eshop', label: 'E-shop, který se mi líbí' },
     { value: 'product_count', label: 'Počet produktů e-shopu' },
+    { value: 'marketing_goal', label: 'Cíl marketingu' },
+    { value: 'competitor_url', label: 'Adresa konkurence' },
+    { value: 'monthly_management_budget', label: 'Rozpočet na měsíční správu' },
+    { value: 'monthly_credits_budget', label: 'Rozpočet na měsíční kredity' },
   ];
 
   useEffect(() => {
