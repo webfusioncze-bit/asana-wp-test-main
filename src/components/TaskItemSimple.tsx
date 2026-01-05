@@ -367,6 +367,21 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
             </div>
           )}
 
+          {createdByUser && createdByUser.id !== assignedUser?.id && (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded text-xs text-blue-700" title="Vytvořilo">
+              {createdByUser.avatar_url ? (
+                <img
+                  src={createdByUser.avatar_url}
+                  alt={createdByUser.display_name || createdByUser.email}
+                  className="w-4 h-4 rounded-full object-cover"
+                />
+              ) : (
+                <UserIcon className="w-3 h-3" />
+              )}
+              <span>{createdByUser.display_name || createdByUser.email.split('@')[0]}</span>
+            </div>
+          )}
+
           {assignedUser && (
             <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-700" title="Přiřazeno">
               {assignedUser.avatar_url ? (
