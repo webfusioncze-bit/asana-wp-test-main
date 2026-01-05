@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
 
@@ -442,7 +442,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   };
 
   const isPPCRequest = (req: Request) => {
-    return !!(req.marketing_goal || req.competitor_url || req.monthly_management_budget || req.monthly_credits_budget);
+    return !!(req.marketing_goal || req.competitor_url || req.monthly_credits_budget);
+  };
+
+  const isManagementRequest = (req: Request) => {
+    return !!req.monthly_management_budget;
   };
 
   return (
@@ -894,6 +898,12 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                         <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700 gap-0.5">
                           <TrendingUpIcon className="w-2 h-2" />
                           PPC
+                        </span>
+                      )}
+                      {isManagementRequest(request) && (
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 gap-0.5">
+                          <SettingsIcon className="w-2 h-2" />
+                          Správa webu
                         </span>
                       )}
                     </div>
