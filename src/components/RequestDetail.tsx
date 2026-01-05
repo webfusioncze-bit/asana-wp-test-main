@@ -879,20 +879,20 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                         </span>
                       )}
                       {request.source === 'zapier' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 gap-1">
-                          <ZapIcon className="w-3 h-3" />
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700 gap-0.5">
+                          <ZapIcon className="w-2 h-2" />
                           Zapier
                         </span>
                       )}
                       {isEshopRequest(request) && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 gap-1">
-                          <ShoppingCartIcon className="w-3 h-3" />
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 gap-0.5">
+                          <ShoppingCartIcon className="w-2 h-2" />
                           E-shop
                         </span>
                       )}
                       {isPPCRequest(request) && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 gap-1">
-                          <TrendingUpIcon className="w-3 h-3" />
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700 gap-0.5">
+                          <TrendingUpIcon className="w-2 h-2" />
                           PPC
                         </span>
                       )}
