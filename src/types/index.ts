@@ -156,6 +156,9 @@ export interface Request {
   current_website_url: string | null;
   additional_services: string | null;
   accepted_price: number;
+  delivery_speed: string | null;
+  ai_usage: string | null;
+  project_materials_link: string | null;
 }
 
 export interface RequestAction {

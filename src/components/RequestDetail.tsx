@@ -43,6 +43,9 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     budget: '',
     accepted_price: 0,
     additional_services: '',
+    delivery_speed: '',
+    ai_usage: '',
+    project_materials_link: '',
     deadline: '',
   });
 
@@ -116,6 +119,9 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       budget: requestData.budget || '',
       accepted_price: requestData.accepted_price || 0,
       additional_services: requestData.additional_services || '',
+      delivery_speed: requestData.delivery_speed || '',
+      ai_usage: requestData.ai_usage || '',
+      project_materials_link: requestData.project_materials_link || '',
       deadline: requestData.deadline ? new Date(requestData.deadline).toISOString().split('T')[0] : '',
     });
 
@@ -240,6 +246,9 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         budget: editForm.budget,
         accepted_price: editForm.accepted_price,
         additional_services: editForm.additional_services,
+        delivery_speed: editForm.delivery_speed || null,
+        ai_usage: editForm.ai_usage || null,
+        project_materials_link: editForm.project_materials_link || null,
         deadline: editForm.deadline || null,
       })
       .eq('id', requestId);
@@ -642,6 +651,41 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                   />
                 </div>
 
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rychlost dodání</label>
+                    <input
+                      type="text"
+                      value={editForm.delivery_speed}
+                      onChange={(e) => setEditForm({ ...editForm, delivery_speed: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="např. Standardní, Expres..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Využití AI</label>
+                    <input
+                      type="text"
+                      value={editForm.ai_usage}
+                      onChange={(e) => setEditForm({ ...editForm, ai_usage: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="např. Ano, Ne..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Podklady k projektu</label>
+                    <input
+                      type="url"
+                      value={editForm.project_materials_link}
+                      onChange={(e) => setEditForm({ ...editForm, project_materials_link: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet</label>
@@ -753,6 +797,39 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="text-sm font-semibold text-gray-700 mb-2">Další poptávané služby</h4>
                       <p className="text-gray-700 whitespace-pre-line">{request.additional_services}</p>
+                    </div>
+                  )}
+
+                  {(request.delivery_speed || request.ai_usage || request.project_materials_link) && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Doplňující informace</h4>
+                      <div className="grid grid-cols-3 gap-4">
+                        {request.delivery_speed && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Rychlost dodání</p>
+                            <p className="text-gray-700">{request.delivery_speed}</p>
+                          </div>
+                        )}
+                        {request.ai_usage && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Využití AI</p>
+                            <p className="text-gray-700">{request.ai_usage}</p>
+                          </div>
+                        )}
+                        {request.project_materials_link && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Podklady k projektu</p>
+                            <a
+                              href={request.project_materials_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              Odkaz <ExternalLinkIcon className="w-3 h-3" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 

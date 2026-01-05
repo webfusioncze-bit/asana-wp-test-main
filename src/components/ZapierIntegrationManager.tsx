@@ -28,6 +28,9 @@ export function ZapierIntegrationManager() {
     { value: 'budget', label: 'Rozpočet' },
     { value: 'additional_services', label: 'Další poptávané služby' },
     { value: 'accepted_price', label: 'Akceptovaná cena' },
+    { value: 'delivery_speed', label: 'Rychlost dodání' },
+    { value: 'ai_usage', label: 'Využití AI' },
+    { value: 'project_materials_link', label: 'Podklady k projektu' },
   ];
 
   useEffect(() => {
@@ -293,6 +296,30 @@ export function ZapierIntegrationManager() {
                 />
               </div>
 
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Dostupná pole poptávky:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {requestFields.map((field) => {
+                    const isMapped = Object.values(mappings).includes(field.value);
+                    return (
+                      <div
+                        key={field.value}
+                        className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                          isMapped
+                            ? 'bg-green-100 text-green-800 border border-green-300'
+                            : 'bg-red-100 text-red-800 border border-red-300'
+                        }`}
+                        title={isMapped ? 'Namapováno' : 'Není namapováno'}
+                      >
+                        {field.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               {selectedSource.sample_data && (
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">
@@ -339,11 +366,16 @@ export function ZapierIntegrationManager() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       >
                         <option value="">-- Vyberte pole --</option>
-                        {requestFields.map((field) => (
-                          <option key={field.value} value={field.value}>
-                            {field.label}
-                          </option>
-                        ))}
+                        {requestFields
+                          .filter((field) => {
+                            // Show current value or fields that are not yet mapped
+                            return field.value === requestField || !Object.values(mappings).includes(field.value);
+                          })
+                          .map((field) => (
+                            <option key={field.value} value={field.value}>
+                              {field.label}
+                            </option>
+                          ))}
                       </select>
                     </div>
                     <button
