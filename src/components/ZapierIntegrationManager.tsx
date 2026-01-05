@@ -31,6 +31,8 @@ export function ZapierIntegrationManager() {
     { value: 'delivery_speed', label: 'Rychlost dodání' },
     { value: 'ai_usage', label: 'Využití AI' },
     { value: 'project_materials_link', label: 'Podklady k projektu' },
+    { value: 'favorite_eshop', label: 'E-shop, který se mi líbí' },
+    { value: 'product_count', label: 'Počet produktů e-shopu' },
   ];
 
   useEffect(() => {
