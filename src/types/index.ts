@@ -161,6 +161,10 @@ export interface Request {
   project_materials_link: string | null;
   favorite_eshop: string | null;
   product_count: number | null;
+  marketing_goal: string | null;
+  competitor_url: string | null;
+  monthly_management_budget: string | null;
+  monthly_credits_budget: string | null;
 }
 
 export interface RequestAction {

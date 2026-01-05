@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
 
@@ -49,6 +49,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     deadline: '',
     favorite_eshop: '',
     product_count: '',
+    marketing_goal: '',
+    competitor_url: '',
+    monthly_management_budget: '',
+    monthly_credits_budget: '',
   });
 
   const [newNote, setNewNote] = useState('');
@@ -127,6 +131,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       deadline: requestData.deadline ? new Date(requestData.deadline).toISOString().split('T')[0] : '',
       favorite_eshop: requestData.favorite_eshop || '',
       product_count: requestData.product_count || '',
+      marketing_goal: requestData.marketing_goal || '',
+      competitor_url: requestData.competitor_url || '',
+      monthly_management_budget: requestData.monthly_management_budget || '',
+      monthly_credits_budget: requestData.monthly_credits_budget || '',
     });
 
     if (requestData.request_type_id) {
@@ -256,6 +264,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         deadline: editForm.deadline || null,
         favorite_eshop: editForm.favorite_eshop || null,
         product_count: editForm.product_count || null,
+        marketing_goal: editForm.marketing_goal || null,
+        competitor_url: editForm.competitor_url || null,
+        monthly_management_budget: editForm.monthly_management_budget || null,
+        monthly_credits_budget: editForm.monthly_credits_budget || null,
       })
       .eq('id', requestId);
 
@@ -428,6 +440,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   const isEshopRequest = (title: string) => {
     const eshopKeywords = ['Chci začít prodávat', 'Chci zvýšit prodeje', 'Chci nový design', 'Přechod z jiného řešení'];
     return eshopKeywords.some(keyword => title.toLowerCase().includes(keyword.toLowerCase()));
+  };
+
+  const isPPCRequest = (req: Request) => {
+    return !!(req.marketing_goal || req.competitor_url || req.monthly_management_budget || req.monthly_credits_budget);
   };
 
   return (
@@ -723,6 +739,54 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cíl marketingu</label>
+                    <input
+                      type="text"
+                      value={editForm.marketing_goal}
+                      onChange={(e) => setEditForm({ ...editForm, marketing_goal: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="např. Získání nových zákazníků"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresa konkurence</label>
+                    <input
+                      type="url"
+                      value={editForm.competitor_url}
+                      onChange={(e) => setEditForm({ ...editForm, competitor_url: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet na měsíční správu</label>
+                    <input
+                      type="text"
+                      value={editForm.monthly_management_budget}
+                      onChange={(e) => setEditForm({ ...editForm, monthly_management_budget: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="např. 5 000 Kč"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet na měsíční kredity</label>
+                    <input
+                      type="text"
+                      value={editForm.monthly_credits_budget}
+                      onChange={(e) => setEditForm({ ...editForm, monthly_credits_budget: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="např. 10 000 Kč"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet</label>
                     <input
                       type="text"
@@ -827,6 +891,12 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                           E-shop
                         </span>
                       )}
+                      {isPPCRequest(request) && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-700 gap-1">
+                          <TrendingUpIcon className="w-4 h-4" />
+                          PPC
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -847,7 +917,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                     </div>
                   )}
 
-                  {(request.delivery_speed || request.ai_usage || request.project_materials_link || request.favorite_eshop || request.product_count) && (
+                  {(request.delivery_speed || request.ai_usage || request.project_materials_link || request.favorite_eshop || request.product_count || request.marketing_goal || request.competitor_url || request.monthly_management_budget || request.monthly_credits_budget) && (
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">Doplňující informace</h4>
                       <div className="grid grid-cols-3 gap-4">
@@ -893,6 +963,37 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Počet produktů e-shopu</p>
                             <p className="text-gray-700">{request.product_count}</p>
+                          </div>
+                        )}
+                        {request.marketing_goal && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Cíl marketingu</p>
+                            <p className="text-gray-700">{request.marketing_goal}</p>
+                          </div>
+                        )}
+                        {request.competitor_url && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Adresa konkurence</p>
+                            <a
+                              href={request.competitor_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              Odkaz <ExternalLinkIcon className="w-3 h-3" />
+                            </a>
+                          </div>
+                        )}
+                        {request.monthly_management_budget && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Rozpočet na měsíční správu</p>
+                            <p className="text-gray-700">{request.monthly_management_budget}</p>
+                          </div>
+                        )}
+                        {request.monthly_credits_budget && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Rozpočet na měsíční kredity</p>
+                            <p className="text-gray-700">{request.monthly_credits_budget}</p>
                           </div>
                         )}
                       </div>
