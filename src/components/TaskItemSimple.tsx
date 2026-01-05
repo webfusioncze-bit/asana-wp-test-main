@@ -265,7 +265,7 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
         </button>
 
         <span
-          className={`flex-1 text-sm ${
+          className={`flex-1 text-xs ${
             task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
           }`}
         >
@@ -355,10 +355,13 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
           />
 
           {priorityInfo && (
-            <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${priorityInfo.color} ${priorityInfo.bgColor}`} title="Priorita">
-              <AlertCircleIcon className="w-3 h-3" />
-              <span>{priorityInfo.text}</span>
-            </div>
+            <div
+              className={`w-2 h-2 rounded-full`}
+              style={{ backgroundColor: priorityInfo.color.replace('text-', '').replace('-600', '') === 'red' ? '#dc2626' :
+                       priorityInfo.color.replace('text-', '').replace('-600', '') === 'orange' ? '#ea580c' :
+                       priorityInfo.color.replace('text-', '').replace('-600', '') === 'yellow' ? '#ca8a04' : '#4b5563' }}
+              title={`Priorita: ${priorityInfo.text}`}
+            />
           )}
 
           {hasAttachments && (
@@ -368,32 +371,34 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
           )}
 
           {createdByUser && createdByUser.id !== assignedUser?.id && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 rounded text-xs text-blue-700" title="Vytvořilo">
+            <div className="flex-shrink-0" title={`Vytvořil: ${createdByUser.display_name || createdByUser.email}`}>
               {createdByUser.avatar_url ? (
                 <img
                   src={createdByUser.avatar_url}
                   alt={createdByUser.display_name || createdByUser.email}
-                  className="w-4 h-4 rounded-full object-cover"
+                  className="w-5 h-5 rounded-full object-cover border-2 border-blue-200"
                 />
               ) : (
-                <UserIcon className="w-3 h-3" />
+                <div className="w-5 h-5 rounded-full bg-blue-100 border-2 border-blue-200 flex items-center justify-center">
+                  <UserIcon className="w-3 h-3 text-blue-600" />
+                </div>
               )}
-              <span>{createdByUser.display_name || createdByUser.email.split('@')[0]}</span>
             </div>
           )}
 
           {assignedUser && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-700" title="Přiřazeno">
+            <div className="flex-shrink-0" title={`Přiřazeno: ${assignedUser.display_name || assignedUser.email}`}>
               {assignedUser.avatar_url ? (
                 <img
                   src={assignedUser.avatar_url}
                   alt={assignedUser.display_name || assignedUser.email}
-                  className="w-4 h-4 rounded-full object-cover"
+                  className="w-5 h-5 rounded-full object-cover border-2 border-gray-300"
                 />
               ) : (
-                <UserIcon className="w-3 h-3" />
+                <div className="w-5 h-5 rounded-full bg-gray-200 border-2 border-gray-300 flex items-center justify-center">
+                  <UserIcon className="w-3 h-3 text-gray-600" />
+                </div>
               )}
-              <span>{assignedUser.display_name || assignedUser.email.split('@')[0]}</span>
             </div>
           )}
 
