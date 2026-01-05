@@ -72,6 +72,7 @@ export function UnscheduledTasks({ onTaskClick }: UnscheduledTasksProps) {
       .select('*')
       .neq('status', 'completed')
       .is('due_date', null)
+      .is('parent_task_id', null)
       .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
