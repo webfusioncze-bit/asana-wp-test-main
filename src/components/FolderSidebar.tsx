@@ -31,6 +31,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, sh
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
   const [allTasksCount, setAllTasksCount] = useState(0);
+  const [newRequestsCount, setNewRequestsCount] = useState(0);
   const [folderShares, setFolderShares] = useState<Record<string, number>>({});
   const [openMenuFolderId, setOpenMenuFolderId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -50,15 +51,16 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, sh
   useEffect(() => {
     if (!currentUserId || folderType === 'projects') return;
 
-    // Subscribe to realtime changes in tasks table
+    // Subscribe to realtime changes in tasks or requests table
+    const tableName = folderType === 'tasks' ? 'tasks' : 'requests';
     const channel = supabase
-      .channel('tasks-changes')
+      .channel(`${tableName}-changes`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'tasks'
+          table: tableName
         },
         () => {
           // Reload folders to update counts
@@ -148,6 +150,13 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, sh
       setMyFolders(foldersWithCounts);
       setGlobalFolders([]);
       setSharedFolders([]);
+
+      // Count new requests without status
+      const { count: newCount } = await supabase
+        .from('requests')
+        .select('*', { count: 'exact', head: true })
+        .is('request_status_id', null);
+      setNewRequestsCount(newCount || 0);
     } else {
       const { data, error } = await supabase
         .from('folders')
@@ -766,6 +775,11 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, sh
               {folderType === 'tasks' && (
                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                   {allTasksCount}
+                </span>
+              )}
+              {folderType === 'requests' && (
+                <span className="text-xs text-white bg-red-500 px-2 py-0.5 rounded-full font-medium">
+                  {newRequestsCount}
                 </span>
               )}
             </div>
