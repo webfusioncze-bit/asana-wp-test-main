@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
 
@@ -19,6 +19,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [showStatusSelector, setShowStatusSelector] = useState(false);
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -83,11 +84,14 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       if (showStatusSelector && !target.closest('.status-selector-container')) {
         setShowStatusSelector(false);
       }
+      if (showCategorySelector && !target.closest('.category-selector-container')) {
+        setShowCategorySelector(false);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showStatusSelector]);
+  }, [showStatusSelector, showCategorySelector]);
 
   async function loadRequestDetail() {
     setLoading(true);
@@ -303,6 +307,61 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     }
   }
 
+  async function handleCategoryChange(category: 'eshop' | 'ppc' | 'management' | 'none') {
+    let updates: any = {};
+
+    switch (category) {
+      case 'eshop':
+        updates = {
+          favorite_eshop: request?.favorite_eshop || '',
+          product_count: request?.product_count || '',
+          monthly_management_budget: null,
+          monthly_credits_budget: null,
+        };
+        break;
+      case 'ppc':
+        updates = {
+          monthly_management_budget: request?.monthly_management_budget || 'Neurčeno',
+          monthly_credits_budget: request?.monthly_credits_budget || 'Neurčeno',
+          favorite_eshop: null,
+          product_count: null,
+        };
+        break;
+      case 'management':
+        updates = {
+          monthly_management_budget: request?.monthly_management_budget || 'Neurčeno',
+          monthly_credits_budget: null,
+          favorite_eshop: null,
+          product_count: null,
+        };
+        break;
+      case 'none':
+        updates = {
+          favorite_eshop: null,
+          product_count: null,
+          monthly_management_budget: null,
+          monthly_credits_budget: null,
+        };
+        break;
+    }
+
+    const { error } = await supabase
+      .from('requests')
+      .update(updates)
+      .eq('id', requestId);
+
+    if (error) {
+      alert('Chyba při změně kategorie: ' + error.message);
+      return;
+    }
+
+    setShowCategorySelector(false);
+    loadRequestDetail();
+    if (onRequestUpdated) {
+      onRequestUpdated();
+    }
+  }
+
   async function handleAddNote() {
     if (!newNote.trim()) return;
 
@@ -442,11 +501,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   };
 
   const isPPCRequest = (req: Request) => {
-    return !!(req.marketing_goal || req.competitor_url || req.monthly_credits_budget);
+    return !!(req.monthly_management_budget && req.monthly_credits_budget);
   };
 
   const isManagementRequest = (req: Request) => {
-    return !!req.monthly_management_budget;
+    return !!(req.monthly_management_budget && !req.monthly_credits_budget);
   };
 
   return (
@@ -456,6 +515,64 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         <div className="flex items-center gap-2">
           {!isEditing && (
             <>
+              <div className="relative category-selector-container">
+                <button
+                  onClick={() => setShowCategorySelector(!showCategorySelector)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Změnit kategorii"
+                >
+                  <TagIcon className="w-5 h-5 text-gray-500" />
+                </button>
+                {showCategorySelector && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                    <div className="p-2 space-y-1">
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                        Změnit kategorii
+                      </div>
+                      <button
+                        onClick={() => handleCategoryChange('eshop')}
+                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                          isEshopRequest(request)
+                            ? 'bg-indigo-50 font-medium'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <ShoppingCartIcon className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm">E-shop</span>
+                      </button>
+                      <button
+                        onClick={() => handleCategoryChange('ppc')}
+                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                          isPPCRequest(request)
+                            ? 'bg-green-50 font-medium'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <TrendingUpIcon className="w-4 h-4 text-green-600" />
+                        <span className="text-sm">PPC kampaň</span>
+                      </button>
+                      <button
+                        onClick={() => handleCategoryChange('management')}
+                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                          isManagementRequest(request)
+                            ? 'bg-blue-50 font-medium'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <SettingsIcon className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm">Správa webu</span>
+                      </button>
+                      <button
+                        onClick={() => handleCategoryChange('none')}
+                        className="w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 hover:bg-gray-50"
+                      >
+                        <XIcon className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm">Žádná kategorie</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="relative status-selector-container">
                 <button
                   onClick={() => setShowStatusSelector(!showStatusSelector)}

@@ -33,11 +33,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   };
 
   const isPPCRequest = (request: Request) => {
-    return !!(request.marketing_goal || request.competitor_url || request.monthly_credits_budget);
+    return !!(request.monthly_management_budget && request.monthly_credits_budget);
   };
 
   const isManagementRequest = (request: Request) => {
-    return !!request.monthly_management_budget;
+    return !!(request.monthly_management_budget && !request.monthly_credits_budget);
   };
 
   useEffect(() => {
