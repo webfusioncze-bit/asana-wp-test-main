@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon, Trash2 as TrashIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
 
@@ -20,6 +20,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   const [isEditing, setIsEditing] = useState(false);
   const [showStatusSelector, setShowStatusSelector] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -378,6 +379,23 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     }
   }
 
+  async function handleDeleteRequest() {
+    const { error } = await supabase
+      .from('requests')
+      .delete()
+      .eq('id', requestId);
+
+    if (error) {
+      alert('Chyba při mazání poptávky: ' + error.message);
+      return;
+    }
+
+    if (onRequestUpdated) {
+      onRequestUpdated();
+    }
+    onClose();
+  }
+
   async function handleAddNote() {
     if (!newNote.trim()) return;
 
@@ -647,6 +665,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                 <EditIcon className="w-5 h-5 text-gray-500" />
               </button>
             </>
+          )}
+          {!isEditing && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+              title="Smazat poptávku"
+            >
+              <TrashIcon className="w-5 h-5 text-red-500" />
+            </button>
           )}
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <XIcon className="w-5 h-5 text-gray-500" />
@@ -1464,6 +1491,34 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
           </div>
         )}
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Smazat poptávku?</h3>
+            <p className="text-gray-600 mb-6">
+              Opravdu chcete smazat tuto poptávku? Tato akce je nevratná. Budou smazány i všechny související poznámky a časové záznamy.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Zrušit
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  handleDeleteRequest();
+                }}
+                className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Smazat poptávku
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
