@@ -37,6 +37,7 @@ export function ZapierIntegrationManager() {
     { value: 'competitor_url', label: 'Adresa konkurence' },
     { value: 'monthly_management_budget', label: 'Rozpočet na měsíční správu' },
     { value: 'monthly_credits_budget', label: 'Rozpočet na měsíční kredity' },
+    { value: 'development_phase', label: 'Fáze vývoje aplikace' },
   ];
 
   useEffect(() => {
