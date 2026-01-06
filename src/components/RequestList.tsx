@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -33,7 +33,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   };
 
   const isPPCRequest = (request: Request) => {
-    return !!(request.marketing_goal || request.competitor_url || request.monthly_management_budget || request.monthly_credits_budget);
+    return !!(request.marketing_goal || request.competitor_url || request.monthly_credits_budget);
+  };
+
+  const isManagementRequest = (request: Request) => {
+    return !!request.monthly_management_budget;
   };
 
   useEffect(() => {
@@ -255,6 +259,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       {isPPCRequest(request) && (
                         <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC poptávka">
                           <TrendingUpIcon className="w-3 h-3" />
+                        </div>
+                      )}
+                      {isManagementRequest(request) && (
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Správa webu">
+                          <SettingsIcon className="w-3 h-3" />
                         </div>
                       )}
                     </div>
