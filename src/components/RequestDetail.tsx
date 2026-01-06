@@ -1047,6 +1047,12 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                           Zapier
                         </span>
                       )}
+                      {isAppRequest(request) && (
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 gap-0.5">
+                          <SmartphoneIcon className="w-2 h-2" />
+                          Aplikace
+                        </span>
+                      )}
                       {isEshopRequest(request) && (
                         <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 gap-0.5">
                           <ShoppingCartIcon className="w-2 h-2" />
