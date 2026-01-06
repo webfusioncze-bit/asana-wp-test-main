@@ -68,7 +68,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
       .order('created_at', { ascending: false });
 
     if (folderId) {
-      query = query.eq('folder_id', folderId);
+      query = query.eq('request_status_id', folderId);
     } else {
       query = query.is('request_status_id', null);
     }
