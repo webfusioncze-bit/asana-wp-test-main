@@ -438,8 +438,8 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
                 </button>
 
                 <span
-                  className={`flex-1 text-sm ${
-                    subtask.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-900'
+                  className={`flex-1 text-[11px] ${
+                    subtask.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-700'
                   }`}
                 >
                   {subtask.title}
