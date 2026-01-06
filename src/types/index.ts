@@ -165,6 +165,7 @@ export interface Request {
   competitor_url: string | null;
   monthly_management_budget: string | null;
   monthly_credits_budget: string | null;
+  development_phase: string | null;
 }
 
 export interface RequestAction {

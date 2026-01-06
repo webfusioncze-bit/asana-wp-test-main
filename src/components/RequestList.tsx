@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -38,6 +38,10 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
   const isManagementRequest = (request: Request) => {
     return !!(request.monthly_management_budget && !request.monthly_credits_budget);
+  };
+
+  const isAppRequest = (request: Request) => {
+    return !!request.development_phase;
   };
 
   useEffect(() => {
@@ -249,6 +253,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       {request.source === 'zapier' && (
                         <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier integrace">
                           <ZapIcon className="w-3 h-3" />
+                        </div>
+                      )}
+                      {isAppRequest(request) && (
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Vývoj aplikace">
+                          <SmartphoneIcon className="w-3 h-3" />
                         </div>
                       )}
                       {isEshopRequest(request) && (

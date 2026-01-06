@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
 
@@ -54,6 +54,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     competitor_url: '',
     monthly_management_budget: '',
     monthly_credits_budget: '',
+    development_phase: '',
   });
 
   const [newNote, setNewNote] = useState('');
@@ -139,6 +140,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       competitor_url: requestData.competitor_url || '',
       monthly_management_budget: requestData.monthly_management_budget || '',
       monthly_credits_budget: requestData.monthly_credits_budget || '',
+      development_phase: requestData.development_phase || '',
     });
 
     if (requestData.request_type_id) {
@@ -272,6 +274,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         competitor_url: editForm.competitor_url || null,
         monthly_management_budget: editForm.monthly_management_budget || null,
         monthly_credits_budget: editForm.monthly_credits_budget || null,
+        development_phase: editForm.development_phase || null,
       })
       .eq('id', requestId);
 
@@ -307,14 +310,24 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     }
   }
 
-  async function handleCategoryChange(category: 'eshop' | 'ppc' | 'management' | 'none') {
+  async function handleCategoryChange(category: 'app' | 'eshop' | 'ppc' | 'management' | 'none') {
     let updates: any = {};
 
     switch (category) {
+      case 'app':
+        updates = {
+          development_phase: request?.development_phase || 'Neurčeno',
+          favorite_eshop: null,
+          product_count: null,
+          monthly_management_budget: null,
+          monthly_credits_budget: null,
+        };
+        break;
       case 'eshop':
         updates = {
           favorite_eshop: request?.favorite_eshop || '',
           product_count: request?.product_count || '',
+          development_phase: null,
           monthly_management_budget: null,
           monthly_credits_budget: null,
         };
@@ -323,6 +336,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         updates = {
           monthly_management_budget: request?.monthly_management_budget || 'Neurčeno',
           monthly_credits_budget: request?.monthly_credits_budget || 'Neurčeno',
+          development_phase: null,
           favorite_eshop: null,
           product_count: null,
         };
@@ -331,6 +345,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         updates = {
           monthly_management_budget: request?.monthly_management_budget || 'Neurčeno',
           monthly_credits_budget: null,
+          development_phase: null,
           favorite_eshop: null,
           product_count: null,
         };
@@ -341,6 +356,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
           product_count: null,
           monthly_management_budget: null,
           monthly_credits_budget: null,
+          development_phase: null,
         };
         break;
     }
@@ -496,6 +512,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
 
   const totalHours = timeEntries.reduce((sum, entry) => sum + parseFloat(entry.hours.toString()), 0);
 
+  const isAppRequest = (req: Request) => {
+    return !!req.development_phase;
+  };
+
   const isEshopRequest = (req: Request) => {
     return !!(req.favorite_eshop || req.product_count);
   };
@@ -529,6 +549,17 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                       <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
                         Změnit kategorii
                       </div>
+                      <button
+                        onClick={() => handleCategoryChange('app')}
+                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                          isAppRequest(request)
+                            ? 'bg-purple-50 font-medium'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <SmartphoneIcon className="w-4 h-4 text-purple-600" />
+                        <span className="text-sm">Aplikace</span>
+                      </button>
                       <button
                         onClick={() => handleCategoryChange('eshop')}
                         className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
@@ -905,6 +936,17 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fáze vývoje aplikace</label>
+                  <input
+                    type="text"
+                    value={editForm.development_phase}
+                    onChange={(e) => setEditForm({ ...editForm, development_phase: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="např. MVP, Beta, Produkce"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet</label>
@@ -1043,7 +1085,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                     </div>
                   )}
 
-                  {(request.delivery_speed || request.ai_usage || request.project_materials_link || request.favorite_eshop || request.product_count || request.marketing_goal || request.competitor_url || request.monthly_management_budget || request.monthly_credits_budget) && (
+                  {(request.delivery_speed || request.ai_usage || request.project_materials_link || request.favorite_eshop || request.product_count || request.marketing_goal || request.competitor_url || request.monthly_management_budget || request.monthly_credits_budget || request.development_phase) && (
                     <div className="bg-gray-50 rounded-lg p-4">
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">Doplňující informace</h4>
                       <div className="grid grid-cols-3 gap-4">
@@ -1120,6 +1162,12 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                           <div>
                             <p className="text-xs text-gray-500 mb-1">Rozpočet na měsíční kredity</p>
                             <p className="text-gray-700">{request.monthly_credits_budget}</p>
+                          </div>
+                        )}
+                        {request.development_phase && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Fáze vývoje aplikace</p>
+                            <p className="text-gray-700">{request.development_phase}</p>
                           </div>
                         )}
                       </div>
