@@ -671,7 +671,10 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           today.setHours(0, 0, 0, 0);
                           const isOverdue = date < today && instance.status === 'pending' && !instance.task_id;
                           const isPast = date < today;
-                          const assignedUser = instance.task?.assigned_user;
+                          const taskData = Array.isArray(instance.task) ? instance.task[0] : instance.task;
+                          const assignedUser = taskData?.assigned_to
+                            ? users.find(u => u.id === taskData.assigned_to)
+                            : null;
 
                           return (
                             <div
