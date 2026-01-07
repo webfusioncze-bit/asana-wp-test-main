@@ -28,11 +28,12 @@ import type { Website, WebsiteStatus, WebsiteUpdateInstance } from '../types';
 interface WebsiteDetailProps {
   websiteId: string;
   onClose: () => void;
+  onTaskClick?: (taskId: string) => void;
 }
 
 type TabType = 'overview' | 'plugins' | 'users' | 'updates';
 
-export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
+export function WebsiteDetail({ websiteId, onClose, onTaskClick }: WebsiteDetailProps) {
   const [website, setWebsite] = useState<Website | null>(null);
   const [latestStatus, setLatestStatus] = useState<WebsiteStatus | null>(null);
   const [clientInfo, setClientInfo] = useState<{ name: string; company_name: string | null; id: string } | null>(null);
@@ -96,8 +97,15 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
             interval_months
           ),
           task:tasks(
-            title,
-            status
+            *,
+            assigned_user:user_profiles!tasks_assigned_to_fkey(
+              id,
+              email,
+              first_name,
+              last_name,
+              avatar_url,
+              display_name
+            )
           )
         `)
         .eq('schedule_id', scheduleData.id)
@@ -662,17 +670,23 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           today.setHours(0, 0, 0, 0);
                           const isOverdue = date < today && instance.status === 'pending' && !instance.task_id;
                           const isPast = date < today;
+                          const assignedUser = instance.task?.assigned_user;
 
                           return (
                             <div
                               key={instance.id}
-                              className={`p-3 rounded-lg border ${
+                              className={`p-3 rounded-lg border transition-colors ${
                                 isOverdue
-                                  ? 'bg-red-50 border-red-200'
+                                  ? 'bg-red-50 border-red-200 hover:bg-red-100'
                                   : isPast
-                                  ? 'bg-gray-50 border-gray-200'
-                                  : 'bg-white border-gray-200'
-                              }`}
+                                  ? 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                  : 'bg-white border-gray-200 hover:bg-gray-50'
+                              } ${instance.task_id && onTaskClick ? 'cursor-pointer' : ''}`}
+                              onClick={() => {
+                                if (instance.task_id && onTaskClick) {
+                                  onTaskClick(instance.task_id);
+                                }
+                              }}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3 flex-1">
@@ -690,16 +704,31 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                                       {instance.status === 'skipped' && (
                                         <XCircleIcon className="w-4 h-4 text-gray-400" />
                                       )}
-                                      {instance.task_id && (
-                                        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-                                          Úkol vytvořen
-                                        </span>
-                                      )}
                                     </div>
                                     {instance.task && (
-                                      <p className="text-xs text-gray-600">
+                                      <p className="text-xs text-gray-600 mb-2">
                                         {instance.task.title}
                                       </p>
+                                    )}
+                                    {assignedUser && (
+                                      <div className="flex items-center gap-2">
+                                        {assignedUser.avatar_url ? (
+                                          <img
+                                            src={assignedUser.avatar_url}
+                                            alt=""
+                                            className="w-5 h-5 rounded-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
+                                            <span className="text-xs text-gray-600">
+                                              {(assignedUser.first_name?.[0] || assignedUser.email[0]).toUpperCase()}
+                                            </span>
+                                          </div>
+                                        )}
+                                        <span className="text-xs text-gray-700">
+                                          {assignedUser.display_name || assignedUser.email}
+                                        </span>
+                                      </div>
                                     )}
                                     {isOverdue && (
                                       <p className="text-xs text-red-600 font-medium mt-1">

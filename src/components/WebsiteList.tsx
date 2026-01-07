@@ -9,6 +9,7 @@ interface WebsiteListProps {
   onSelectWebsite: (websiteId: string) => void;
   canManage: boolean;
   viewMode: 'websites' | 'updates';
+  onTaskClick?: (taskId: string) => void;
 }
 
 interface WebsiteWithStatus extends Website {
@@ -17,7 +18,7 @@ interface WebsiteWithStatus extends Website {
   clientCompany?: string | null;
 }
 
-export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, viewMode }: WebsiteListProps) {
+export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, viewMode, onTaskClick }: WebsiteListProps) {
   const [websites, setWebsites] = useState<WebsiteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -222,7 +223,7 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
       </div>
 
       {viewMode === 'updates' ? (
-        <WebsiteUpdateSchedules canManage={canManage} />
+        <WebsiteUpdateSchedules canManage={canManage} onTaskClick={onTaskClick} />
       ) : (
         <div className="flex-1 flex overflow-hidden relative">
           <div className="flex-1 overflow-auto">

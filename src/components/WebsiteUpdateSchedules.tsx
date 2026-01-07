@@ -5,6 +5,7 @@ import type { Website, WebsiteUpdateSchedule, WebsiteUpdateInstance, User } from
 
 interface WebsiteUpdateSchedulesProps {
   canManage: boolean;
+  onTaskClick?: (taskId: string) => void;
 }
 
 const INTERVAL_OPTIONS = [
@@ -15,7 +16,7 @@ const INTERVAL_OPTIONS = [
   { value: 12, label: '1 rok' },
 ];
 
-export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProps) {
+export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdateSchedulesProps) {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [schedules, setSchedules] = useState<WebsiteUpdateSchedule[]>([]);
   const [instances, setInstances] = useState<WebsiteUpdateInstance[]>([]);
@@ -168,7 +169,17 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
           *,
           website:websites(*)
         ),
-        task:tasks(*)
+        task:tasks(
+          *,
+          assigned_user:user_profiles!tasks_assigned_to_fkey(
+            id,
+            email,
+            first_name,
+            last_name,
+            avatar_url,
+            display_name
+          )
+        )
       `)
       .gte('scheduled_date', startDate.toISOString().split('T')[0])
       .lte('scheduled_date', endDate.toISOString().split('T')[0])
@@ -653,14 +664,25 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
                         const website = instance.schedule?.website;
                         const date = new Date(instance.scheduled_date);
                         const dateStr = date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const isOverdue = date < today && instance.status === 'pending' && !instance.task_id;
+                        const assignedUser = instance.task?.assigned_user;
 
                         return (
                           <div
                             key={instance.id}
-                            className="px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+                            className={`px-4 py-2.5 transition-colors flex items-center justify-between gap-3 ${
+                              isOverdue ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'
+                            } ${instance.task_id && onTaskClick ? 'cursor-pointer' : ''}`}
+                            onClick={() => {
+                              if (instance.task_id && onTaskClick) {
+                                onTaskClick(instance.task_id);
+                              }
+                            }}
                           >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0">
+                              <span className={`text-xs font-medium w-12 flex-shrink-0 ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
                                 {dateStr}
                               </span>
                               <span className="text-sm text-gray-900 truncate">
@@ -669,11 +691,33 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
                             </div>
 
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              {instance.task_id ? (
+                              {instance.task_id && assignedUser ? (
+                                <div className="flex items-center gap-2">
+                                  {assignedUser.avatar_url ? (
+                                    <img
+                                      src={assignedUser.avatar_url}
+                                      alt=""
+                                      className="w-6 h-6 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                                      <span className="text-xs text-gray-600">
+                                        {(assignedUser.first_name?.[0] || assignedUser.email[0]).toUpperCase()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <span className="text-xs text-gray-700">
+                                    {assignedUser.display_name || assignedUser.email}
+                                  </span>
+                                </div>
+                              ) : instance.task_id ? (
                                 <CheckCircleIcon className="w-4 h-4 text-green-600" />
                               ) : canManage && (
                                 <button
-                                  onClick={() => openTaskAssignModal(instance.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openTaskAssignModal(instance.id);
+                                  }}
                                   className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                                 >
                                   Vytvořit úkol
@@ -683,14 +727,20 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
                               {canManage && instance.status === 'pending' && !instance.task_id && (
                                 <>
                                   <button
-                                    onClick={() => updateInstanceStatus(instance.id, 'completed')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateInstanceStatus(instance.id, 'completed');
+                                    }}
                                     className="p-1 hover:bg-green-50 rounded transition-colors"
                                     title="Označit jako hotovo"
                                   >
                                     <CheckCircleIcon className="w-4 h-4 text-green-600" />
                                   </button>
                                   <button
-                                    onClick={() => updateInstanceStatus(instance.id, 'skipped')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateInstanceStatus(instance.id, 'skipped');
+                                    }}
                                     className="p-1 hover:bg-gray-100 rounded transition-colors"
                                     title="Přeskočit"
                                   >

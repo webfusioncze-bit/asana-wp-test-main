@@ -471,6 +471,10 @@ function App() {
                 <WebsiteDetail
                   websiteId={selectedWebsiteId}
                   onClose={() => setSelectedWebsiteId(null)}
+                  onTaskClick={(taskId) => {
+                    setSelectedTaskId(taskId);
+                    setViewMode('tasks');
+                  }}
                 />
               ) : (
                 <WebsiteList
@@ -478,6 +482,10 @@ function App() {
                   onSelectWebsite={setSelectedWebsiteId}
                   canManage={hasWebsitesPermission}
                   viewMode={websitesViewMode}
+                  onTaskClick={(taskId) => {
+                    setSelectedTaskId(taskId);
+                    setViewMode('tasks');
+                  }}
                 />
               )}
             </div>
