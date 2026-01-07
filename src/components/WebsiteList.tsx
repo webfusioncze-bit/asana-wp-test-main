@@ -191,40 +191,41 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden">
-      <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {viewMode === 'websites' ? 'Weby' : 'Aktualizace'}
-          </h1>
+    <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
+        <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {viewMode === 'websites' ? 'Weby' : 'Aktualizace'}
+            </h1>
+            {viewMode === 'websites' && (
+              <button
+                onClick={syncAllWebsites}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Synchronizuji...' : 'Synchronizovat'}
+              </button>
+            )}
+          </div>
+
           {viewMode === 'websites' && (
-            <button
-              onClick={syncAllWebsites}
-              disabled={syncing}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Synchronizuji...' : 'Synchronizovat'}
-            </button>
+            <div className="relative">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Vyhledat web..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           )}
         </div>
 
-        {viewMode === 'websites' && (
-          <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Vyhledat web..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        )}
-      </div>
-
-      {viewMode === 'updates' ? (
-        <WebsiteUpdateSchedules canManage={canManage} onTaskClick={setSelectedTaskId} />
+        {viewMode === 'updates' ? (
+          <WebsiteUpdateSchedules canManage={canManage} onTaskClick={setSelectedTaskId} />
       ) : (
         <div className="flex-1 flex overflow-hidden relative">
           <div className="flex-1 overflow-auto">
@@ -382,9 +383,10 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
               );
             })}
           </div>
+          )}
+          </div>
         )}
-        </div>
-      )}
+      </div>
 
       {selectedTaskId && (
         <TaskDetail
