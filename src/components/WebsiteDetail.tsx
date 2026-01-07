@@ -20,16 +20,17 @@ import {
   ZapIcon,
   LogInIcon,
   LayoutGridIcon,
+  CalendarIcon,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Website, WebsiteStatus } from '../types';
+import type { Website, WebsiteStatus, WebsiteUpdateInstance } from '../types';
 
 interface WebsiteDetailProps {
   websiteId: string;
   onClose: () => void;
 }
 
-type TabType = 'overview' | 'plugins' | 'users';
+type TabType = 'overview' | 'plugins' | 'users' | 'updates';
 
 export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const [website, setWebsite] = useState<Website | null>(null);
@@ -38,6 +39,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [updateInstances, setUpdateInstances] = useState<WebsiteUpdateInstance[]>([]);
 
   useEffect(() => {
     loadWebsiteData();
@@ -76,6 +78,34 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
       setClientInfo(clientData);
     } else {
       setClientInfo(null);
+    }
+
+    const { data: scheduleData } = await supabase
+      .from('website_update_schedules')
+      .select('id')
+      .eq('website_id', websiteId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (scheduleData) {
+      const { data: instancesData } = await supabase
+        .from('website_update_instances')
+        .select(`
+          *,
+          schedule:website_update_schedules(
+            interval_months
+          ),
+          task:tasks(
+            title,
+            status
+          )
+        `)
+        .eq('schedule_id', scheduleData.id)
+        .order('scheduled_date', { ascending: false });
+
+      setUpdateInstances(instancesData || []);
+    } else {
+      setUpdateInstances([]);
     }
 
     setWebsite(websiteData);
@@ -415,6 +445,19 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                       Uživatelé ({users.length})
                     </div>
                   </button>
+                  <button
+                    onClick={() => setActiveTab('updates')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                      activeTab === 'updates'
+                        ? 'text-blue-600 border-b-2 border-blue-600'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="w-4 h-4" />
+                      Aktualizace
+                    </div>
+                  </button>
                 </div>
 
                 {/* Tab Content */}
@@ -604,6 +647,76 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                       <div className="text-center py-8 text-gray-500">
                         <UsersIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                         <p>Žádní uživatelé nenalezeni</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === 'updates' && (
+                  <div>
+                    {updateInstances.length > 0 ? (
+                      <div className="space-y-2">
+                        {updateInstances.map((instance) => {
+                          const date = new Date(instance.scheduled_date);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const isOverdue = date < today && instance.status === 'pending' && !instance.task_id;
+                          const isPast = date < today;
+
+                          return (
+                            <div
+                              key={instance.id}
+                              className={`p-3 rounded-lg border ${
+                                isOverdue
+                                  ? 'bg-red-50 border-red-200'
+                                  : isPast
+                                  ? 'bg-gray-50 border-gray-200'
+                                  : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3 flex-1">
+                                  {isOverdue && (
+                                    <AlertTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                  )}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                      </span>
+                                      {instance.status === 'completed' && (
+                                        <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                                      )}
+                                      {instance.status === 'skipped' && (
+                                        <XCircleIcon className="w-4 h-4 text-gray-400" />
+                                      )}
+                                      {instance.task_id && (
+                                        <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                          Úkol vytvořen
+                                        </span>
+                                      )}
+                                    </div>
+                                    {instance.task && (
+                                      <p className="text-xs text-gray-600">
+                                        {instance.task.title}
+                                      </p>
+                                    )}
+                                    {isOverdue && (
+                                      <p className="text-xs text-red-600 font-medium mt-1">
+                                        Po termínu
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <CalendarIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>Žádné plánované aktualizace</p>
                       </div>
                     )}
                   </div>
