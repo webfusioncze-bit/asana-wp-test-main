@@ -38,6 +38,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editIntervalMonths, setEditIntervalMonths] = useState<1 | 2 | 3 | 6 | 12>(1);
   const [editFirstUpdateDate, setEditFirstUpdateDate] = useState('');
+  const [taskDataMap, setTaskDataMap] = useState<Record<string, { assigned_to: string | null }>>({});
 
   useEffect(() => {
     loadData();
@@ -168,8 +169,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
         schedule:website_update_schedules(
           *,
           website:websites(*)
-        ),
-        task:tasks(id, title, assigned_to, status, priority)
+        )
       `)
       .gte('scheduled_date', startDate.toISOString().split('T')[0])
       .lte('scheduled_date', endDate.toISOString().split('T')[0])
@@ -181,6 +181,22 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
     }
 
     setInstances(data || []);
+
+    const taskIds = (data || []).filter(i => i.task_id).map(i => i.task_id);
+    if (taskIds.length > 0) {
+      const { data: tasksData } = await supabase
+        .from('tasks')
+        .select('id, assigned_to')
+        .in('id', taskIds);
+
+      if (tasksData) {
+        const map: Record<string, { assigned_to: string | null }> = {};
+        tasksData.forEach(t => {
+          map[t.id] = { assigned_to: t.assigned_to };
+        });
+        setTaskDataMap(map);
+      }
+    }
   }
 
   async function createSchedule() {
@@ -703,7 +719,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
                         const isOverdue = date < today && instance.status === 'pending' && !instance.task_id;
-                        const taskData = Array.isArray(instance.task) ? instance.task[0] : instance.task;
+                        const taskData = instance.task_id ? taskDataMap[instance.task_id] : null;
                         const assignedUser = taskData?.assigned_to
                           ? users.find(u => u.id === taskData.assigned_to)
                           : null;
@@ -733,11 +749,13 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                               {instance.task_id && assignedUser ? (
                                 <div className="flex items-center gap-2">
                                   {assignedUser.avatar_url ? (
-                                    <img
-                                      src={assignedUser.avatar_url}
-                                      alt=""
-                                      className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-                                    />
+                                    <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
+                                      <img
+                                        src={assignedUser.avatar_url}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
                                   ) : (
                                     <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
                                       <span className="text-xs text-gray-600">
