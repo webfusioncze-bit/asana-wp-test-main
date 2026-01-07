@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PackageIcon, ServerIcon } from 'lucide-react';
+import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PackageIcon, ServerIcon, CalendarIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus } from '../types';
+import { WebsiteUpdateSchedules } from './WebsiteUpdateSchedules';
 
 interface WebsiteListProps {
   selectedWebsiteId: string | null;
@@ -15,11 +16,14 @@ interface WebsiteWithStatus extends Website {
   clientCompany?: string | null;
 }
 
+type ViewMode = 'websites' | 'updates';
+
 export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: WebsiteListProps) {
   const [websites, setWebsites] = useState<WebsiteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('websites');
   const letterRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
@@ -190,32 +194,65 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
       <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-semibold text-gray-900">Weby</h1>
-          <button
-            onClick={syncAllWebsites}
-            disabled={syncing}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Synchronizuji...' : 'Synchronizovat'}
-          </button>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-semibold text-gray-900">Weby</h1>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode('websites')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  viewMode === 'websites'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <GlobeIcon className="w-4 h-4" />
+                Weby
+              </button>
+              <button
+                onClick={() => setViewMode('updates')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  viewMode === 'updates'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <CalendarIcon className="w-4 h-4" />
+                Aktualizace
+              </button>
+            </div>
+          </div>
+          {viewMode === 'websites' && (
+            <button
+              onClick={syncAllWebsites}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Synchronizuji...' : 'Synchronizovat'}
+            </button>
+          )}
         </div>
 
-        <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Vyhledat web..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+        {viewMode === 'websites' && (
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Vyhledat web..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        )}
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative">
-        <div className="flex-1 overflow-auto">
-          {websites.length === 0 ? (
+      {viewMode === 'updates' ? (
+        <WebsiteUpdateSchedules canManage={canManage} />
+      ) : (
+        <div className="flex-1 flex overflow-hidden relative">
+          <div className="flex-1 overflow-auto">
+            {websites.length === 0 ? (
             <div className="text-center py-12">
               <GlobeIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 mb-4">Zatím nejsou synchronizovány žádné weby</p>
@@ -370,7 +407,8 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
             })}
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

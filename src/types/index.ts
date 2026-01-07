@@ -459,3 +459,28 @@ export interface ClientWebsite {
   website_url: string;
   created_at: string;
 }
+
+export interface WebsiteUpdateSchedule {
+  id: string;
+  website_id: string;
+  interval_months: 1 | 2 | 3 | 6 | 12;
+  first_update_date: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  website?: Website;
+}
+
+export interface WebsiteUpdateInstance {
+  id: string;
+  schedule_id: string;
+  scheduled_date: string;
+  status: 'pending' | 'completed' | 'skipped';
+  task_id: string | null;
+  notes: string | null;
+  completed_at: string | null;
+  created_at: string;
+  schedule?: WebsiteUpdateSchedule;
+  task?: Task;
+}
