@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { PlusIcon, TrashIcon, CalendarIcon, RepeatIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ChevronDownIcon, UserIcon } from 'lucide-react';
+import { PlusIcon, TrashIcon, CalendarIcon, RepeatIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ChevronDownIcon, UserIcon, EditIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteUpdateSchedule, WebsiteUpdateInstance, User } from '../types';
 
@@ -24,7 +24,6 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
   const [selectedWebsiteId, setSelectedWebsiteId] = useState('');
   const [intervalMonths, setIntervalMonths] = useState<1 | 2 | 3 | 6 | 12>(1);
   const [firstUpdateDate, setFirstUpdateDate] = useState('');
-  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [websiteSearchQuery, setWebsiteSearchQuery] = useState('');
   const [showWebsiteDropdown, setShowWebsiteDropdown] = useState(false);
   const websiteDropdownRef = useRef<HTMLDivElement>(null);
@@ -35,6 +34,9 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
   const [userAssignSearchQuery, setUserAssignSearchQuery] = useState('');
   const [showUserAssignDropdown, setShowUserAssignDropdown] = useState(false);
   const userAssignDropdownRef = useRef<HTMLDivElement>(null);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editIntervalMonths, setEditIntervalMonths] = useState<1 | 2 | 3 | 6 | 12>(1);
+  const [editFirstUpdateDate, setEditFirstUpdateDate] = useState('');
 
   useEffect(() => {
     loadData();
@@ -46,7 +48,7 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
     if (schedules.length > 0) {
       loadInstances();
     }
-  }, [schedules, currentMonth]);
+  }, [schedules]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -154,8 +156,9 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
   }
 
   async function loadInstances() {
-    const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-    const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+    const today = new Date();
+    const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0);
 
     const { data, error } = await supabase
       .from('website_update_instances')
@@ -167,8 +170,8 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
         ),
         task:tasks(*)
       `)
-      .gte('scheduled_date', startOfMonth.toISOString().split('T')[0])
-      .lte('scheduled_date', endOfMonth.toISOString().split('T')[0])
+      .gte('scheduled_date', startDate.toISOString().split('T')[0])
+      .lte('scheduled_date', endDate.toISOString().split('T')[0])
       .order('scheduled_date', { ascending: true });
 
     if (error) {
@@ -238,6 +241,41 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
     setTaskAssignUserId(user.id);
     setUserAssignSearchQuery(user.display_name || user.email);
     setShowUserAssignDropdown(false);
+  }
+
+  function openEditSchedule(schedule: WebsiteUpdateSchedule) {
+    setEditingScheduleId(schedule.id);
+    setEditIntervalMonths(schedule.interval_months as 1 | 2 | 3 | 6 | 12);
+    setEditFirstUpdateDate(schedule.first_update_date);
+  }
+
+  async function saveEditSchedule() {
+    if (!editingScheduleId || !editFirstUpdateDate) return;
+
+    const { error } = await supabase
+      .from('website_update_schedules')
+      .update({
+        interval_months: editIntervalMonths,
+        first_update_date: editFirstUpdateDate,
+      })
+      .eq('id', editingScheduleId);
+
+    if (error) {
+      console.error('Error updating schedule:', error);
+      alert('Chyba při aktualizaci plánu');
+      return;
+    }
+
+    setEditingScheduleId(null);
+    setEditIntervalMonths(1);
+    setEditFirstUpdateDate('');
+    loadData();
+  }
+
+  function cancelEdit() {
+    setEditingScheduleId(null);
+    setEditIntervalMonths(1);
+    setEditFirstUpdateDate('');
   }
 
   async function deleteSchedule(scheduleId: string) {
@@ -328,13 +366,32 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
     loadInstances();
   }
 
-  function changeMonth(offset: number) {
-    const newDate = new Date(currentMonth);
-    newDate.setMonth(newDate.getMonth() + offset);
-    setCurrentMonth(newDate);
-  }
+  const instancesByMonth = instances.reduce((acc, instance) => {
+    const date = new Date(instance.scheduled_date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    if (!acc[monthKey]) {
+      acc[monthKey] = [];
+    }
+    acc[monthKey].push(instance);
+    return acc;
+  }, {} as Record<string, typeof instances>);
 
-  const monthName = currentMonth.toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' });
+  const sortedMonthKeys = Object.keys(instancesByMonth).sort();
+
+  const currentMonthKey = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  })();
+
+  const currentMonthRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (currentMonthRef.current && sortedMonthKeys.length > 0) {
+      setTimeout(() => {
+        currentMonthRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [sortedMonthKeys.length]);
 
   if (loading) {
     return (
@@ -471,28 +528,86 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
             <div className="divide-y divide-gray-100">
               {schedules.map((schedule) => (
                 <div key={schedule.id} className="p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
+                  {editingScheduleId === schedule.id ? (
+                    <div className="space-y-3">
                       <h3 className="text-sm font-medium text-gray-900 truncate">
                         {schedule.website?.name}
                       </h3>
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
-                        <RepeatIcon className="w-3 h-3" />
-                        Každé {INTERVAL_OPTIONS.find(o => o.value === schedule.interval_months)?.label.toLowerCase()}
+
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Interval</label>
+                        <select
+                          value={editIntervalMonths}
+                          onChange={(e) => setEditIntervalMonths(parseInt(e.target.value) as 1 | 2 | 3 | 6 | 12)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          {INTERVAL_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">První aktualizace</label>
+                        <input
+                          type="date"
+                          value={editFirstUpdateDate}
+                          onChange={(e) => setEditFirstUpdateDate(e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={saveEditSchedule}
+                          className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          Uložit
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="flex-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-xs font-medium hover:bg-gray-300 transition-colors"
+                        >
+                          Zrušit
+                        </button>
                       </div>
                     </div>
-                    {canManage && (
-                      <button
-                        onClick={() => deleteSchedule(schedule.id)}
-                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    První aktualizace: {new Date(schedule.first_update_date).toLocaleDateString('cs-CZ')}
-                  </p>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-medium text-gray-900 truncate">
+                            {schedule.website?.name}
+                          </h3>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
+                            <RepeatIcon className="w-3 h-3" />
+                            Každé {INTERVAL_OPTIONS.find(o => o.value === schedule.interval_months)?.label.toLowerCase()}
+                          </div>
+                        </div>
+                        {canManage && (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => openEditSchedule(schedule)}
+                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            >
+                              <EditIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteSchedule(schedule.id)}
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        První aktualizace: {new Date(schedule.first_update_date).toLocaleDateString('cs-CZ')}
+                      </p>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -501,94 +616,99 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 capitalize">{monthName}</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={() => changeMonth(-1)}
-              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-            >
-              Předchozí
-            </button>
-            <button
-              onClick={() => setCurrentMonth(new Date())}
-              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-            >
-              Aktuální
-            </button>
-            <button
-              onClick={() => changeMonth(1)}
-              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-            >
-              Další
-            </button>
-          </div>
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Plánované aktualizace</h2>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {instances.length === 0 ? (
             <div className="text-center py-12">
               <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-sm">Žádné plánované aktualizace v tomto měsíci</p>
+              <p className="text-gray-500 text-sm">Žádné plánované aktualizace</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
-              {instances.map((instance) => {
-                const website = instance.schedule?.website;
-                const date = new Date(instance.scheduled_date);
-                const dateStr = date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+            <div>
+              {sortedMonthKeys.map((monthKey) => {
+                const [year, month] = monthKey.split('-');
+                const monthDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+                const monthName = monthDate.toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' });
+                const isCurrentMonth = monthKey === currentMonthKey;
+                const monthInstances = instancesByMonth[monthKey];
 
                 return (
                   <div
-                    key={instance.id}
-                    className="px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+                    key={monthKey}
+                    ref={isCurrentMonth ? currentMonthRef : null}
+                    className="border-b border-gray-200"
                   >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0">
-                        {dateStr}
-                      </span>
-                      <span className="text-sm text-gray-900 truncate">
-                        {website?.name}
-                      </span>
+                    <div className={`sticky top-0 z-10 px-4 py-2 bg-gray-50 border-b border-gray-200 ${isCurrentMonth ? 'bg-blue-50' : ''}`}>
+                      <h3 className={`text-sm font-semibold capitalize ${isCurrentMonth ? 'text-blue-900' : 'text-gray-700'}`}>
+                        {monthName}
+                        {isCurrentMonth && <span className="ml-2 text-xs font-normal text-blue-600">(aktuální)</span>}
+                      </h3>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {instance.task_id ? (
-                        <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                      ) : canManage && (
-                        <button
-                          onClick={() => openTaskAssignModal(instance.id)}
-                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          Vytvořit úkol
-                        </button>
-                      )}
+                    <div className="divide-y divide-gray-100">
+                      {monthInstances.map((instance) => {
+                        const website = instance.schedule?.website;
+                        const date = new Date(instance.scheduled_date);
+                        const dateStr = date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
 
-                      {canManage && instance.status === 'pending' && !instance.task_id && (
-                        <>
-                          <button
-                            onClick={() => updateInstanceStatus(instance.id, 'completed')}
-                            className="p-1 hover:bg-green-50 rounded transition-colors"
-                            title="Označit jako hotovo"
+                        return (
+                          <div
+                            key={instance.id}
+                            className="px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
                           >
-                            <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                          </button>
-                          <button
-                            onClick={() => updateInstanceStatus(instance.id, 'skipped')}
-                            className="p-1 hover:bg-gray-100 rounded transition-colors"
-                            title="Přeskočit"
-                          >
-                            <XCircleIcon className="w-4 h-4 text-gray-400" />
-                          </button>
-                        </>
-                      )}
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0">
+                                {dateStr}
+                              </span>
+                              <span className="text-sm text-gray-900 truncate">
+                                {website?.name}
+                              </span>
+                            </div>
 
-                      {instance.status === 'completed' && !instance.task_id && (
-                        <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                      )}
-                      {instance.status === 'skipped' && (
-                        <XCircleIcon className="w-4 h-4 text-gray-400" />
-                      )}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {instance.task_id ? (
+                                <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                              ) : canManage && (
+                                <button
+                                  onClick={() => openTaskAssignModal(instance.id)}
+                                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                >
+                                  Vytvořit úkol
+                                </button>
+                              )}
+
+                              {canManage && instance.status === 'pending' && !instance.task_id && (
+                                <>
+                                  <button
+                                    onClick={() => updateInstanceStatus(instance.id, 'completed')}
+                                    className="p-1 hover:bg-green-50 rounded transition-colors"
+                                    title="Označit jako hotovo"
+                                  >
+                                    <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                                  </button>
+                                  <button
+                                    onClick={() => updateInstanceStatus(instance.id, 'skipped')}
+                                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                    title="Přeskočit"
+                                  >
+                                    <XCircleIcon className="w-4 h-4 text-gray-400" />
+                                  </button>
+                                </>
+                              )}
+
+                              {instance.status === 'completed' && !instance.task_id && (
+                                <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                              )}
+                              {instance.status === 'skipped' && (
+                                <XCircleIcon className="w-4 h-4 text-gray-400" />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
