@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { PlusIcon, TrashIcon, CalendarIcon, RepeatIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { PlusIcon, TrashIcon, CalendarIcon, RepeatIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ChevronDownIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteUpdateSchedule, WebsiteUpdateInstance } from '../types';
 
@@ -25,6 +25,9 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
   const [intervalMonths, setIntervalMonths] = useState<1 | 2 | 3 | 6 | 12>(1);
   const [firstUpdateDate, setFirstUpdateDate] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [websiteSearchQuery, setWebsiteSearchQuery] = useState('');
+  const [showWebsiteDropdown, setShowWebsiteDropdown] = useState(false);
+  const websiteDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -35,6 +38,21 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
       loadInstances();
     }
   }, [schedules, currentMonth]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (websiteDropdownRef.current && !websiteDropdownRef.current.contains(event.target as Node)) {
+        setShowWebsiteDropdown(false);
+      }
+    }
+
+    if (showWebsiteDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showWebsiteDropdown]);
 
   async function loadData() {
     setLoading(true);
@@ -126,10 +144,24 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
 
     setShowCreateForm(false);
     setSelectedWebsiteId('');
+    setWebsiteSearchQuery('');
     setIntervalMonths(1);
     setFirstUpdateDate('');
     loadData();
   }
+
+  function selectWebsite(website: Website) {
+    setSelectedWebsiteId(website.id);
+    setWebsiteSearchQuery(website.name);
+    setShowWebsiteDropdown(false);
+  }
+
+  const filteredWebsites = websites.filter(website =>
+    website.name.toLowerCase().includes(websiteSearchQuery.toLowerCase()) ||
+    website.url.toLowerCase().includes(websiteSearchQuery.toLowerCase())
+  );
+
+  const selectedWebsite = websites.find(w => w.id === selectedWebsiteId);
 
   async function deleteSchedule(scheduleId: string) {
     if (!confirm('Opravdu chcete smazat tento plán aktualizací?')) return;
@@ -247,18 +279,50 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Web
                 </label>
-                <select
-                  value={selectedWebsiteId}
-                  onChange={(e) => setSelectedWebsiteId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Vyberte web</option>
-                  {websites.map((website) => (
-                    <option key={website.id} value={website.id}>
-                      {website.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={websiteDropdownRef}>
+                  <div className="relative">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={websiteSearchQuery}
+                      onChange={(e) => {
+                        setWebsiteSearchQuery(e.target.value);
+                        setShowWebsiteDropdown(true);
+                        if (!e.target.value) {
+                          setSelectedWebsiteId('');
+                        }
+                      }}
+                      onFocus={() => setShowWebsiteDropdown(true)}
+                      placeholder="Vyhledat web..."
+                      className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
+
+                  {showWebsiteDropdown && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredWebsites.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-500">
+                          Žádné weby nebyly nalezeny
+                        </div>
+                      ) : (
+                        filteredWebsites.map((website) => (
+                          <button
+                            key={website.id}
+                            type="button"
+                            onClick={() => selectWebsite(website)}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${
+                              selectedWebsiteId === website.id ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                            }`}
+                          >
+                            <div className="font-medium">{website.name}</div>
+                            <div className="text-xs text-gray-500">{website.url}</div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
