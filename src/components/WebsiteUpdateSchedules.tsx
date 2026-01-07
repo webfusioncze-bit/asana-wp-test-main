@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { PlusIcon, TrashIcon, CalendarIcon, RepeatIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ChevronDownIcon } from 'lucide-react';
+import { PlusIcon, TrashIcon, CalendarIcon, RepeatIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ChevronDownIcon, UserIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Website, WebsiteUpdateSchedule, WebsiteUpdateInstance } from '../types';
+import type { Website, WebsiteUpdateSchedule, WebsiteUpdateInstance, User } from '../types';
 
 interface WebsiteUpdateSchedulesProps {
   canManage: boolean;
@@ -28,9 +28,18 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
   const [websiteSearchQuery, setWebsiteSearchQuery] = useState('');
   const [showWebsiteDropdown, setShowWebsiteDropdown] = useState(false);
   const websiteDropdownRef = useRef<HTMLDivElement>(null);
+  const [showTaskAssignModal, setShowTaskAssignModal] = useState(false);
+  const [taskAssignInstanceId, setTaskAssignInstanceId] = useState<string | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [taskAssignUserId, setTaskAssignUserId] = useState('');
+  const [userAssignSearchQuery, setUserAssignSearchQuery] = useState('');
+  const [showUserAssignDropdown, setShowUserAssignDropdown] = useState(false);
+  const userAssignDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
+    loadUsers();
+    loadCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -54,10 +63,62 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
     }
   }, [showWebsiteDropdown]);
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userAssignDropdownRef.current && !userAssignDropdownRef.current.contains(event.target as Node)) {
+        setShowUserAssignDropdown(false);
+      }
+    }
+
+    if (showUserAssignDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showUserAssignDropdown]);
+
   async function loadData() {
     setLoading(true);
     await Promise.all([loadWebsites(), loadSchedules()]);
     setLoading(false);
+  }
+
+  async function loadCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setTaskAssignUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.display_name) {
+        setUserAssignSearchQuery(profile.display_name);
+      }
+    }
+  }
+
+  async function loadUsers() {
+    const { data: profiles, error } = await supabase
+      .from('user_profiles')
+      .select('id, email, first_name, last_name, avatar_url, display_name');
+
+    if (error) {
+      console.error('Error loading user profiles:', error);
+      return;
+    }
+
+    setUsers((profiles || []).map(p => ({
+      id: p.id,
+      email: p.email || '',
+      first_name: p.first_name,
+      last_name: p.last_name,
+      avatar_url: p.avatar_url,
+      display_name: p.display_name
+    })));
   }
 
   async function loadWebsites() {
@@ -163,6 +224,22 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
 
   const selectedWebsite = websites.find(w => w.id === selectedWebsiteId);
 
+  const filteredAssignUsers = users.filter(user => {
+    const searchLower = userAssignSearchQuery.toLowerCase();
+    return (
+      user.display_name?.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower) ||
+      user.first_name?.toLowerCase().includes(searchLower) ||
+      user.last_name?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  function selectAssignUser(user: User) {
+    setTaskAssignUserId(user.id);
+    setUserAssignSearchQuery(user.display_name || user.email);
+    setShowUserAssignDropdown(false);
+  }
+
   async function deleteSchedule(scheduleId: string) {
     if (!confirm('Opravdu chcete smazat tento plán aktualizací?')) return;
 
@@ -180,8 +257,18 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
     loadData();
   }
 
-  async function createTaskFromInstance(instanceId: string) {
-    const instance = instances.find(i => i.id === instanceId);
+  function openTaskAssignModal(instanceId: string) {
+    setTaskAssignInstanceId(instanceId);
+    setShowTaskAssignModal(true);
+  }
+
+  async function confirmCreateTask() {
+    if (!taskAssignInstanceId || !taskAssignUserId) {
+      alert('Vyberte uživatele, kterému chcete úkol přiřadit');
+      return;
+    }
+
+    const instance = instances.find(i => i.id === taskAssignInstanceId);
     if (!instance || !instance.schedule) return;
 
     const website = instance.schedule.website;
@@ -195,7 +282,7 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
       .insert({
         title: `Aktualizace webu ${website.name}`,
         description: `Provést aktualizaci webu ${website.url}`,
-        assigned_to: user.id,
+        assigned_to: taskAssignUserId,
         created_by: user.id,
         priority: 'medium',
         status: 'todo',
@@ -213,12 +300,14 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
     const { error: updateError } = await supabase
       .from('website_update_instances')
       .update({ task_id: task.id })
-      .eq('id', instanceId);
+      .eq('id', taskAssignInstanceId);
 
     if (updateError) {
       console.error('Error linking task:', updateError);
     }
 
+    setShowTaskAssignModal(false);
+    setTaskAssignInstanceId(null);
     loadInstances();
   }
 
@@ -436,80 +525,71 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto">
           {instances.length === 0 ? (
             <div className="text-center py-12">
               <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">Žádné plánované aktualizace v tomto měsíci</p>
+              <p className="text-gray-500 text-sm">Žádné plánované aktualizace v tomto měsíci</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="divide-y divide-gray-100">
               {instances.map((instance) => {
                 const website = instance.schedule?.website;
+                const date = new Date(instance.scheduled_date);
+                const dateStr = date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
+
                 return (
                   <div
                     key={instance.id}
-                    className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    className="px-4 py-2.5 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
                   >
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-base font-semibold text-gray-900">
-                            {website?.name}
-                          </h3>
-                          {instance.status === 'completed' && (
-                            <CheckCircleIcon className="w-5 h-5 text-green-600" />
-                          )}
-                          {instance.status === 'skipped' && (
-                            <XCircleIcon className="w-5 h-5 text-gray-400" />
-                          )}
-                          {instance.status === 'pending' && (
-                            <ClockIcon className="w-5 h-5 text-orange-500" />
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600">
-                          {new Date(instance.scheduled_date).toLocaleDateString('cs-CZ', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
-                        </p>
-                      </div>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="text-xs font-medium text-gray-500 w-12 flex-shrink-0">
+                        {dateStr}
+                      </span>
+                      <span className="text-sm text-gray-900 truncate">
+                        {website?.name}
+                      </span>
                     </div>
 
-                    {instance.task_id ? (
-                      <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm">
-                        <CheckCircleIcon className="w-4 h-4" />
-                        Úkol vytvořen
-                      </div>
-                    ) : canManage ? (
-                      <div className="flex gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {instance.task_id ? (
+                        <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                      ) : canManage && (
                         <button
-                          onClick={() => createTaskFromInstance(instance.id)}
-                          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                          onClick={() => openTaskAssignModal(instance.id)}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                         >
                           Vytvořit úkol
                         </button>
-                        {instance.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => updateInstanceStatus(instance.id, 'completed')}
-                              className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors"
-                              title="Označit jako hotovo"
-                            >
-                              <CheckCircleIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => updateInstanceStatus(instance.id, 'skipped')}
-                              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-                              title="Přeskočit"
-                            >
-                              <XCircleIcon className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ) : null}
+                      )}
+
+                      {canManage && instance.status === 'pending' && !instance.task_id && (
+                        <>
+                          <button
+                            onClick={() => updateInstanceStatus(instance.id, 'completed')}
+                            className="p-1 hover:bg-green-50 rounded transition-colors"
+                            title="Označit jako hotovo"
+                          >
+                            <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                          </button>
+                          <button
+                            onClick={() => updateInstanceStatus(instance.id, 'skipped')}
+                            className="p-1 hover:bg-gray-100 rounded transition-colors"
+                            title="Přeskočit"
+                          >
+                            <XCircleIcon className="w-4 h-4 text-gray-400" />
+                          </button>
+                        </>
+                      )}
+
+                      {instance.status === 'completed' && !instance.task_id && (
+                        <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                      )}
+                      {instance.status === 'skipped' && (
+                        <XCircleIcon className="w-4 h-4 text-gray-400" />
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -517,6 +597,98 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
           )}
         </div>
       </div>
+
+      {showTaskAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Přiřadit úkol uživateli
+            </h3>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Přiřadit uživateli
+              </label>
+              <div className="relative" ref={userAssignDropdownRef}>
+                <div className="relative">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={userAssignSearchQuery}
+                    onChange={(e) => {
+                      setUserAssignSearchQuery(e.target.value);
+                      setShowUserAssignDropdown(true);
+                      if (!e.target.value) {
+                        setTaskAssignUserId('');
+                      }
+                    }}
+                    onFocus={() => setShowUserAssignDropdown(true)}
+                    placeholder="Začněte psát jméno nebo email..."
+                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
+
+                {showUserAssignDropdown && filteredAssignUsers.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredAssignUsers.map(user => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => selectAssignUser(user)}
+                        className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 ${
+                          taskAssignUserId === user.id ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        {user.avatar_url ? (
+                          <img
+                            src={user.avatar_url}
+                            alt=""
+                            className="w-6 h-6 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-xs text-gray-600">
+                              {(user.first_name?.[0] || user.email[0]).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 truncate">
+                            {user.display_name || user.email}
+                          </div>
+                          {user.display_name && (
+                            <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={confirmCreateTask}
+                disabled={!taskAssignUserId}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Vytvořit úkol
+              </button>
+              <button
+                onClick={() => {
+                  setShowTaskAssignModal(false);
+                  setTaskAssignInstanceId(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+              >
+                Zrušit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
