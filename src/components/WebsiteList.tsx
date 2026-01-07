@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PackageIcon, ServerIcon, CalendarIcon } from 'lucide-react';
+import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus } from '../types';
 import { WebsiteUpdateSchedules } from './WebsiteUpdateSchedules';
@@ -8,6 +8,7 @@ interface WebsiteListProps {
   selectedWebsiteId: string | null;
   onSelectWebsite: (websiteId: string) => void;
   canManage: boolean;
+  viewMode: 'websites' | 'updates';
 }
 
 interface WebsiteWithStatus extends Website {
@@ -16,14 +17,11 @@ interface WebsiteWithStatus extends Website {
   clientCompany?: string | null;
 }
 
-type ViewMode = 'websites' | 'updates';
-
-export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: WebsiteListProps) {
+export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, viewMode }: WebsiteListProps) {
   const [websites, setWebsites] = useState<WebsiteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('websites');
   const letterRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
@@ -194,33 +192,9 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage }: W
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
       <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold text-gray-900">Weby</h1>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('websites')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  viewMode === 'websites'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <GlobeIcon className="w-4 h-4" />
-                Weby
-              </button>
-              <button
-                onClick={() => setViewMode('updates')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  viewMode === 'updates'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <CalendarIcon className="w-4 h-4" />
-                Aktualizace
-              </button>
-            </div>
-          </div>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {viewMode === 'websites' ? 'Weby' : 'Aktualizace'}
+          </h1>
           {viewMode === 'websites' && (
             <button
               onClick={syncAllWebsites}

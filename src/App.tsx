@@ -16,6 +16,7 @@ import { ProjectList } from './components/ProjectList';
 import { ProjectDetail } from './components/ProjectDetail';
 import { WebsiteList } from './components/WebsiteList';
 import { WebsiteDetail } from './components/WebsiteDetail';
+import { WebsitesSidebar } from './components/WebsitesSidebar';
 import { ClientList } from './components/ClientList';
 import { ClientDetail } from './components/ClientDetail';
 import { DataCacheProvider } from './contexts/DataCacheContext';
@@ -23,6 +24,7 @@ import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 
 import type { User, UserRole, Request } from './types';
 
 type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites' | 'clients';
+type WebsitesViewMode = 'websites' | 'updates';
 
 function App() {
   const hash = window.location.hash;
@@ -51,6 +53,7 @@ function App() {
   const [showTaskCreation, setShowTaskCreation] = useState(false);
   const [showRequestCreation, setShowRequestCreation] = useState(false);
   const [showCompletedProjects, setShowCompletedProjects] = useState(false);
+  const [websitesViewMode, setWebsitesViewMode] = useState<WebsitesViewMode>('websites');
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -249,7 +252,13 @@ function App() {
           onToggleCompletedProjects={setShowCompletedProjects}
         />
       )}
-      {!showAdmin && viewMode !== 'projects' && (
+      {!showAdmin && viewMode === 'websites' && (
+        <WebsitesSidebar
+          selectedView={websitesViewMode}
+          onSelectView={setWebsitesViewMode}
+        />
+      )}
+      {!showAdmin && viewMode !== 'projects' && viewMode !== 'websites' && (
         <FolderSidebar
           key={`${viewMode}-${tasksRefreshKey}-${requestsRefreshKey}`}
           selectedFolderId={selectedFolderId}
@@ -468,6 +477,7 @@ function App() {
                   selectedWebsiteId={selectedWebsiteId}
                   onSelectWebsite={setSelectedWebsiteId}
                   canManage={hasWebsitesPermission}
+                  viewMode={websitesViewMode}
                 />
               )}
             </div>
