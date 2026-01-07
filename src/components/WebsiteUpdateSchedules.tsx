@@ -282,6 +282,17 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
   async function deleteSchedule(scheduleId: string) {
     if (!confirm('Opravdu chcete smazat tento plán aktualizací?')) return;
 
+    const { error: instancesError } = await supabase
+      .from('website_update_instances')
+      .delete()
+      .eq('schedule_id', scheduleId)
+      .eq('status', 'pending')
+      .is('task_id', null);
+
+    if (instancesError) {
+      console.error('Error deleting future instances:', instancesError);
+    }
+
     const { error } = await supabase
       .from('website_update_schedules')
       .update({ is_active: false })
