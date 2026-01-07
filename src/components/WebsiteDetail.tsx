@@ -24,16 +24,16 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus, WebsiteUpdateInstance } from '../types';
+import { TaskDetail } from './TaskDetail';
 
 interface WebsiteDetailProps {
   websiteId: string;
   onClose: () => void;
-  onTaskClick?: (taskId: string) => void;
 }
 
 type TabType = 'overview' | 'plugins' | 'users' | 'updates';
 
-export function WebsiteDetail({ websiteId, onClose, onTaskClick }: WebsiteDetailProps) {
+export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const [website, setWebsite] = useState<Website | null>(null);
   const [latestStatus, setLatestStatus] = useState<WebsiteStatus | null>(null);
   const [clientInfo, setClientInfo] = useState<{ name: string; company_name: string | null; id: string } | null>(null);
@@ -41,6 +41,7 @@ export function WebsiteDetail({ websiteId, onClose, onTaskClick }: WebsiteDetail
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [updateInstances, setUpdateInstances] = useState<WebsiteUpdateInstance[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     loadWebsiteData();
@@ -681,10 +682,10 @@ export function WebsiteDetail({ websiteId, onClose, onTaskClick }: WebsiteDetail
                                   : isPast
                                   ? 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                   : 'bg-white border-gray-200 hover:bg-gray-50'
-                              } ${instance.task_id && onTaskClick ? 'cursor-pointer' : ''}`}
+                              } ${instance.task_id ? 'cursor-pointer' : ''}`}
                               onClick={() => {
-                                if (instance.task_id && onTaskClick) {
-                                  onTaskClick(instance.task_id);
+                                if (instance.task_id) {
+                                  setSelectedTaskId(instance.task_id);
                                 }
                               }}
                             >
@@ -754,6 +755,14 @@ export function WebsiteDetail({ websiteId, onClose, onTaskClick }: WebsiteDetail
             </div>
           </div>
         </div>
+      )}
+
+      {selectedTaskId && (
+        <TaskDetail
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onTaskUpdated={() => {}}
+        />
       )}
     </div>
   );

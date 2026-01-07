@@ -326,6 +326,14 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    const { data: unassignedFolder } = await supabase
+      .from('folders')
+      .select('id')
+      .eq('owner_id', taskAssignUserId)
+      .eq('name', 'Nepřiřazené')
+      .eq('is_global', false)
+      .maybeSingle();
+
     const { data: task, error: taskError } = await supabase
       .from('tasks')
       .insert({
@@ -336,6 +344,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
         priority: 'medium',
         status: 'todo',
         due_date: instance.scheduled_date,
+        folder_id: unassignedFolder?.id || null,
       })
       .select()
       .single();

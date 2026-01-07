@@ -3,13 +3,13 @@ import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircl
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus } from '../types';
 import { WebsiteUpdateSchedules } from './WebsiteUpdateSchedules';
+import { TaskDetail } from './TaskDetail';
 
 interface WebsiteListProps {
   selectedWebsiteId: string | null;
   onSelectWebsite: (websiteId: string) => void;
   canManage: boolean;
   viewMode: 'websites' | 'updates';
-  onTaskClick?: (taskId: string) => void;
 }
 
 interface WebsiteWithStatus extends Website {
@@ -18,12 +18,13 @@ interface WebsiteWithStatus extends Website {
   clientCompany?: string | null;
 }
 
-export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, viewMode, onTaskClick }: WebsiteListProps) {
+export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, viewMode }: WebsiteListProps) {
   const [websites, setWebsites] = useState<WebsiteWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const letterRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     loadWebsites();
@@ -223,7 +224,7 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
       </div>
 
       {viewMode === 'updates' ? (
-        <WebsiteUpdateSchedules canManage={canManage} onTaskClick={onTaskClick} />
+        <WebsiteUpdateSchedules canManage={canManage} onTaskClick={setSelectedTaskId} />
       ) : (
         <div className="flex-1 flex overflow-hidden relative">
           <div className="flex-1 overflow-auto">
@@ -383,6 +384,14 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
           </div>
         )}
         </div>
+      )}
+
+      {selectedTaskId && (
+        <TaskDetail
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onTaskUpdated={() => {}}
+        />
       )}
     </div>
   );
