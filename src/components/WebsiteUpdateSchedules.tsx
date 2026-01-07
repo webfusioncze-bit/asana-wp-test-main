@@ -550,7 +550,12 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
               const isEditing = schedule && editingScheduleId === schedule.id;
 
               return (
-                <div key={website.id} className="px-3 py-1.5 hover:bg-gray-50 transition-colors">
+                <div
+                  key={website.id}
+                  className={`px-3 py-1.5 hover:bg-gray-50 transition-colors border-l-2 ${
+                    schedule ? 'border-l-green-400' : 'border-l-gray-200 bg-gray-50/50'
+                  }`}
+                >
                   {isEditing && schedule ? (
                     <div className="space-y-2 py-1">
                       <div className="text-xs font-medium text-gray-900 truncate">{website.name}</div>
@@ -588,12 +593,17 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex-1 text-xs text-gray-700 truncate" title={website.name}>
+                      <span
+                        className={`flex-1 text-xs truncate ${
+                          schedule ? 'text-gray-700' : 'text-gray-400 italic'
+                        }`}
+                        title={website.name}
+                      >
                         {website.name}
                       </span>
                       {schedule ? (
                         <>
-                          <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap font-medium">
                             {schedule.interval_months}M
                           </span>
                           {canManage && (
@@ -614,7 +624,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                           )}
                         </>
                       ) : (
-                        <span className="text-[10px] text-gray-300">-</span>
+                        <span className="text-[10px] text-gray-300">bez plánu</span>
                       )}
                     </div>
                   )}
