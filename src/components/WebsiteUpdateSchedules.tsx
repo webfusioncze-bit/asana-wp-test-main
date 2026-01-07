@@ -316,6 +316,8 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    let folderId: string | null = null;
+
     const { data: unassignedFolder } = await supabase
       .from('folders')
       .select('id')
@@ -323,6 +325,30 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
       .eq('name', 'Nepřiřazené')
       .eq('is_global', false)
       .maybeSingle();
+
+    if (unassignedFolder) {
+      folderId = unassignedFolder.id;
+    } else {
+      const { data: globalFolder } = await supabase
+        .from('folders')
+        .select('id')
+        .eq('is_global', true)
+        .eq('name', 'Klienti')
+        .maybeSingle();
+
+      if (globalFolder) {
+        folderId = globalFolder.id;
+      } else {
+        const { data: anyGlobalFolder } = await supabase
+          .from('folders')
+          .select('id')
+          .eq('is_global', true)
+          .limit(1)
+          .maybeSingle();
+
+        folderId = anyGlobalFolder?.id || null;
+      }
+    }
 
     const { data: task, error: taskError } = await supabase
       .from('tasks')
@@ -334,7 +360,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
         priority: 'medium',
         status: 'todo',
         due_date: instance.scheduled_date,
-        folder_id: unassignedFolder?.id || null,
+        folder_id: folderId,
       })
       .select()
       .single();
