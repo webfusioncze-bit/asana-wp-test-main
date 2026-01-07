@@ -710,7 +710,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
 
   if (!task) {
     return (
-      <div className="w-96 bg-white border-l border-gray-200 flex items-center justify-center">
+      <div className="w-[480px] bg-white border-l border-gray-200 flex items-center justify-center">
         <p className="text-gray-500">Načítání...</p>
       </div>
     );
@@ -743,7 +743,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   };
 
   return (
-    <div className="w-[600px] bg-white border-l border-gray-200 flex flex-col h-full">
+    <div className="w-[480px] bg-white border-l border-gray-200 flex flex-col h-full">
       <div className="px-3 py-2 border-b border-gray-200">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-base font-semibold text-gray-800">Detail úkolu</h2>

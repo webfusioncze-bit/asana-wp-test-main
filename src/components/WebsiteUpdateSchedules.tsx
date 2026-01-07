@@ -725,10 +725,10 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                                     <img
                                       src={assignedUser.avatar_url}
                                       alt=""
-                                      className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                                      className="w-7 h-7 rounded-full object-cover flex-shrink-0"
                                     />
                                   ) : (
-                                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
                                       <span className="text-xs text-gray-600">
                                         {(assignedUser.first_name?.[0] || assignedUser.email[0]).toUpperCase()}
                                       </span>
