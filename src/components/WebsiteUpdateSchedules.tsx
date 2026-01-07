@@ -185,14 +185,12 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
     const taskIds = (data || []).filter(i => i.task_id).map(i => i.task_id);
     if (taskIds.length > 0) {
       const { data: tasksData } = await supabase
-        .from('tasks')
-        .select('id, assigned_to')
-        .in('id', taskIds);
+        .rpc('get_website_update_task_assignments', { task_ids: taskIds });
 
       if (tasksData) {
         const map: Record<string, { assigned_to: string | null }> = {};
-        tasksData.forEach(t => {
-          map[t.id] = { assigned_to: t.assigned_to };
+        tasksData.forEach((t: { task_id: string; assigned_to: string | null }) => {
+          map[t.task_id] = { assigned_to: t.assigned_to };
         });
         setTaskDataMap(map);
       }
