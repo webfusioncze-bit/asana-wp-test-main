@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { PlusIcon, TrashIcon, CalendarIcon, RepeatIcon, CheckCircleIcon, XCircleIcon, ClockIcon, SearchIcon, ChevronDownIcon, UserIcon, EditIcon } from 'lucide-react';
+import { Plus as PlusIcon, Trash as TrashIcon, Calendar as CalendarIcon, Repeat as RepeatIcon, CheckCircle as CheckCircleIcon, XCircle as XCircleIcon, Clock as ClockIcon, Search as SearchIcon, ChevronDown as ChevronDownIcon, User as UserIcon, Bitcoin as EditIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteUpdateSchedule, WebsiteUpdateInstance, User } from '../types';
 

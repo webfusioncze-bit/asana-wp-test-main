@@ -1,27 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  GlobeIcon,
-  ServerIcon,
-  DatabaseIcon,
-  UsersIcon,
-  FileTextIcon,
-  ImageIcon,
-  MessageSquareIcon,
-  PackageIcon,
-  ShieldCheckIcon,
-  AlertTriangleIcon,
-  ClockIcon,
-  TrendingUpIcon,
-  RefreshCwIcon,
-  XIcon,
-  ExternalLinkIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ZapIcon,
-  LogInIcon,
-  LayoutGridIcon,
-  CalendarIcon,
-} from 'lucide-react';
+import { Globe as GlobeIcon, Server as ServerIcon, Database as DatabaseIcon, Users as UsersIcon, FileText as FileTextIcon, Image as ImageIcon, MessageSquare as MessageSquareIcon, Package as PackageIcon, ShieldCheck as ShieldCheckIcon, AlertTriangle as AlertTriangleIcon, Clock as ClockIcon, TrendingUp as TrendingUpIcon, RefreshCw as RefreshCwIcon, Bone as XIcon, ExternalLink as ExternalLinkIcon, CheckCircle as CheckCircleIcon, XCircle as XCircleIcon, Zap as ZapIcon, LogIn as LogInIcon, LayoutGrid as LayoutGridIcon, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteStatus, WebsiteUpdateInstance } from '../types';
 import { TaskDetail } from './TaskDetail';
