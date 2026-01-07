@@ -158,7 +158,7 @@ export function WebsiteUpdateSchedules({ canManage }: WebsiteUpdateSchedulesProp
   async function loadInstances() {
     const today = new Date();
     const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0);
+    const endDate = new Date(today.getFullYear(), today.getMonth() + 24, 0);
 
     const { data, error } = await supabase
       .from('website_update_instances')
