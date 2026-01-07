@@ -169,17 +169,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
           *,
           website:websites(*)
         ),
-        task:tasks(
-          *,
-          assigned_user:user_profiles!tasks_assigned_to_fkey(
-            id,
-            email,
-            first_name,
-            last_name,
-            avatar_url,
-            display_name
-          )
-        )
+        task:tasks(id, title, assigned_to, status, priority)
       `)
       .gte('scheduled_date', startDate.toISOString().split('T')[0])
       .lte('scheduled_date', endDate.toISOString().split('T')[0])

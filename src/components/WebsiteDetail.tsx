@@ -97,17 +97,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
           schedule:website_update_schedules(
             interval_months
           ),
-          task:tasks(
-            *,
-            assigned_user:user_profiles!tasks_assigned_to_fkey(
-              id,
-              email,
-              first_name,
-              last_name,
-              avatar_url,
-              display_name
-            )
-          )
+          task:tasks(id, title, assigned_to, status, priority)
         `)
         .eq('schedule_id', scheduleData.id)
         .order('scheduled_date', { ascending: false });
