@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<web_status>
+    <last_updated>30.7.2025 12:02</last_updated>
+    <wordpress_version>6.8.2</wordpress_version>
+    <php_version>8.2.29</php_version>
+    <mysql_version>10.6.22-MariaDB-0ubuntu0.22.04.1</mysql_version>
+    <memory_limit>512M</memory_limit>
+    <upload_max_filesize>256M</upload_max_filesize>
+    <num_pages>16</num_pages>
+    <num_posts>108</num_posts>
+    <num_comments>0</num_comments>
+    <num_users>4</num_users>
+    <num_media_files>833</num_media_files>
+    <https_status>Aktivní</https_status>
+    <indexing_allowed>Povoleno</indexing_allowed>
+    <storage_usage>7.57GB</storage_usage>
+    <active_plugins_count>25</active_plugins_count>
+    <inactive_plugins_count>3</inactive_plugins_count>
+    <update_plugins_count>19</update_plugins_count>
+    <theme_name>Hello Elementor</theme_name>
+    <theme_version>3.0.1</theme_version>
+    <server_load>85.29%</server_load>
+    <uptime>6 dní 4h 38min</uptime>
+    <ult>none</ult><active_plugins><plugin>Protokol změn</plugin><plugin>Better Search Replace</plugin><plugin>Code Snippets</plugin><plugin>Complianz Privacy Suite (GDPR/CCPA) premium</plugin><plugin>Disable Comments</plugin><plugin>Elementor Pro</plugin><plugin>Elementor</plugin><plugin>Image Optimizer - Compress, Resize and Optimize Images</plugin><plugin>Imagify</plugin><plugin>JetEngine</plugin><plugin>JetSmartFilters</plugin><plugin>JetWooBuilder For Elementor</plugin><plugin>Limit Login Attempts Reloaded</plugin><plugin>Custom Login Page Customizer</plugin><plugin>Rank Math SEO</plugin><plugin>Variation Swatches for WooCommerce</plugin><plugin>Webfusion connector - site status</plugin><plugin>Advanced Order Export For WooCommerce</plugin><plugin>WooCommerce Stripe Gateway</plugin><plugin>WooCommerce</plugin><plugin>WP Mail Logging</plugin><plugin>WP Mail SMTP</plugin><plugin>WP Rocket</plugin><plugin>WPForms Lite</plugin><plugin>WPS Hide Login</plugin></active_plugins><inactive_plugins><plugin>All-in-One WP Migration</plugin><plugin>JetTabs For Elementor</plugin><plugin>PDF Invoices &amp; Packing Slips for WooCommerce</plugin></inactive_plugins><update_plugins><plugin><name>Advanced Order Export For WooCommerce</name><current_version>3.5.7</current_version><new_version>4.0.3</new_version></plugin><plugin><name>All-in-One WP Migration</name><current_version>7.88</current_version><new_version>7.97</new_version></plugin><plugin><name>Code Snippets</name><current_version>3.6.7</current_version><new_version>3.6.8</new_version></plugin><plugin><name>Custom Login Page Customizer</name><current_version>2.5.0</current_version><new_version>2.5.2</new_version></plugin><plugin><name>Disable Comments</name><current_version>2.4.7</current_version><new_version>2.5.2</new_version></plugin><plugin><name>Elementor</name><current_version>3.27.2</current_version><new_version>3.30.3</new_version></plugin><plugin><name>Image Optimizer - Compress, Resize and Optimize Images</name><current_version>1.6.6</current_version><new_version>1.6.7</new_version></plugin><plugin><name>Imagify</name><current_version>2.2.4</current_version><new_version>2.2.6</new_version></plugin><plugin><name>Limit Login Attempts Reloaded</name><current_version>2.26.16</current_version><new_version>2.26.20</new_version></plugin><plugin><name>PDF Invoices &amp; Packing Slips for WooCommerce</name><current_version>3.9.6</current_version><new_version>4.6.1</new_version></plugin><plugin><name>Rank Math SEO</name><current_version>1.0.236</current_version><new_version>1.0.249</new_version></plugin><plugin><name>Variation Swatches for WooCommerce</name><current_version>1.0.12</current_version><new_version>1.0.13</new_version></plugin><plugin><name>WooCommerce</name><current_version>9.6.0</current_version><new_version>10.0.4</new_version></plugin><plugin><name>WooCommerce Stripe Gateway</name><current_version>9.1.1</current_version><new_version>9.7.1</new_version></plugin><plugin><name>WPForms Lite</name><current_version>1.9.3.1</current_version><new_version>1.9.6.2</new_version></plugin><plugin><name>WP Mail SMTP</name><current_version>4.3.0</current_version><new_version>4.5.0</new_version></plugin><plugin><name>WPS Hide Login</name><current_version>1.9.17.1</current_version><new_version>1.9.17.2</new_version></plugin><plugin><name>WP Rocket</name><current_version>3.18</current_version><new_version>3.18.3</new_version></plugin><plugin><name>Elementor Pro</name><current_version>3.21.0</current_version><new_version>3.30.1</new_version></plugin></update_plugins><users><user>instalace</user></users></web_status>
