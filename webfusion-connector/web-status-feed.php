@@ -24,9 +24,14 @@ require_once plugin_dir_path( __FILE__ ) . 'mereni-rychlosti/performance-activat
  * 2)  REST endpointy
  * ---------------------------------------------------------------- */
 add_action( 'rest_api_init', function () {
+	// Původní API endpointy (beze změn)
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/create-delete-index.php';
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/check-integrity.php';
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/create-user.php';
+
+	// NOVÉ: Task Manager Integration API
+	require_once plugin_dir_path( __FILE__ ) . 'api-hooky/wbf-api-auth.php';
+	require_once plugin_dir_path( __FILE__ ) . 'api-hooky/wbf-api-endpoints.php';
 } );
 
 /* ------------------------------------------------------------------
@@ -365,6 +370,29 @@ function generate_login_token($user_id) {
 }
 
 function handle_login_token($token) {
+    // Nejprve zkusíme NOVÝ instant login token (60s platnost)
+    $instant_users = get_users([
+        'meta_key' => 'wbf_instant_login_token',
+        'meta_value' => $token,
+        'number' => 1
+    ]);
+
+    if (!empty($instant_users)) {
+        $user = $instant_users[0];
+        $expiration = get_user_meta($user->ID, 'wbf_instant_login_expiration', true);
+
+        if ($expiration >= time()) {
+            // Token je platný - přihlásíme a smažeme token (jednorázový)
+            delete_user_meta($user->ID, 'wbf_instant_login_token');
+            delete_user_meta($user->ID, 'wbf_instant_login_expiration');
+
+            wp_set_auth_cookie($user->ID, true);
+            wp_redirect(admin_url());
+            exit;
+        }
+    }
+
+    // Pokud instant token nebyl nalezen nebo expiroval, zkusíme STARÝ ULT token (75 min platnost)
     $users = get_users([
         'meta_key' => 'login_token',
         'meta_value' => $token,

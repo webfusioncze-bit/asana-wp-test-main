@@ -384,6 +384,8 @@ export interface Website {
   last_check_at: string | null;
   response_time_ms: number | null;
   screenshot_url: string | null;
+  api_key: string | null;
+  api_key_created_at: string | null;
 }
 
 export interface WebsiteStatus {

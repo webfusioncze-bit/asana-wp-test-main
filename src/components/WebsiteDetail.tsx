@@ -122,6 +122,40 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     }
   }
 
+  async function instantLogin() {
+    if (!website.api_key) {
+      alert('Web nemá nakonfigurovaný API klíč. Prosím zkopírujte API klíč z pluginu na webu.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${website.url}/wp-json/webfusion-connector/v1/instant-login`, {
+        method: 'POST',
+        headers: {
+          'X-WBF-API-Key': website.api_key,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Instant login error:', errorText);
+        throw new Error('Failed to generate instant login');
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.login_url) {
+        window.open(result.login_url, '_blank');
+      } else {
+        throw new Error('Invalid response from website');
+      }
+    } catch (error) {
+      console.error('Instant login error:', error);
+      alert('Chyba při generování přihlašovacího odkazu. Zkontrolujte, zda je web dostupný a má aktuální verzi pluginu.');
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white">
@@ -194,9 +228,6 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     return `https://image.thum.io/get/auth/${auth}/${website.url}`;
   };
 
-  const adminLoginUrl = latestStatus?.ult
-    ? `${website.url}?login_token=${latestStatus.ult}`
-    : `${website.url}/wp-admin`;
 
   const normalizePlugins = (plugins: any[]): string[] => {
     if (!Array.isArray(plugins)) return [];
@@ -295,17 +326,14 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {latestStatus?.ult && (
-              <a
-                href={adminLoginUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <LogInIcon className="w-4 h-4" />
-                WP Admin
-              </a>
-            )}
+            <button
+              onClick={instantLogin}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+              title="Okamžité přihlášení do WP Admin (bez čekání na XML feed)"
+            >
+              <LogInIcon className="w-4 h-4" />
+              WP Admin
+            </button>
             <button
               onClick={syncWebsite}
               disabled={syncing}

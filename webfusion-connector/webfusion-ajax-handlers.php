@@ -146,4 +146,28 @@ function wbf_send_test_mail_ajax() {
         wp_send_json_error( 'Chyba při odeslání e-mailu.' );
     }
 }
+
+/* ------------------------------------------------------------------ */
+/* 6) Rotace API klíče                                                */
+/* ------------------------------------------------------------------ */
+add_action( 'wp_ajax_wbf_rotate_api_key_ajax', 'wbf_rotate_api_key_ajax' );
+function wbf_rotate_api_key_ajax() {
+
+    check_ajax_referer( 'wbf_rotate_api_key_nonce' );
+
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_send_json_error( 'Nemáte dostatečná oprávnění.' );
+    }
+
+    $new_key = wbf_connector_rotate_api_key();
+
+    if ( is_wp_error( $new_key ) ) {
+        wp_send_json_error( $new_key->get_error_message() );
+    }
+
+    wp_send_json_success( array(
+        'api_key' => $new_key,
+        'created_at' => get_option( 'wbf_connector_api_key_created_at', '' )
+    ) );
+}
 ?>

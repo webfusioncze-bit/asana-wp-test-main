@@ -108,6 +108,7 @@ function wbf_site_status_page(){
       <a href="#tab-info"   class="nav-tab">Informace</a>
       <a href="#tab-smtp"   class="nav-tab">SMTP</a>
       <a href="#tab-test"   class="nav-tab">Test e‑mail</a>
+      <a href="#tab-api"    class="nav-tab">API klíč</a>
       <a href="#tab-tools"  class="nav-tab">Nástroje</a>
     </h2>
 
@@ -169,6 +170,38 @@ function wbf_site_status_page(){
           _ajax_nonce: '<?php echo wp_create_nonce('wbf_test_mail_ajax_nonce'); ?>'
         }, function(resp){
           alert(resp.success ? resp.data : resp.data);
+        });
+      });
+      // Kopírovat API klíč
+      $('#wbf_copy_api_key').click(function(e){
+        e.preventDefault();
+        var apiKeyInput = document.getElementById('wbf_api_key_value');
+        apiKeyInput.select();
+        document.execCommand('copy');
+        $(this).text('Zkopírováno!').prop('disabled', true);
+        setTimeout(function(){
+          $('#wbf_copy_api_key').text('Kopírovat').prop('disabled', false);
+        }, 2000);
+      });
+      // Rotovat API klíč
+      $('#wbf_rotate_api_key').click(function(e){
+        e.preventDefault();
+        if(!confirm('Opravdu chcete vygenerovat nový API klíč? Starý klíč přestane fungovat a Task Manager bude potřeba aktualizovat.')){ return; }
+        var btn = $(this);
+        btn.prop('disabled', true).text('Generuji...');
+        $.post(ajaxurl, {
+          action: 'wbf_rotate_api_key_ajax',
+          _ajax_nonce: '<?php echo wp_create_nonce('wbf_rotate_api_key_nonce'); ?>'
+        }, function(resp){
+          if(resp.success){
+            $('#wbf_api_key_value').val(resp.data.api_key);
+            alert('Nový API klíč byl vygenerován. Nezapomeňte ho aktualizovat v Task Manager aplikaci.');
+            location.reload();
+          } else {
+            alert('Chyba: ' + resp.data);
+          }
+        }).always(function(){
+          btn.prop('disabled', false).text('Vygenerovat nový klíč');
         });
       });
     });
@@ -300,6 +333,68 @@ function wbf_site_status_page(){
           </tr>
         </table>
         <p><button id="wbf_send_test_mail_btn" class="button">Odeslat</button></p>
+      </div>
+    </div>
+
+    <!-- TAB: API klíč -->
+    <div id="tab-api" class="wbf-tab-content">
+      <div class="wbf-card">
+        <h2>API klíč pro Task Manager</h2>
+        <p>
+          API klíč umožňuje Task Manager aplikaci přistupovat k tomuto webu.
+          <br>Používá se pro okamžité přihlášení a získávání aktuálních dat bez závislosti na XML feedu.
+        </p>
+        <?php
+        $api_key = get_option('wbf_connector_api_key', '');
+        $api_created = get_option('wbf_connector_api_key_created_at', '');
+
+        if (empty($api_key)) {
+          wbf_connector_init_api_key();
+          $api_key = get_option('wbf_connector_api_key', '');
+          $api_created = get_option('wbf_connector_api_key_created_at', '');
+        }
+        ?>
+        <table class="form-table">
+          <tr>
+            <th>Aktuální API klíč</th>
+            <td>
+              <input
+                type="text"
+                id="wbf_api_key_value"
+                class="regular-text"
+                value="<?php echo esc_attr($api_key); ?>"
+                readonly
+                style="font-family:monospace;background:#f9f9f9;"
+              >
+              <button type="button" id="wbf_copy_api_key" class="button">Kopírovat</button>
+            </td>
+          </tr>
+          <tr>
+            <th>Vytvořeno</th>
+            <td><?php echo $api_created ? esc_html($api_created) : '–'; ?></td>
+          </tr>
+          <tr>
+            <th>API endpointy</th>
+            <td>
+              <code><?php echo esc_html(home_url('/wp-json/webfusion-connector/v1/')); ?></code>
+              <br><br>
+              <strong>Dostupné endpointy:</strong>
+              <ul style="margin-left:20px;">
+                <li><code>GET /ping</code> - Test dostupnosti</li>
+                <li><code>POST /instant-login</code> - Okamžité přihlášení</li>
+                <li><code>GET /website-data</code> - Real-time data o webu</li>
+              </ul>
+            </td>
+          </tr>
+        </table>
+        <p>
+          <button type="button" id="wbf_rotate_api_key" class="button button-secondary">
+            Vygenerovat nový klíč
+          </button>
+          <span style="color:#999;margin-left:10px;">
+            (Starý klíč přestane fungovat)
+          </span>
+        </p>
       </div>
     </div>
 
