@@ -20,6 +20,8 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [updateInstances, setUpdateInstances] = useState<WebsiteUpdateInstance[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isEditingApiKey, setIsEditingApiKey] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   useEffect(() => {
     loadWebsiteData();
@@ -122,9 +124,43 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     }
   }
 
+  async function saveApiKey() {
+    if (!apiKeyInput.trim()) {
+      alert('API klíč nemůže být prázdný');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('websites')
+        .update({
+          api_key: apiKeyInput.trim(),
+          api_key_created_at: new Date().toISOString()
+        })
+        .eq('id', websiteId);
+
+      if (error) throw error;
+
+      setWebsite(prev => prev ? {
+        ...prev,
+        api_key: apiKeyInput.trim(),
+        api_key_created_at: new Date().toISOString()
+      } : null);
+
+      setIsEditingApiKey(false);
+      alert('API klíč byl úspěšně uložen');
+    } catch (error) {
+      console.error('Error saving API key:', error);
+      alert('Chyba při ukládání API klíče');
+    }
+  }
+
   async function instantLogin() {
     if (!website.api_key) {
-      alert('Web nemá nakonfigurovaný API klíč. Prosím zkopírujte API klíč z pluginu na webu.');
+      const adminLoginUrl = latestStatus?.ult
+        ? `${website.url}/login-token/${latestStatus.ult}`
+        : `${website.url}/wp-admin`;
+      window.open(adminLoginUrl, '_blank');
       return;
     }
 
@@ -138,9 +174,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Instant login error:', errorText);
-        throw new Error('Failed to generate instant login');
+        console.error('Instant login failed, falling back to ULT token');
+        const adminLoginUrl = latestStatus?.ult
+          ? `${website.url}/login-token/${latestStatus.ult}`
+          : `${website.url}/wp-admin`;
+        window.open(adminLoginUrl, '_blank');
+        return;
       }
 
       const result = await response.json();
@@ -151,8 +190,11 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
         throw new Error('Invalid response from website');
       }
     } catch (error) {
-      console.error('Instant login error:', error);
-      alert('Chyba při generování přihlašovacího odkazu. Zkontrolujte, zda je web dostupný a má aktuální verzi pluginu.');
+      console.error('Instant login error, using fallback:', error);
+      const adminLoginUrl = latestStatus?.ult
+        ? `${website.url}/login-token/${latestStatus.ult}`
+        : `${website.url}/wp-admin`;
+      window.open(adminLoginUrl, '_blank');
     }
   }
 
@@ -556,6 +598,92 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           )}
                         </div>
                       </div>
+                    </div>
+
+                    {/* API Key Section */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <ShieldCheckIcon className="w-4 h-4" />
+                        API klíč pro okamžité přihlášení
+                      </h3>
+                      {!isEditingApiKey ? (
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between text-sm">
+                            <span className="text-gray-600">Stav:</span>
+                            {website.api_key ? (
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                                  Nakonfigurováno
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  Používá se nový systém (60s token)
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                  Není nastaveno
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  Používá se původní ULT token (75 min)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          {website.api_key && (
+                            <div className="flex items-start justify-between text-sm">
+                              <span className="text-gray-600">API klíč:</span>
+                              <code className="text-xs bg-gray-50 px-2 py-1 rounded font-mono max-w-xs truncate">
+                                {website.api_key.substring(0, 16)}...
+                              </code>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => {
+                              setApiKeyInput(website.api_key || '');
+                              setIsEditingApiKey(true);
+                            }}
+                            className="mt-2 w-full px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
+                          >
+                            {website.api_key ? 'Změnit API klíč' : 'Nastavit API klíč'}
+                          </button>
+                          <p className="text-xs text-gray-500 mt-2">
+                            API klíč získáte z pluginu WBF Connector na webu v záložce "API klíč".
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              API klíč z pluginu
+                            </label>
+                            <input
+                              type="text"
+                              value={apiKeyInput}
+                              onChange={(e) => setApiKeyInput(e.target.value)}
+                              placeholder="Vložte API klíč z pluginu..."
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={saveApiKey}
+                              className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Uložit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditingApiKey(false);
+                                setApiKeyInput('');
+                              }}
+                              className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              Zrušit
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
