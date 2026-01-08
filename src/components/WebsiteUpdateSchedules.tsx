@@ -664,6 +664,9 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                     <div className={`sticky top-0 z-10 px-4 py-2 bg-gray-50 border-b border-gray-200 ${isCurrentMonth ? 'bg-blue-50' : ''}`}>
                       <h3 className={`text-sm font-semibold capitalize ${isCurrentMonth ? 'text-blue-900' : 'text-gray-700'}`}>
                         {monthName}
+                        <span className={`ml-2 text-xs font-medium ${isCurrentMonth ? 'text-blue-700' : 'text-gray-600'}`}>
+                          ({monthInstances.length})
+                        </span>
                         {isCurrentMonth && <span className="ml-2 text-xs font-normal text-blue-600">(aktuální)</span>}
                       </h3>
                     </div>
