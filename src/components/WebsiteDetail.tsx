@@ -384,16 +384,22 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const isInstanceCompleted = (inst: WebsiteUpdateInstance) => {
+    const taskData = Array.isArray(inst.task) ? inst.task[0] : inst.task;
+    return inst.status === 'completed' || inst.status === 'skipped' || taskData?.status === 'completed';
+  };
+
   const upcomingInstances = updateInstances
-    .filter(inst => inst.status === 'pending' || (new Date(inst.scheduled_date) >= today && inst.status !== 'completed' && inst.status !== 'skipped'))
+    .filter(inst => !isInstanceCompleted(inst))
     .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
 
   const completedInstances = updateInstances
-    .filter(inst => inst.status === 'completed' || inst.status === 'skipped')
+    .filter(inst => isInstanceCompleted(inst))
     .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
 
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+    <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white overflow-hidden">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -1030,6 +1036,9 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                                 const assignedUser = taskData?.assigned_to
                                   ? users.find(u => u.id === taskData.assigned_to)
                                   : null;
+                                const isTaskCompleted = taskData?.status === 'completed';
+                                const isSkipped = instance.status === 'skipped';
+                                const isCompleted = instance.status === 'completed' || isTaskCompleted;
 
                                 return (
                                   <div
@@ -1043,10 +1052,12 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                                   >
                                     <div className="flex items-center justify-between gap-3">
                                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                                        {instance.status === 'completed' ? (
+                                        {isCompleted ? (
                                           <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-                                        ) : (
+                                        ) : isSkipped ? (
                                           <XCircleIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                        ) : (
+                                          <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
                                         )}
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 mb-1">
@@ -1054,11 +1065,11 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                                               {date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}
                                             </span>
                                             <span className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                              instance.status === 'completed'
+                                              isCompleted
                                                 ? 'bg-green-100 text-green-700'
                                                 : 'bg-gray-200 text-gray-600'
                                             }`}>
-                                              {instance.status === 'completed' ? 'Dokončeno' : 'Přeskočeno'}
+                                              {isCompleted ? 'Dokončeno' : 'Přeskočeno'}
                                             </span>
                                           </div>
                                           {instance.task && (
@@ -1110,12 +1121,13 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
           </div>
         </div>
       )}
+      </div>
 
       {selectedTaskId && (
         <TaskDetail
           taskId={selectedTaskId}
           onClose={() => setSelectedTaskId(null)}
-          onTaskUpdated={() => {}}
+          onTaskUpdated={() => loadWebsiteData()}
         />
       )}
     </div>

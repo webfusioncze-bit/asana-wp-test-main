@@ -38,7 +38,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editIntervalMonths, setEditIntervalMonths] = useState<1 | 2 | 3 | 6 | 12>(1);
   const [editFirstUpdateDate, setEditFirstUpdateDate] = useState('');
-  const [taskDataMap, setTaskDataMap] = useState<Record<string, { assigned_to: string | null }>>({});
+  const [taskDataMap, setTaskDataMap] = useState<Record<string, { assigned_to: string | null; status: string | null }>>({});
 
   useEffect(() => {
     loadData();
@@ -188,9 +188,9 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
         .rpc('get_website_update_task_assignments', { task_ids: taskIds });
 
       if (tasksData) {
-        const map: Record<string, { assigned_to: string | null }> = {};
-        tasksData.forEach((t: { task_id: string; assigned_to: string | null }) => {
-          map[t.task_id] = { assigned_to: t.assigned_to };
+        const map: Record<string, { assigned_to: string | null; status: string | null }> = {};
+        tasksData.forEach((t: { task_id: string; assigned_to: string | null; status: string | null }) => {
+          map[t.task_id] = { assigned_to: t.assigned_to, status: t.status };
         });
         setTaskDataMap(map);
       }
@@ -678,8 +678,10 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                         const dateStr = date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
-                        const isOverdue = date < today && instance.status === 'pending' && !instance.task_id;
                         const taskData = instance.task_id ? taskDataMap[instance.task_id] : null;
+                        const isTaskCompleted = taskData?.status === 'completed';
+                        const isInstanceCompleted = instance.status === 'completed' || instance.status === 'skipped' || isTaskCompleted;
+                        const isOverdue = date < today && instance.status === 'pending' && !instance.task_id && !isTaskCompleted;
                         const assignedUser = taskData?.assigned_to
                           ? users.find(u => u.id === taskData.assigned_to)
                           : null;
@@ -727,8 +729,10 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                                     {assignedUser.display_name || assignedUser.first_name || assignedUser.email}
                                   </span>
                                 </div>
-                              ) : instance.task_id ? (
+                              ) : instance.task_id && isTaskCompleted ? (
                                 <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                              ) : instance.task_id && !isTaskCompleted ? (
+                                <span className="text-xs text-gray-500 font-medium">Rozpracováno</span>
                               ) : canManage && (
                                 <button
                                   onClick={(e) => {
@@ -741,7 +745,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                                 </button>
                               )}
 
-                              {canManage && instance.status === 'pending' && !instance.task_id && (
+                              {canManage && instance.status === 'pending' && !instance.task_id && !isTaskCompleted && (
                                 <>
                                   <button
                                     onClick={(e) => {
@@ -766,7 +770,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                                 </>
                               )}
 
-                              {instance.status === 'completed' && !instance.task_id && (
+                              {(instance.status === 'completed' || isTaskCompleted) && !instance.task_id && (
                                 <CheckCircleIcon className="w-4 h-4 text-green-600" />
                               )}
                               {instance.status === 'skipped' && (
