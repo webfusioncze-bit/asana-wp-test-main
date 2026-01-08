@@ -11,7 +11,12 @@ defined( 'ABSPATH' ) or die( 'Access denied' );
 define( 'DEACTIVATION_PASSWORD', 'deaktivace' );
 
 /* ------------------------------------------------------------------
- * 1)  Admin UI + další soubory
+ * 1)  API Auth systém (potřebný pro admin i REST API)
+ * ---------------------------------------------------------------- */
+require_once plugin_dir_path( __FILE__ ) . 'api-hooky/wbf-api-auth.php';
+
+/* ------------------------------------------------------------------
+ * 2)  Admin UI + další soubory
  * ---------------------------------------------------------------- */
 require_once plugin_dir_path( __FILE__ ) . 'admin-page.php';
 require_once plugin_dir_path( __FILE__ ) . 'admin-scripts.php';
@@ -21,13 +26,10 @@ require_once plugin_dir_path( __FILE__ ) . 'mereni-rychlosti/performance-functio
 require_once plugin_dir_path( __FILE__ ) . 'mereni-rychlosti/performance-activate.php';
 
 /* ------------------------------------------------------------------
- * 2)  REST endpointy
+ * 3)  REST endpointy
  * ---------------------------------------------------------------- */
 add_action( 'rest_api_init', function () {
-	// NEJDŘÍVE: Auth systém (poskytuje wbf_connector_verify_api_key funkci)
-	require_once plugin_dir_path( __FILE__ ) . 'api-hooky/wbf-api-auth.php';
-
-	// Původní API endpointy (používají wbf_connector_verify_api_key)
+	// Původní API endpointy (používají wbf_connector_verify_api_key z wbf-api-auth.php)
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/create-delete-index.php';
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/check-integrity.php';
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/create-user.php';
@@ -37,7 +39,7 @@ add_action( 'rest_api_init', function () {
 } );
 
 /* ------------------------------------------------------------------
- * 3)  Aktivace / deaktivace
+ * 4)  Aktivace / deaktivace
  * ---------------------------------------------------------------- */
 register_activation_hook(  __FILE__, 'wf_create_performance_table' );
 register_activation_hook(  __FILE__, 'wbf_activate' );
@@ -47,7 +49,7 @@ function wbf_activate(){  flush_rewrite_rules(); }
 function wbf_deactivate(){ flush_rewrite_rules(); }
 
 /* ------------------------------------------------------------------
- * 4)  Front‑end performance skript
+ * 5)  Front‑end performance skript
  * ---------------------------------------------------------------- */
 add_action( 'wp_enqueue_scripts', function () {
 	wp_enqueue_script(
@@ -58,7 +60,7 @@ add_action( 'wp_enqueue_scripts', function () {
 } );
 
 /* ------------------------------------------------------------------
- * 5)  Výchozí SMTP Webfusion + helpery
+ * 6)  Výchozí SMTP Webfusion + helpery
  * ---------------------------------------------------------------- */
 define( 'WBF_SMTP_DEFAULT_HOST',   'smtp.seznam.cz' );
 define( 'WBF_SMTP_DEFAULT_PORT',   465 );
@@ -92,7 +94,7 @@ function wbf_get_active_smtp_settings() : array {
 }
 
 /* ------------------------------------------------------------------
- * 6)  Přepis wp_mail() na aktivní SMTP - WordPress 6.9+ kompatibilní
+ * 7)  Přepis wp_mail() na aktivní SMTP - WordPress 6.9+ kompatibilní
  * ---------------------------------------------------------------- */
 
 // Kontrola, zda není aktivní jiný SMTP plugin
@@ -192,7 +194,7 @@ function wbf_ping_and_token_handler() {
 
 
 /* ------------------------------------------------------------------ */
-/* ========== 9)  Funkce generate_and_write_xml (beze změn) ========== */
+/* ========== 10)  Funkce generate_and_write_xml (beze změn) ========== */
 /* ------------------------------------------------------------------ */
 
 function generate_and_write_xml() {
