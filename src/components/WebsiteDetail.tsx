@@ -22,10 +22,23 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditingApiKey, setIsEditingApiKey] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [users, setUsers] = useState<Array<{ id: string; email: string; display_name: string | null; first_name: string | null; last_name: string | null; avatar_url: string | null }>>([]);
+  const [assigningInstanceId, setAssigningInstanceId] = useState<string | null>(null);
 
   useEffect(() => {
     loadWebsiteData();
   }, [websiteId]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (assigningInstanceId) {
+        setAssigningInstanceId(null);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [assigningInstanceId]);
 
   async function loadWebsiteData() {
     setLoading(true);
@@ -128,8 +141,14 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
       setUpdateInstances([]);
     }
 
+    const { data: usersData } = await supabase
+      .from('user_profiles')
+      .select('id, email, display_name, first_name, last_name, avatar_url')
+      .order('display_name');
+
     setWebsite(websiteData);
     setLatestStatus(statusData);
+    setUsers(usersData || []);
     setLoading(false);
   }
 
@@ -193,6 +212,23 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
     } catch (error) {
       console.error('Error saving API key:', error);
       alert('Chyba při ukládání API klíče');
+    }
+  }
+
+  async function assignTaskToUser(taskId: string, userId: string) {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ assigned_to: userId })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      await loadWebsiteData();
+      setAssigningInstanceId(null);
+    } catch (error) {
+      console.error('Error assigning task:', error);
+      alert('Chyba při přiřazování úkolu');
     }
   }
 
@@ -341,23 +377,20 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
       .filter((p): p is {name: string; current_version?: string; new_version?: string} => p !== null);
   };
 
-  const normalizeUsers = (users: any[]): string[] => {
-    if (!Array.isArray(users)) return [];
-    return users
-      .map(u => {
-        if (typeof u === 'string') return u;
-        if (typeof u === 'object' && u !== null) {
-          return u.username || u.email || null;
-        }
-        return null;
-      })
-      .filter((name): name is string => !!name && name.trim() !== '');
-  };
-
   const activePlugins = normalizePlugins(latestStatus?.raw_data?.active_plugins || []);
   const updatePlugins = normalizeUpdatePlugins(latestStatus?.raw_data?.update_plugins || []);
   const inactivePlugins = normalizePlugins(latestStatus?.raw_data?.inactive_plugins || []);
-  const users = normalizeUsers(latestStatus?.raw_data?.users || []);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingInstances = updateInstances
+    .filter(inst => inst.status === 'pending' || (new Date(inst.scheduled_date) >= today && inst.status !== 'completed' && inst.status !== 'skipped'))
+    .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime());
+
+  const completedInstances = updateInstances
+    .filter(inst => inst.status === 'completed' || inst.status === 'skipped')
+    .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
@@ -812,21 +845,24 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
 
                 {activeTab === 'users' && (
                   <div>
-                    {users.length > 0 ? (
+                    {latestStatus?.raw_data?.users && Array.isArray(latestStatus.raw_data.users) && latestStatus.raw_data.users.length > 0 ? (
                       <div>
                         <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <UsersIcon className="w-4 h-4 text-blue-600" />
-                          Uživatelé ({users.length})
+                          Uživatelé webu ({latestStatus.raw_data.users.length})
                         </h3>
                         <div className="flex flex-wrap gap-2">
-                          {users.map((user: string, index: number) => (
-                            <span
-                              key={index}
-                              className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200 hover:bg-blue-100 transition-colors"
-                            >
-                              {user}
-                            </span>
-                          ))}
+                          {latestStatus.raw_data.users.map((user: any, index: number) => {
+                            const userName = typeof user === 'string' ? user : (user.username || user.email || 'Neznámý');
+                            return (
+                              <span
+                                key={index}
+                                className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-200 hover:bg-blue-100 transition-colors"
+                              >
+                                {userName}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
                     ) : (
@@ -839,90 +875,228 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                 )}
 
                 {activeTab === 'updates' && (
-                  <div>
+                  <div className="space-y-6">
                     {updateInstances.length > 0 ? (
-                      <div className="space-y-2">
-                        {updateInstances.map((instance) => {
-                          const date = new Date(instance.scheduled_date);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const isOverdue = date < today && instance.status === 'pending' && !instance.task_id;
-                          const isPast = date < today;
-                          const taskData = Array.isArray(instance.task) ? instance.task[0] : instance.task;
-                          const assignedUser = taskData?.assigned_to
-                            ? users.find(u => u.id === taskData.assigned_to)
-                            : null;
+                      <>
+                        {upcomingInstances.length > 0 && (
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                              Plánované aktualizace ({upcomingInstances.length})
+                            </h3>
+                            <div className="space-y-2">
+                              {upcomingInstances.map((instance) => {
+                                const date = new Date(instance.scheduled_date);
+                                const isOverdue = date < today && instance.status === 'pending';
+                                const taskData = Array.isArray(instance.task) ? instance.task[0] : instance.task;
+                                const assignedUser = taskData?.assigned_to
+                                  ? users.find(u => u.id === taskData.assigned_to)
+                                  : null;
 
-                          return (
-                            <div
-                              key={instance.id}
-                              className={`p-3 rounded-lg border transition-colors ${
-                                isOverdue
-                                  ? 'bg-red-50 border-red-200 hover:bg-red-100'
-                                  : isPast
-                                  ? 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                  : 'bg-white border-gray-200 hover:bg-gray-50'
-                              } ${instance.task_id ? 'cursor-pointer' : ''}`}
-                              onClick={() => {
-                                if (instance.task_id) {
-                                  setSelectedTaskId(instance.task_id);
-                                }
-                              }}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 flex-1">
-                                  {isOverdue && (
-                                    <AlertTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                                  )}
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-sm font-medium text-gray-900">
-                                        {date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                      </span>
-                                      {instance.status === 'completed' && (
-                                        <CheckCircleIcon className="w-4 h-4 text-green-600" />
-                                      )}
-                                      {instance.status === 'skipped' && (
-                                        <XCircleIcon className="w-4 h-4 text-gray-400" />
-                                      )}
-                                    </div>
-                                    {instance.task && (
-                                      <p className="text-xs text-gray-600 mb-2">
-                                        {instance.task.title}
-                                      </p>
-                                    )}
-                                    {assignedUser && (
-                                      <div className="flex items-center gap-2">
-                                        {assignedUser.avatar_url ? (
-                                          <img
-                                            src={assignedUser.avatar_url}
-                                            alt=""
-                                            className="w-5 h-5 rounded-full object-cover"
-                                          />
-                                        ) : (
-                                          <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
-                                            <span className="text-xs text-gray-600">
-                                              {(assignedUser.first_name?.[0] || assignedUser.email[0]).toUpperCase()}
+                                return (
+                                  <div
+                                    key={instance.id}
+                                    className={`p-3 rounded-lg border transition-colors ${
+                                      isOverdue
+                                        ? 'bg-red-50 border-red-200'
+                                        : 'bg-white border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div
+                                        className="flex items-center gap-3 flex-1 cursor-pointer"
+                                        onClick={() => {
+                                          if (instance.task_id) {
+                                            setSelectedTaskId(instance.task_id);
+                                          }
+                                        }}
+                                      >
+                                        {isOverdue && (
+                                          <AlertTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0" />
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-sm font-medium text-gray-900">
+                                              {date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            </span>
+                                            {isOverdue && (
+                                              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                                Po termínu
+                                              </span>
+                                            )}
+                                          </div>
+                                          {instance.task && (
+                                            <p className="text-xs text-gray-600 truncate">
+                                              {instance.task.title}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* User Assignment */}
+                                      <div className="flex items-center gap-2 flex-shrink-0">
+                                        {assignedUser ? (
+                                          <div
+                                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-lg px-2 py-1 transition-colors"
+                                            onClick={() => {
+                                              if (instance.task_id) {
+                                                setSelectedTaskId(instance.task_id);
+                                              }
+                                            }}
+                                          >
+                                            {assignedUser.avatar_url ? (
+                                              <img
+                                                src={assignedUser.avatar_url}
+                                                alt=""
+                                                className="w-6 h-6 rounded-full object-cover"
+                                              />
+                                            ) : (
+                                              <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                                <span className="text-xs font-medium text-blue-700">
+                                                  {(assignedUser.first_name?.[0] || assignedUser.email[0]).toUpperCase()}
+                                                </span>
+                                              </div>
+                                            )}
+                                            <span className="text-xs font-medium text-gray-700">
+                                              {assignedUser.display_name || assignedUser.first_name || assignedUser.email.split('@')[0]}
                                             </span>
                                           </div>
-                                        )}
-                                        <span className="text-xs text-gray-700">
-                                          {assignedUser.display_name || assignedUser.email}
-                                        </span>
+                                        ) : instance.task_id ? (
+                                          <div className="relative">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setAssigningInstanceId(assigningInstanceId === instance.id ? null : instance.id);
+                                              }}
+                                              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                            >
+                                              <UsersIcon className="w-4 h-4" />
+                                              Přidělit
+                                            </button>
+                                            {assigningInstanceId === instance.id && (
+                                              <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                                                {users.map(user => (
+                                                  <button
+                                                    key={user.id}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      assignTaskToUser(instance.task_id!, user.id);
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 transition-colors"
+                                                  >
+                                                    {user.avatar_url ? (
+                                                      <img
+                                                        src={user.avatar_url}
+                                                        alt=""
+                                                        className="w-6 h-6 rounded-full object-cover"
+                                                      />
+                                                    ) : (
+                                                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                                        <span className="text-xs font-medium text-blue-700">
+                                                          {(user.first_name?.[0] || user.email[0]).toUpperCase()}
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                    <span className="text-gray-900">
+                                                      {user.display_name || user.first_name || user.email.split('@')[0]}
+                                                    </span>
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : null}
                                       </div>
-                                    )}
-                                    {isOverdue && (
-                                      <p className="text-xs text-red-600 font-medium mt-1">
-                                        Po termínu
-                                      </p>
-                                    )}
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        )}
+
+                        {completedInstances.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="flex-1 h-px bg-gray-200"></div>
+                              <h3 className="text-sm font-semibold text-gray-500">
+                                Dokončené ({completedInstances.length})
+                              </h3>
+                              <div className="flex-1 h-px bg-gray-200"></div>
+                            </div>
+                            <div className="space-y-2">
+                              {completedInstances.map((instance) => {
+                                const date = new Date(instance.scheduled_date);
+                                const taskData = Array.isArray(instance.task) ? instance.task[0] : instance.task;
+                                const assignedUser = taskData?.assigned_to
+                                  ? users.find(u => u.id === taskData.assigned_to)
+                                  : null;
+
+                                return (
+                                  <div
+                                    key={instance.id}
+                                    className="p-3 rounded-lg border bg-gray-50 border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+                                    onClick={() => {
+                                      if (instance.task_id) {
+                                        setSelectedTaskId(instance.task_id);
+                                      }
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        {instance.status === 'completed' ? (
+                                          <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                        ) : (
+                                          <XCircleIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-sm font-medium text-gray-700">
+                                              {date.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            </span>
+                                            <span className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                              instance.status === 'completed'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-gray-200 text-gray-600'
+                                            }`}>
+                                              {instance.status === 'completed' ? 'Dokončeno' : 'Přeskočeno'}
+                                            </span>
+                                          </div>
+                                          {instance.task && (
+                                            <p className="text-xs text-gray-600 truncate">
+                                              {instance.task.title}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {assignedUser && (
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                          {assignedUser.avatar_url ? (
+                                            <img
+                                              src={assignedUser.avatar_url}
+                                              alt=""
+                                              className="w-6 h-6 rounded-full object-cover"
+                                            />
+                                          ) : (
+                                            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                              <span className="text-xs font-medium text-blue-700">
+                                                {(assignedUser.first_name?.[0] || assignedUser.email[0]).toUpperCase()}
+                                              </span>
+                                            </div>
+                                          )}
+                                          <span className="text-xs font-medium text-gray-700">
+                                            {assignedUser.display_name || assignedUser.first_name || assignedUser.email.split('@')[0]}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         <CalendarIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
