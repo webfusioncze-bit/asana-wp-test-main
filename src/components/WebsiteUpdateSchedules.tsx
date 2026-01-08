@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus as PlusIcon, Trash2 as TrashIcon, Calendar as CalendarIcon, Repeat as RepeatIcon, CheckCircle as CheckCircleIcon, XCircle as XCircleIcon, Search as SearchIcon, ChevronDown as ChevronDownIcon, Pencil as EditIcon } from 'lucide-react';
+import { Plus as PlusIcon, Trash2 as TrashIcon, Calendar as CalendarIcon, Repeat as RepeatIcon, CheckCircle as CheckCircleIcon, XCircle as XCircleIcon, Search as SearchIcon, ChevronDown as ChevronDownIcon, Pencil as EditIcon, AlertCircle as AlertCircleIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Website, WebsiteUpdateSchedule, WebsiteUpdateInstance, User } from '../types';
 
@@ -681,7 +681,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                         const taskData = instance.task_id ? taskDataMap[instance.task_id] : null;
                         const isTaskCompleted = taskData?.status === 'completed';
                         const isInstanceCompleted = instance.status === 'completed' || instance.status === 'skipped' || isTaskCompleted;
-                        const isOverdue = date < today && instance.status === 'pending' && !instance.task_id && !isTaskCompleted;
+                        const isOverdue = date < today && !isInstanceCompleted;
                         const assignedUser = taskData?.assigned_to
                           ? users.find(u => u.id === taskData.assigned_to)
                           : null;
@@ -708,6 +708,12 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                             </div>
 
                             <div className="flex items-center gap-2 flex-shrink-0">
+                              {isOverdue && (
+                                <AlertCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
+                              )}
+                              {isTaskCompleted && (
+                                <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              )}
                               {instance.task_id && assignedUser ? (
                                 <div className="flex items-center gap-2">
                                   {assignedUser.avatar_url ? (
@@ -729,8 +735,6 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                                     {assignedUser.display_name || assignedUser.first_name || assignedUser.email}
                                   </span>
                                 </div>
-                              ) : instance.task_id && isTaskCompleted ? (
-                                <CheckCircleIcon className="w-4 h-4 text-green-600" />
                               ) : instance.task_id && !isTaskCompleted ? (
                                 <span className="text-xs text-gray-500 font-medium">Rozpracováno</span>
                               ) : canManage && (
