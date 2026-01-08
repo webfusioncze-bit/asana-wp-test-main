@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertCircleIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { AlertCircleIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon, UserIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TaskItemSimple } from './TaskItemSimple';
 import { UnscheduledTasks } from './UnscheduledTasks';
@@ -7,6 +7,11 @@ import type { Task, Category, User } from '../types';
 
 interface TaskOverviewProps {
   onTaskClick: (taskId: string) => void;
+}
+
+interface OverdueTasks {
+  myOverdue: Task[];
+  createdByMeOverdue: Task[];
 }
 
 function getWeekBounds(date: Date): { start: Date; end: Date } {
@@ -41,13 +46,14 @@ function getWeekLabel(weekOffset: number): string {
 }
 
 export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
-  const [overdueTasks, setOverdueTasks] = useState<Task[]>([]);
+  const [overdueTasks, setOverdueTasks] = useState<OverdueTasks>({ myOverdue: [], createdByMeOverdue: [] });
   const [currentWeekTasks, setCurrentWeekTasks] = useState<Task[]>([]);
   const [nextWeekTasks, setNextWeekTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [nextWeekOffset, setNextWeekOffset] = useState(1);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllData();
@@ -101,11 +107,11 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
     nextWeekDate.setDate(now.getDate() + (nextWeekOffset * 7));
     const { start: nextWeekStart, end: nextWeekEnd } = getWeekBounds(nextWeekDate);
 
-    // Získat ID aktuálního uživatele
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Načíst pouze úkoly vytvořené nebo přiřazené přihlášenému uživateli
+    setCurrentUserId(user.id);
+
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
@@ -120,7 +126,8 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
     }
 
     const allTasks = data || [];
-    const overdue: Task[] = [];
+    const myOverdue: Task[] = [];
+    const createdByMeOverdue: Task[] = [];
     const currentWeek: Task[] = [];
     const nextWeek: Task[] = [];
 
@@ -131,7 +138,11 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
       dueDate.setHours(0, 0, 0, 0);
 
       if (dueDate < now) {
-        overdue.push(task);
+        if (task.assigned_to === user.id) {
+          myOverdue.push(task);
+        } else if (task.created_by === user.id && task.assigned_to !== user.id) {
+          createdByMeOverdue.push(task);
+        }
       } else if (dueDate >= currentWeekStart && dueDate <= currentWeekEnd) {
         currentWeek.push(task);
       } else if (dueDate >= nextWeekStart && dueDate <= nextWeekEnd) {
@@ -139,7 +150,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
       }
     });
 
-    setOverdueTasks(overdue);
+    setOverdueTasks({ myOverdue, createdByMeOverdue });
     setCurrentWeekTasks(currentWeek);
     setNextWeekTasks(nextWeek);
   }
@@ -179,7 +190,8 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
   nextWeekDate.setDate(now.getDate() + (nextWeekOffset * 7));
   const { start: nextWeekStart, end: nextWeekEnd } = getWeekBounds(nextWeekDate);
 
-  const totalTasks = overdueTasks.length + currentWeekTasks.length + nextWeekTasks.length;
+  const totalOverdue = overdueTasks.myOverdue.length + overdueTasks.createdByMeOverdue.length;
+  const totalTasks = totalOverdue + currentWeekTasks.length + nextWeekTasks.length;
 
   if (totalTasks === 0 && nextWeekOffset === 1) {
     return (
@@ -196,16 +208,46 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
     <div className="space-y-6">
       <UnscheduledTasks onTaskClick={onTaskClick} />
 
-      {overdueTasks.length > 0 && (
+      {overdueTasks.myOverdue.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <AlertCircleIcon className="w-5 h-5 text-red-600" />
             <h3 className="text-sm font-semibold text-red-600 uppercase tracking-wide">
-              Zpožděné ({overdueTasks.length})
+              Moje zpožděné ({overdueTasks.myOverdue.length})
             </h3>
           </div>
           <div className="space-y-0.5">
-            {overdueTasks.map(task => {
+            {overdueTasks.myOverdue.map(task => {
+              const category = categories.find(c => c.id === task.category_id);
+              const assignedUser = users.find(u => u.id === task.assigned_to);
+              const createdByUser = users.find(u => u.id === task.created_by);
+              return (
+                <TaskItemSimple
+                  key={task.id}
+                  task={task}
+                  category={category}
+                  assignedUser={assignedUser}
+                  createdByUser={createdByUser}
+                  onClick={() => onTaskClick(task.id)}
+                  onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
+                  onSubtaskClick={onTaskClick}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {overdueTasks.createdByMeOverdue.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <UserIcon className="w-5 h-5 text-orange-600" />
+            <h3 className="text-sm font-semibold text-orange-600 uppercase tracking-wide">
+              Mnou zadané a zpožděné ({overdueTasks.createdByMeOverdue.length})
+            </h3>
+          </div>
+          <div className="space-y-0.5">
+            {overdueTasks.createdByMeOverdue.map(task => {
               const category = categories.find(c => c.id === task.category_id);
               const assignedUser = users.find(u => u.id === task.assigned_to);
               const createdByUser = users.find(u => u.id === task.created_by);
