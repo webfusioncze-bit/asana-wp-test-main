@@ -36,6 +36,47 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
       .eq('id', websiteId)
       .maybeSingle();
 
+    if (websiteData?.api_key) {
+      try {
+        const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-website-status`;
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            websiteUrl: websiteData.url,
+            apiKey: websiteData.api_key,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            const { error: insertError } = await supabase
+              .from('website_status')
+              .insert({
+                website_id: websiteId,
+                ...result.data,
+              });
+
+            if (!insertError) {
+              await supabase
+                .from('websites')
+                .update({
+                  last_sync_at: new Date().toISOString(),
+                  sync_error: null,
+                })
+                .eq('id', websiteId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching website data via API:', error);
+      }
+    }
+
     const { data: statusData } = await supabase
       .from('website_status')
       .select('*')
@@ -427,7 +468,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                       }}
                     />
                   </div>
-                  <div className="p-3 space-y-2">
+                  <div className="p-3 space-y-3">
                     <InfoRow label="Poslední aktualizace" value={formatDate(latestStatus.last_updated)} small />
                     {(() => {
                       const syncStatus = getSyncStatus(website.last_sync_at);
@@ -445,6 +486,104 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                         </div>
                       );
                     })()}
+
+                    {/* Data Source Badge */}
+                    <div className="pt-2 border-t border-gray-200">
+                      <div className="flex items-start justify-between text-xs mb-2">
+                        <span className="text-gray-600">Zdroj dat</span>
+                        {website.api_key ? (
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50">
+                            <ZapIcon className="w-3.5 h-3.5 text-green-600" />
+                            <span className="font-medium text-green-600">API (Realtime)</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-orange-50">
+                            <ClockIcon className="w-3.5 h-3.5 text-orange-600" />
+                            <span className="font-medium text-orange-600">XML Feed</span>
+                          </div>
+                        )}
+                      </div>
+                      {!website.api_key && (
+                        <div className="bg-orange-50 border border-orange-200 rounded p-2">
+                          <p className="text-xs text-orange-800">
+                            <strong>Doporučení:</strong> Aktualizujte plugin WBF Connector a nastavte API klíč pro realtime data a okamžité přihlášení.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* API Key Section - Moved from right column */}
+                    <div className="pt-2 border-t border-gray-200">
+                      <h4 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+                        <ShieldCheckIcon className="w-3.5 h-3.5" />
+                        API klíč
+                      </h4>
+                      {!isEditingApiKey ? (
+                        <div className="space-y-2">
+                          <div className="flex items-start justify-between text-xs">
+                            <span className="text-gray-600">Stav:</span>
+                            {website.api_key ? (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
+                                Nakonfigurováno
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
+                                Není nastaveno
+                              </span>
+                            )}
+                          </div>
+                          {website.api_key && (
+                            <div className="flex items-start justify-between text-xs">
+                              <span className="text-gray-600">Klíč:</span>
+                              <code className="text-xs bg-gray-50 px-2 py-1 rounded font-mono max-w-[140px] truncate">
+                                {website.api_key.substring(0, 12)}...
+                              </code>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => {
+                              setApiKeyInput(website.api_key || '');
+                              setIsEditingApiKey(true);
+                            }}
+                            className="mt-1 w-full px-2 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors"
+                          >
+                            {website.api_key ? 'Změnit klíč' : 'Nastavit klíč'}
+                          </button>
+                          {!website.api_key && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Získejte z pluginu WBF Connector v záložce "API klíč"
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={apiKeyInput}
+                            onChange={(e) => setApiKeyInput(e.target.value)}
+                            placeholder="Vložte API klíč..."
+                            className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              onClick={saveApiKey}
+                              className="flex-1 px-2 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Uložit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditingApiKey(false);
+                                setApiKeyInput('');
+                              }}
+                              className="flex-1 px-2 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded hover:bg-gray-200 transition-colors"
+                            >
+                              Zrušit
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -598,92 +737,6 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
                           )}
                         </div>
                       </div>
-                    </div>
-
-                    {/* API Key Section */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <ShieldCheckIcon className="w-4 h-4" />
-                        API klíč pro okamžité přihlášení
-                      </h3>
-                      {!isEditingApiKey ? (
-                        <div className="space-y-2">
-                          <div className="flex items-start justify-between text-sm">
-                            <span className="text-gray-600">Stav:</span>
-                            {website.api_key ? (
-                              <div className="flex flex-col items-end gap-1">
-                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">
-                                  Nakonfigurováno
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  Používá se nový systém (60s token)
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-end gap-1">
-                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded">
-                                  Není nastaveno
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  Používá se původní ULT token (75 min)
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          {website.api_key && (
-                            <div className="flex items-start justify-between text-sm">
-                              <span className="text-gray-600">API klíč:</span>
-                              <code className="text-xs bg-gray-50 px-2 py-1 rounded font-mono max-w-xs truncate">
-                                {website.api_key.substring(0, 16)}...
-                              </code>
-                            </div>
-                          )}
-                          <button
-                            onClick={() => {
-                              setApiKeyInput(website.api_key || '');
-                              setIsEditingApiKey(true);
-                            }}
-                            className="mt-2 w-full px-3 py-1.5 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
-                          >
-                            {website.api_key ? 'Změnit API klíč' : 'Nastavit API klíč'}
-                          </button>
-                          <p className="text-xs text-gray-500 mt-2">
-                            API klíč získáte z pluginu WBF Connector na webu v záložce "API klíč".
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                              API klíč z pluginu
-                            </label>
-                            <input
-                              type="text"
-                              value={apiKeyInput}
-                              onChange={(e) => setApiKeyInput(e.target.value)}
-                              placeholder="Vložte API klíč z pluginu..."
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={saveApiKey}
-                              className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              Uložit
-                            </button>
-                            <button
-                              onClick={() => {
-                                setIsEditingApiKey(false);
-                                setApiKeyInput('');
-                              }}
-                              className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-                            >
-                              Zrušit
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
