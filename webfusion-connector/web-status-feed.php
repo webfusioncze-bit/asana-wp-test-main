@@ -24,13 +24,15 @@ require_once plugin_dir_path( __FILE__ ) . 'mereni-rychlosti/performance-activat
  * 2)  REST endpointy
  * ---------------------------------------------------------------- */
 add_action( 'rest_api_init', function () {
-	// Původní API endpointy (beze změn)
+	// NEJDŘÍVE: Auth systém (poskytuje wbf_connector_verify_api_key funkci)
+	require_once plugin_dir_path( __FILE__ ) . 'api-hooky/wbf-api-auth.php';
+
+	// Původní API endpointy (používají wbf_connector_verify_api_key)
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/create-delete-index.php';
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/check-integrity.php';
 	include_once plugin_dir_path( __FILE__ ) . 'api-hooky/create-user.php';
 
-	// NOVÉ: Task Manager Integration API
-	require_once plugin_dir_path( __FILE__ ) . 'api-hooky/wbf-api-auth.php';
+	// Task Manager Integration API endpointy
 	require_once plugin_dir_path( __FILE__ ) . 'api-hooky/wbf-api-endpoints.php';
 } );
 

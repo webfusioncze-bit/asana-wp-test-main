@@ -1,14 +1,8 @@
 <?php
-function wbf_connector_verify_api_key(WP_REST_Request $request) {
-    $api_key = $request->get_param('api_key');
-    $valid_api_key = '56e13f2f-023e-4722-8211-869f616f58df'; // Zde zadej svůj tajný API klíč
-
-    if ($api_key !== $valid_api_key) {
-        return new WP_Error('rest_forbidden', esc_html__('Invalid API Key'), array('status' => 403));
-    }
-
-    return true;
-}
+/**
+ * API endpointy pro vytváření/mazání index.html (pozastavení webu)
+ * Používá centrální auth systém z wbf-api-auth.php
+ */
 
 function wbf_connector_clear_cache() {
     if (function_exists('wp_cache_clear_cache')) {
