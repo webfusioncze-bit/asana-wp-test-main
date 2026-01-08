@@ -149,22 +149,17 @@ Deno.serve(async (req: Request) => {
       if (lastName !== undefined) updateData.last_name = lastName;
       if (avatarUrl !== undefined) updateData.avatar_url = avatarUrl;
 
-      const displayName = [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-      if (displayName) {
-        updateData.display_name = displayName;
-      }
+      console.log('Update data for user_roles:', updateData);
 
-      console.log('Update data:', updateData);
+      const { error: updateError } = await supabaseAdmin
+        .from('user_roles')
+        .update(updateData)
+        .eq('user_id', userId);
 
-      const { data: updateResult, error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(
-        userId,
-        { user_metadata: updateData }
-      );
-
-      if (metadataError) {
-        console.error('Error updating user metadata:', metadataError);
+      if (updateError) {
+        console.error('Error updating user_roles:', updateError);
         return new Response(
-          JSON.stringify({ error: metadataError.message }),
+          JSON.stringify({ error: updateError.message }),
           {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -172,7 +167,7 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      console.log('User metadata updated successfully:', updateResult);
+      console.log('User profile updated successfully in user_roles');
 
       return new Response(
         JSON.stringify({ success: true, message: 'User profile updated successfully' }),
