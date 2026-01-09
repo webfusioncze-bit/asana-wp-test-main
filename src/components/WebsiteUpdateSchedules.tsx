@@ -39,6 +39,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
   const [editIntervalMonths, setEditIntervalMonths] = useState<1 | 2 | 3 | 6 | 12>(1);
   const [editFirstUpdateDate, setEditFirstUpdateDate] = useState('');
   const [taskDataMap, setTaskDataMap] = useState<Record<string, { assigned_to: string | null; status: string | null }>>({});
+  const [instanceSearchQuery, setInstanceSearchQuery] = useState('');
 
   useEffect(() => {
     loadData();
@@ -427,7 +428,19 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
     loadInstances();
   }
 
-  const instancesByMonth = instances.reduce((acc, instance) => {
+  const filteredInstances = instanceSearchQuery
+    ? instances.filter((instance) => {
+        const website = instance.schedule?.website;
+        if (!website) return false;
+        const searchLower = instanceSearchQuery.toLowerCase();
+        return (
+          website.name.toLowerCase().includes(searchLower) ||
+          website.url.toLowerCase().includes(searchLower)
+        );
+      })
+    : instances;
+
+  const instancesByMonth = filteredInstances.reduce((acc, instance) => {
     const date = new Date(instance.scheduled_date);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     if (!acc[monthKey]) {
@@ -435,7 +448,7 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
     }
     acc[monthKey].push(instance);
     return acc;
-  }, {} as Record<string, typeof instances>);
+  }, {} as Record<string, typeof filteredInstances>);
 
   const sortedMonthKeys = Object.keys(instancesByMonth).sort();
 
@@ -636,8 +649,18 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 space-y-3">
           <h2 className="text-lg font-semibold text-gray-900">Plánované aktualizace</h2>
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={instanceSearchQuery}
+              onChange={(e) => setInstanceSearchQuery(e.target.value)}
+              placeholder="Vyhledat web..."
+              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -645,6 +668,11 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
             <div className="text-center py-12">
               <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 text-sm">Žádné plánované aktualizace</p>
+            </div>
+          ) : filteredInstances.length === 0 ? (
+            <div className="text-center py-12">
+              <SearchIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-sm">Žádné aktualizace neodpovídají vyhledávání</p>
             </div>
           ) : (
             <div>
