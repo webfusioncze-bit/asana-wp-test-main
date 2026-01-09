@@ -33,57 +33,53 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
   async function loadWebsites() {
     setLoading(true);
 
-    const { data: websitesData, error } = await supabase
-      .from('websites')
-      .select('*')
-      .order('name');
+    const [websitesResult, statusesResult, clientWebsitesResult, clientsResult] = await Promise.all([
+      supabase.from('websites').select('*').order('name'),
+      supabase.from('website_status').select('*').order('created_at', { ascending: false }),
+      supabase.from('client_websites').select('website_id, client_id'),
+      supabase.from('clients').select('id, name, company_name'),
+    ]);
 
-    if (error) {
-      console.error('Error loading websites:', error);
+    if (websitesResult.error) {
+      console.error('Error loading websites:', websitesResult.error);
       setLoading(false);
       return;
     }
 
-    const websitesWithStatus = await Promise.all(
-      (websitesData || []).map(async (website) => {
-        const { data: statusData } = await supabase
-          .from('website_status')
-          .select('*')
-          .eq('website_id', website.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    const websitesData = websitesResult.data || [];
+    const statusesData = statusesResult.data || [];
+    const clientWebsitesData = clientWebsitesResult.data || [];
+    const clientsData = clientsResult.data || [];
 
-        const { data: clientWebsiteData } = await supabase
-          .from('client_websites')
-          .select('client_id')
-          .eq('website_id', website.id)
-          .maybeSingle();
+    const latestStatusByWebsite = new Map<string, WebsiteStatus>();
+    statusesData.forEach((status) => {
+      if (!latestStatusByWebsite.has(status.website_id)) {
+        latestStatusByWebsite.set(status.website_id, status);
+      }
+    });
 
-        let clientName = null;
-        let clientCompany = null;
+    const clientByWebsite = new Map<string, string>();
+    clientWebsitesData.forEach((cw) => {
+      clientByWebsite.set(cw.website_id, cw.client_id);
+    });
 
-        if (clientWebsiteData?.client_id) {
-          const { data: clientData } = await supabase
-            .from('clients')
-            .select('name, company_name')
-            .eq('id', clientWebsiteData.client_id)
-            .maybeSingle();
+    const clientsById = new Map<string, { name: string; company_name: string | null }>();
+    clientsData.forEach((client) => {
+      clientsById.set(client.id, { name: client.name, company_name: client.company_name });
+    });
 
-          if (clientData) {
-            clientName = clientData.name;
-            clientCompany = clientData.company_name;
-          }
-        }
+    const websitesWithStatus = websitesData.map((website) => {
+      const latestStatus = latestStatusByWebsite.get(website.id) || null;
+      const clientId = clientByWebsite.get(website.id);
+      const client = clientId ? clientsById.get(clientId) : null;
 
-        return {
-          ...website,
-          latestStatus: statusData,
-          clientName,
-          clientCompany,
-        };
-      })
-    );
+      return {
+        ...website,
+        latestStatus,
+        clientName: client?.name || null,
+        clientCompany: client?.company_name || null,
+      };
+    });
 
     setWebsites(websitesWithStatus);
     setLoading(false);
