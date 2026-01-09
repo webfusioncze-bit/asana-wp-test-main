@@ -28,7 +28,9 @@ type WebsitesViewMode = 'websites' | 'updates';
 
 function App() {
   const hash = window.location.hash;
-  const isPasswordSetup = hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token');
+  const hasRecoveryType = hash && (hash.includes('type=recovery') || hash.includes('type=invite'));
+  const hasToken = hash && (hash.includes('token=') || hash.includes('token_hash=') || hash.includes('access_token='));
+  const isPasswordSetup = hasRecoveryType && hasToken;
 
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
@@ -57,7 +59,9 @@ function App() {
 
   useEffect(() => {
     const hash = window.location.hash;
-    const isRecoveryLink = hash && (hash.includes('type=recovery') || hash.includes('type=invite')) && hash.includes('access_token');
+    const hasRecoveryType = hash && (hash.includes('type=recovery') || hash.includes('type=invite'));
+    const hasToken = hash && (hash.includes('token=') || hash.includes('token_hash=') || hash.includes('access_token='));
+    const isRecoveryLink = hasRecoveryType && hasToken;
 
     if (!isRecoveryLink) {
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -74,7 +78,9 @@ function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentHash = window.location.hash;
-      const isCurrentlyRecovery = currentHash && (currentHash.includes('type=recovery') || currentHash.includes('type=invite')) && currentHash.includes('access_token');
+      const currentHasRecoveryType = currentHash && (currentHash.includes('type=recovery') || currentHash.includes('type=invite'));
+      const currentHasToken = currentHash && (currentHash.includes('token=') || currentHash.includes('token_hash=') || currentHash.includes('access_token='));
+      const isCurrentlyRecovery = currentHasRecoveryType && currentHasToken;
 
       if (!isCurrentlyRecovery) {
         setUser(session?.user ?? null);
