@@ -24,13 +24,16 @@ export function PasswordSetup() {
     async function checkToken() {
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
-      const accessToken = params.get('access_token');
+      const tokenHash = params.get('token_hash');
+      const token = params.get('token');
       const type = params.get('type');
 
-      if (accessToken && (type === 'recovery' || type === 'invite')) {
+      const tokenValue = tokenHash || token;
+
+      if (tokenValue && (type === 'recovery' || type === 'invite')) {
         try {
           const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: accessToken,
+            token_hash: tokenValue,
             type: 'recovery'
           });
 
