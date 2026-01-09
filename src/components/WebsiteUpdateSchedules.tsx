@@ -717,8 +717,12 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                         return (
                           <div
                             key={instance.id}
-                            className={`px-4 py-2.5 transition-colors flex items-center justify-between gap-3 ${
-                              isOverdue ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'
+                            className={`px-4 transition-colors flex items-center justify-between gap-3 ${
+                              isInstanceCompleted
+                                ? 'py-1.5 bg-green-50/60 hover:bg-green-100/60'
+                                : isOverdue
+                                  ? 'py-2.5 bg-red-50 hover:bg-red-100'
+                                  : 'py-2.5 hover:bg-gray-50'
                             } ${instance.task_id && onTaskClick ? 'cursor-pointer' : ''}`}
                             onClick={() => {
                               if (instance.task_id && onTaskClick) {
@@ -727,10 +731,16 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                             }}
                           >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <span className={`text-xs font-medium w-12 flex-shrink-0 ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
+                              <span className={`text-xs font-medium w-12 flex-shrink-0 ${
+                                isInstanceCompleted ? 'text-green-600/70' : isOverdue ? 'text-red-600' : 'text-gray-500'
+                              }`}>
                                 {dateStr}
                               </span>
-                              <span className="text-sm text-gray-900 truncate">
+                              <span className={`truncate ${
+                                isInstanceCompleted
+                                  ? 'text-xs text-gray-500 line-through'
+                                  : 'text-sm text-gray-900'
+                              }`}>
                                 {website?.name}
                               </span>
                             </div>
@@ -740,12 +750,12 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                                 <AlertCircleIcon className="w-5 h-5 text-red-500 flex-shrink-0" />
                               )}
                               {isTaskCompleted && (
-                                <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                <CheckCircleIcon className={`${isInstanceCompleted ? 'w-4 h-4' : 'w-5 h-5'} text-green-600 flex-shrink-0`} />
                               )}
                               {instance.task_id && assignedUser ? (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5">
                                   {assignedUser.avatar_url ? (
-                                    <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
+                                    <div className={`${isInstanceCompleted ? 'w-5 h-5' : 'w-7 h-7'} rounded-full overflow-hidden flex-shrink-0`}>
                                       <img
                                         src={assignedUser.avatar_url}
                                         alt=""
@@ -753,13 +763,13 @@ export function WebsiteUpdateSchedules({ canManage, onTaskClick }: WebsiteUpdate
                                       />
                                     </div>
                                   ) : (
-                                    <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-xs text-gray-600">
+                                    <div className={`${isInstanceCompleted ? 'w-5 h-5' : 'w-7 h-7'} rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0`}>
+                                      <span className={`${isInstanceCompleted ? 'text-[10px]' : 'text-xs'} text-gray-600`}>
                                         {(assignedUser.first_name?.[0] || assignedUser.email[0]).toUpperCase()}
                                       </span>
                                     </div>
                                   )}
-                                  <span className="text-xs text-gray-700 whitespace-nowrap">
+                                  <span className={`whitespace-nowrap ${isInstanceCompleted ? 'text-[11px] text-gray-500' : 'text-xs text-gray-700'}`}>
                                     {assignedUser.display_name || assignedUser.first_name || assignedUser.email}
                                   </span>
                                 </div>
