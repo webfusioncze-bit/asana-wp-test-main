@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, PackageIcon, ServerIcon } from 'lucide-react';
+import { GlobeIcon, Trash2Icon, RefreshCwIcon, SearchIcon, LogInIcon, CheckCircleIcon, XCircleIcon, PackageIcon, ServerIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Website, WebsiteStatus } from '../types';
+import type { Website } from '../types';
 import { WebsiteUpdateSchedules } from './WebsiteUpdateSchedules';
 import { TaskDetail } from './TaskDetail';
 
@@ -33,53 +33,33 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
   async function loadWebsites() {
     setLoading(true);
 
-    const [websitesResult, statusesResult, clientWebsitesResult, clientsResult] = await Promise.all([
-      supabase.from('websites').select('*').order('name'),
-      supabase.from('website_status').select('*').order('created_at', { ascending: false }),
-      supabase.from('client_websites').select('website_id, client_id'),
-      supabase.from('clients').select('id, name, company_name'),
-    ]);
+    const { data, error } = await supabase
+      .from('websites_with_status')
+      .select('*')
+      .order('name');
 
-    if (websitesResult.error) {
-      console.error('Error loading websites:', websitesResult.error);
+    if (error) {
+      console.error('Error loading websites:', error);
       setLoading(false);
       return;
     }
 
-    const websitesData = websitesResult.data || [];
-    const statusesData = statusesResult.data || [];
-    const clientWebsitesData = clientWebsitesResult.data || [];
-    const clientsData = clientsResult.data || [];
-
-    const latestStatusByWebsite = new Map<string, WebsiteStatus>();
-    statusesData.forEach((status) => {
-      if (!latestStatusByWebsite.has(status.website_id)) {
-        latestStatusByWebsite.set(status.website_id, status);
-      }
-    });
-
-    const clientByWebsite = new Map<string, string>();
-    clientWebsitesData.forEach((cw) => {
-      clientByWebsite.set(cw.website_id, cw.client_id);
-    });
-
-    const clientsById = new Map<string, { name: string; company_name: string | null }>();
-    clientsData.forEach((client) => {
-      clientsById.set(client.id, { name: client.name, company_name: client.company_name });
-    });
-
-    const websitesWithStatus = websitesData.map((website) => {
-      const latestStatus = latestStatusByWebsite.get(website.id) || null;
-      const clientId = clientByWebsite.get(website.id);
-      const client = clientId ? clientsById.get(clientId) : null;
-
-      return {
-        ...website,
-        latestStatus,
-        clientName: client?.name || null,
-        clientCompany: client?.company_name || null,
-      };
-    });
+    const websitesWithStatus = (data || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      url: row.url,
+      is_available: row.is_available,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      latestStatus: row.wordpress_version ? {
+        wordpress_version: row.wordpress_version,
+        php_version: row.php_version,
+        update_plugins_count: row.update_plugins_count,
+        ult: row.ult,
+      } : null,
+      clientName: row.client_name,
+      clientCompany: row.client_company,
+    }));
 
     setWebsites(websitesWithStatus);
     setLoading(false);
