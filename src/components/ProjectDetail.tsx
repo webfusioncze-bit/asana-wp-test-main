@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
 import { ProjectTagsManager } from './ProjectTagsManager';
+import { ProjectPhaseTagsManager } from './ProjectPhaseTagsManager';
+import { PhaseTagsQuickEdit } from './PhaseTagsQuickEdit';
 
 interface ProjectDetailProps {
   projectId: string;
@@ -829,8 +831,9 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
                 {project.description && (
                   <p className="text-sm text-gray-600 mt-0.5">{project.description}</p>
                 )}
-                <div className="mt-3">
+                <div className="mt-3 space-y-3">
                   <ProjectTagsManager projectId={projectId} canManage={canManage} />
+                  <ProjectPhaseTagsManager canManage={canManage} />
                 </div>
               </>
             )}
@@ -1193,6 +1196,9 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
                               {phase.end_date && ` - ${new Date(phase.end_date).toLocaleDateString('cs-CZ')}`}
                             </span>
                           )}
+                        </div>
+                        <div className="mt-2">
+                          <PhaseTagsQuickEdit phaseId={phase.id} canManage={canManage} />
                         </div>
                       </>
                     )}

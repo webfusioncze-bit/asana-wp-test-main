@@ -502,3 +502,18 @@ export interface WebsiteUpdateInstance {
   schedule?: WebsiteUpdateSchedule;
   task?: Task;
 }
+
+export interface ProjectPhaseTag {
+  id: string;
+  name: string;
+  color: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ProjectPhaseTagAssignment {
+  id: string;
+  phase_id: string;
+  tag_id: string;
+  created_at: string;
+}
