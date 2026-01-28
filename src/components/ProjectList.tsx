@@ -28,6 +28,9 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [showTagManager, setShowTagManager] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#3b82f6');
   const letterRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
@@ -216,12 +219,70 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
 
   const hasActiveFilters = selectedUserIds.length > 0 || selectedTagIds.length > 0;
 
+  const predefinedColors = [
+    '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+    '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
+    '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
+    '#ec4899', '#f43f5e', '#64748b', '#6b7280', '#000000'
+  ];
+
+  async function createTag() {
+    if (!newTagName.trim()) return;
+
+    const { data: newTag, error } = await supabase
+      .from('project_tags')
+      .insert({
+        name: newTagName.trim(),
+        color: newTagColor,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating tag:', error);
+      return;
+    }
+
+    if (newTag) {
+      setAllTags(prev => [...prev, newTag]);
+    }
+
+    setNewTagName('');
+    setNewTagColor('#3b82f6');
+  }
+
+  async function deleteTag(tagId: string) {
+    if (!confirm('Opravdu chcete odstranit tento štítek? Bude odstraněn ze všech projektů.')) return;
+
+    const { error } = await supabase
+      .from('project_tags')
+      .delete()
+      .eq('id', tagId);
+
+    if (error) {
+      console.error('Error deleting tag:', error);
+      return;
+    }
+
+    setAllTags(prev => prev.filter(t => t.id !== tagId));
+    await loadProjects();
+  }
+
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white h-full">
       <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-semibold text-gray-900">Projekty</h1>
           <div className="flex items-center gap-3">
+            {canManage && (
+              <button
+                onClick={() => setShowTagManager(!showTagManager)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <TagIcon className="w-4 h-4" />
+                Spravovat štítky
+              </button>
+            )}
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -273,6 +334,99 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+
+        {showTagManager && canManage && (
+          <div className="mt-3 p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">Správa štítků</h3>
+              <button
+                onClick={() => setShowTagManager(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-gray-700 mb-1 block">
+                  Název nového štítku
+                </label>
+                <input
+                  type="text"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  placeholder="Např. Prioritní, Interní..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      createTag();
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-700 mb-2 block">
+                  Barva štítku
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {predefinedColors.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setNewTagColor(color)}
+                      className={`w-8 h-8 rounded-lg transition-all ${
+                        newTagColor === color
+                          ? 'ring-2 ring-offset-2 ring-blue-500 scale-110'
+                          : 'hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={createTag}
+                disabled={!newTagName.trim()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <TagIcon className="w-4 h-4" />
+                Vytvořit štítek
+              </button>
+            </div>
+
+            {allTags.length > 0 && (
+              <div className="border-t pt-4">
+                <h4 className="text-xs font-medium text-gray-700 mb-3">Existující štítky ({allTags.length})</h4>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map(tag => (
+                    <div
+                      key={tag.id}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border"
+                      style={{
+                        backgroundColor: tag.color + '10',
+                        color: tag.color,
+                        borderColor: tag.color + '30',
+                      }}
+                    >
+                      <TagIcon className="w-3.5 h-3.5" />
+                      <span>{tag.name}</span>
+                      <button
+                        onClick={() => deleteTag(tag.id)}
+                        className="ml-1 hover:opacity-70"
+                        title="Odstranit štítek"
+                      >
+                        <XIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {showFilters && (
           <div className="mt-3 p-4 bg-gray-50 rounded-lg space-y-4">
@@ -353,8 +507,8 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
         )}
       </div>
 
-      <div className="flex-1 flex relative min-h-0">
-        <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 flex relative overflow-hidden">
+        <div className="flex-1 overflow-y-auto h-full">
           {projects.length === 0 ? (
             <div className="text-center py-12">
               <BriefcaseIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
