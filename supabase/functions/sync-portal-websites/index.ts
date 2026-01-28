@@ -55,6 +55,7 @@ Deno.serve(async (req: Request) => {
     let allPortalWebsites: PortalWebsite[] = [];
     let page = 1;
     let hasMore = true;
+    let totalPages: number | null = null;
 
     while (hasMore) {
       const url = page === 1 ? portalApiUrl : `${portalApiUrl}?page=${page}`;
@@ -73,6 +74,14 @@ Deno.serve(async (req: Request) => {
         throw new Error(`Failed to fetch portal API: ${response.status} ${response.statusText}`);
       }
 
+      if (page === 1) {
+        const totalPagesHeader = response.headers.get('X-WP-TotalPages');
+        if (totalPagesHeader) {
+          totalPages = parseInt(totalPagesHeader, 10);
+          console.log(`Total pages from API: ${totalPages}`);
+        }
+      }
+
       const pageData: PortalWebsite[] = await response.json();
       console.log(`Received ${pageData.length} websites from page ${page}`);
 
@@ -80,10 +89,12 @@ Deno.serve(async (req: Request) => {
         hasMore = false;
       } else {
         allPortalWebsites = allPortalWebsites.concat(pageData);
-        page++;
 
-        if (pageData.length < 10) {
+        if (totalPages && page >= totalPages) {
           hasMore = false;
+          console.log(`Reached last page (${totalPages})`);
+        } else {
+          page++;
         }
       }
     }
