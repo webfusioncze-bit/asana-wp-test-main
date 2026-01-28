@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { BriefcaseIcon, SearchIcon, CalendarIcon, DollarSignIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, TrendingUpIcon } from 'lucide-react';
+import { BriefcaseIcon, SearchIcon, CalendarIcon, DollarSignIcon, ClockIcon, AlertTriangleIcon, CheckCircleIcon, RefreshCwIcon, TrendingUpIcon, TagIcon, FilterIcon, XIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Project } from '../types';
+import type { Project, ProjectTag, User } from '../types';
 
 interface ProjectListProps {
   canManage: boolean;
@@ -15,17 +15,48 @@ interface ProjectWithStats extends Project {
   total_hours: number;
   hour_budget_percentage: number;
   is_over_budget: boolean;
+  tags?: ProjectTag[];
+  assigned_user_ids?: string[];
 }
 
 export function ProjectList({ canManage, onSelectProject, selectedProjectId, showCompleted, onToggleCompleted }: ProjectListProps) {
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [allTags, setAllTags] = useState<ProjectTag[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
   const letterRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
     loadProjects();
+    loadUsers();
+    loadTags();
   }, [showCompleted]);
+
+  async function loadUsers() {
+    const { data } = await supabase
+      .from('user_profiles_view')
+      .select('*')
+      .order('display_name');
+
+    if (data) {
+      setUsers(data);
+    }
+  }
+
+  async function loadTags() {
+    const { data } = await supabase
+      .from('project_tags')
+      .select('*')
+      .order('name');
+
+    if (data) {
+      setAllTags(data);
+    }
+  }
 
   async function loadProjects() {
     setLoading(true);
@@ -48,8 +79,23 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
       (projectsData || []).map(async (project) => {
         const { data: phases } = await supabase
           .from('project_phases')
-          .select('id')
+          .select('id, assigned_user_id')
           .eq('project_id', project.id);
+
+        const { data: tagAssignments } = await supabase
+          .from('project_tag_assignments')
+          .select('tag_id, project_tags(*)')
+          .eq('project_id', project.id);
+
+        const projectTags = (tagAssignments || [])
+          .map(ta => ta.project_tags)
+          .filter(Boolean) as ProjectTag[];
+
+        const assignedUserIds = [...new Set(
+          (phases || [])
+            .map(p => p.assigned_user_id)
+            .filter(Boolean) as string[]
+        )];
 
         if (!phases || phases.length === 0) {
           return {
@@ -57,6 +103,8 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
             total_hours: 0,
             hour_budget_percentage: 0,
             is_over_budget: false,
+            tags: projectTags,
+            assigned_user_ids: assignedUserIds,
           };
         }
 
@@ -77,6 +125,8 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
           total_hours,
           hour_budget_percentage,
           is_over_budget,
+          tags: projectTags,
+          assigned_user_ids: assignedUserIds,
         };
       })
     );
@@ -90,11 +140,27 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
     return /[A-Z]/.test(firstChar) ? firstChar : '#';
   };
 
-  const filteredProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (project.client_company_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (project.client_contact_person || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProjects = projects.filter((project) => {
+    const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.client_company_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.client_contact_person || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (selectedTagIds.length > 0) {
+      const projectTagIds = (project.tags || []).map(tag => tag.id);
+      const hasSelectedTag = selectedTagIds.some(tagId => projectTagIds.includes(tagId));
+      if (!hasSelectedTag) return false;
+    }
+
+    if (selectedUserIds.length > 0) {
+      const projectUserIds = project.assigned_user_ids || [];
+      const hasSelectedUser = selectedUserIds.some(userId => projectUserIds.includes(userId));
+      if (!hasSelectedUser) return false;
+    }
+
+    return true;
+  });
 
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     return a.name.localeCompare(b.name, 'cs');
@@ -127,32 +193,73 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
     );
   }
 
+  const toggleUserFilter = (userId: string) => {
+    setSelectedUserIds(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const toggleTagFilter = (tagId: string) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId)
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedUserIds([]);
+    setSelectedTagIds([]);
+  };
+
+  const hasActiveFilters = selectedUserIds.length > 0 || selectedTagIds.length > 0;
+
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
       <div className="border-b border-gray-200 px-6 py-3 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-2xl font-semibold text-gray-900">Projekty</h1>
-          <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => onToggleCompleted(false)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                !showCompleted
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                hasActiveFilters
+                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              Aktivní
+              <FilterIcon className="w-4 h-4" />
+              Filtry
+              {hasActiveFilters && (
+                <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  {selectedUserIds.length + selectedTagIds.length}
+                </span>
+              )}
             </button>
-            <button
-              onClick={() => onToggleCompleted(true)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                showCompleted
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Dokončené
-            </button>
+            <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => onToggleCompleted(false)}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  !showCompleted
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Aktivní
+              </button>
+              <button
+                onClick={() => onToggleCompleted(true)}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  showCompleted
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Dokončené
+              </button>
+            </div>
           </div>
         </div>
 
@@ -166,10 +273,88 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+
+        {showFilters && (
+          <div className="mt-3 p-4 bg-gray-50 rounded-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">Aktivní filtry</h3>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Vymazat vše
+                </button>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-2 block">
+                Přiřazení uživatelé ve fázích
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {users.map(user => (
+                  <button
+                    key={user.id}
+                    onClick={() => toggleUserFilter(user.id)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      selectedUserIds.includes(user.id)
+                        ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:border-blue-200'
+                    }`}
+                  >
+                    {user.avatar_url ? (
+                      <img
+                        src={user.avatar_url}
+                        alt={user.display_name || user.email}
+                        className="w-5 h-5 rounded-full"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center text-xs text-white font-medium">
+                        {(user.display_name || user.email).charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span>{user.display_name || user.email}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-700 mb-2 block">
+                Štítky
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {allTags.map(tag => (
+                  <button
+                    key={tag.id}
+                    onClick={() => toggleTagFilter(tag.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      selectedTagIds.includes(tag.id)
+                        ? 'border-2 shadow-sm'
+                        : 'border hover:shadow-sm'
+                    }`}
+                    style={{
+                      backgroundColor: selectedTagIds.includes(tag.id) ? tag.color + '20' : 'white',
+                      borderColor: selectedTagIds.includes(tag.id) ? tag.color : '#e5e7eb',
+                      color: tag.color,
+                    }}
+                  >
+                    <TagIcon className="w-3.5 h-3.5" />
+                    <span className="font-medium">{tag.name}</span>
+                  </button>
+                ))}
+                {allTags.length === 0 && (
+                  <p className="text-sm text-gray-500">Zatím nejsou vytvořeny žádné štítky</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="flex-1 flex overflow-hidden relative">
-        <div className="flex-1 overflow-auto">
+      <div className="flex-1 flex relative min-h-0">
+        <div className="flex-1 overflow-y-auto">
           {projects.length === 0 ? (
             <div className="text-center py-12">
               <BriefcaseIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -232,9 +417,32 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
                                       <RefreshCwIcon className="w-3 h-3 text-green-500" title="Synchronizováno z portálu" />
                                     )}
                                   </div>
-                                  {project.client_company_name && (
-                                    <p className="text-xs text-gray-500 truncate">{project.client_company_name}</p>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {project.client_company_name && (
+                                      <p className="text-xs text-gray-500 truncate">{project.client_company_name}</p>
+                                    )}
+                                    {project.tags && project.tags.length > 0 && (
+                                      <div className="flex items-center gap-1 flex-shrink-0">
+                                        {project.tags.slice(0, 3).map(tag => (
+                                          <span
+                                            key={tag.id}
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                                            style={{
+                                              backgroundColor: tag.color + '20',
+                                              color: tag.color,
+                                            }}
+                                          >
+                                            {tag.name}
+                                          </span>
+                                        ))}
+                                        {project.tags.length > 3 && (
+                                          <span className="text-xs text-gray-400">
+                                            +{project.tags.length - 3}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
 

@@ -282,6 +282,22 @@ export type ProjectType = 'vývoj' | 'tvorba webu' | 'grafika' | 'integrace' | '
 export type ProjectCategory = 'interní' | 'klientský';
 export type ProjectStatus = 'aktivní' | 'pozastaven' | 'čeká se na klienta' | 'zrušen' | 'dokončen';
 
+export interface ProjectTag {
+  id: string;
+  name: string;
+  color: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectTagAssignment {
+  id: string;
+  project_id: string;
+  tag_id: string;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   name: string;
