@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon, CheckCheck as CheckCheckIcon, Trash2 as Trash2Icon, FolderIcon, XIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -26,6 +26,9 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const [loading, setLoading] = useState(true);
   const [showCreationPanel, setShowCreationPanel] = useState(false);
   const [requestStats, setRequestStats] = useState<Record<string, RequestStats>>({});
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
+  const [showBulkFolderMenu, setShowBulkFolderMenu] = useState(false);
   const { loadRequests: loadCachedRequests, invalidateRequests, isLoading: cacheLoading } = useDataCache();
 
   const isEshopRequest = (request: Request) => {
@@ -47,6 +50,18 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   useEffect(() => {
     loadData();
   }, [folderId]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showBulkFolderMenu && !target.closest('.bulk-folder-menu')) {
+        setShowBulkFolderMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showBulkFolderMenu]);
 
   async function loadData() {
     setLoading(true);
@@ -161,6 +176,77 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     request.client_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const toggleBulkSelect = () => {
+    setBulkSelectMode(!bulkSelectMode);
+    setSelectedRequests(new Set());
+    setShowBulkFolderMenu(false);
+  };
+
+  const toggleRequestSelection = (requestId: string) => {
+    const newSelected = new Set(selectedRequests);
+    if (newSelected.has(requestId)) {
+      newSelected.delete(requestId);
+    } else {
+      newSelected.add(requestId);
+    }
+    setSelectedRequests(newSelected);
+  };
+
+  const selectAllVisible = () => {
+    setSelectedRequests(new Set(filteredRequests.map(r => r.id)));
+  };
+
+  const deselectAll = () => {
+    setSelectedRequests(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRequests.size === 0) return;
+
+    if (!confirm(`Opravdu chcete smazat ${selectedRequests.size} poptávek?`)) {
+      return;
+    }
+
+    const requestIds = Array.from(selectedRequests);
+
+    const { error } = await supabase
+      .from('requests')
+      .delete()
+      .in('id', requestIds);
+
+    if (error) {
+      console.error('Error deleting requests:', error);
+      alert('Chyba při mazání poptávek');
+      return;
+    }
+
+    await loadRequestsAndStats();
+    setSelectedRequests(new Set());
+    setBulkSelectMode(false);
+  };
+
+  const handleBulkMove = async (statusId: string | null) => {
+    if (selectedRequests.size === 0) return;
+
+    const requestIds = Array.from(selectedRequests);
+
+    const { error } = await supabase
+      .from('requests')
+      .update({ request_status_id: statusId })
+      .in('id', requestIds);
+
+    if (error) {
+      console.error('Error moving requests:', error);
+      alert('Chyba při přesunu poptávek');
+      return;
+    }
+
+    await loadRequestsAndStats();
+    setSelectedRequests(new Set());
+    setShowBulkFolderMenu(false);
+    setBulkSelectMode(false);
+  };
+
   const statusColors = {
     new: 'bg-blue-100 text-blue-700',
     in_progress: 'bg-yellow-100 text-yellow-700',
@@ -202,13 +288,26 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
           <h2 className="text-lg font-semibold text-gray-800">
             {folderId ? 'Poptávky' : 'Nové poptávky'}
           </h2>
-          <button
-            onClick={() => setShowCreationPanel(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Nová poptávka
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleBulkSelect}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                bulkSelectMode
+                  ? 'bg-gray-200 text-gray-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title="Hromadný výběr"
+            >
+              <CheckCheckIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setShowCreationPanel(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Nová poptávka
+            </button>
+          </div>
         </div>
 
         <div className="relative">
@@ -221,6 +320,82 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
+
+        {bulkSelectMode && (
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm font-medium text-gray-700">
+                {selectedRequests.size > 0 ? (
+                  <span>Vybráno: {selectedRequests.size}</span>
+                ) : (
+                  <span>Vyberte poptávky</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedRequests.size < filteredRequests.length ? (
+                  <button
+                    onClick={selectAllVisible}
+                    className="text-xs text-primary hover:text-primary-dark font-medium"
+                  >
+                    Vybrat vše
+                  </button>
+                ) : (
+                  <button
+                    onClick={deselectAll}
+                    className="text-xs text-primary hover:text-primary-dark font-medium"
+                  >
+                    Zrušit výběr
+                  </button>
+                )}
+              </div>
+            </div>
+            {selectedRequests.size > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="relative bulk-folder-menu">
+                  <button
+                    onClick={() => setShowBulkFolderMenu(!showBulkFolderMenu)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    <FolderIcon className="w-4 h-4" />
+                    Přesunout
+                  </button>
+                  {showBulkFolderMenu && (
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                      <div className="p-2">
+                        <button
+                          onClick={() => handleBulkMove(null)}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                        >
+                          Nové poptávky
+                        </button>
+                        {requestStatuses.map((status) => (
+                          <button
+                            key={status.id}
+                            onClick={() => handleBulkMove(status.id)}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded flex items-center gap-2"
+                          >
+                            <div
+                              className="w-3 h-3 rounded"
+                              style={{ backgroundColor: status.color }}
+                            />
+                            {status.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm"
+                >
+                  <Trash2Icon className="w-4 h-4" />
+                  Smazat
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -237,18 +412,38 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
               const requestStatus = requestStatuses.find(s => s.id === request.request_status_id);
               const stats = requestStats[request.id] || { notesCount: 0, tasksCount: 0, totalTime: 0 };
 
+              const isSelected = selectedRequests.has(request.id);
+
               return (
                 <div
                   key={request.id}
-                  onClick={() => onSelectRequest(request.id)}
+                  onClick={() => {
+                    if (bulkSelectMode) {
+                      toggleRequestSelection(request.id);
+                    } else {
+                      onSelectRequest(request.id);
+                    }
+                  }}
                   className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                    selectedRequestId === request.id
+                    bulkSelectMode && isSelected
+                      ? 'border-primary bg-blue-50'
+                      : selectedRequestId === request.id
                       ? 'border-primary bg-primary/5'
                       : 'border-gray-200 hover:border-blue-300 bg-white'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-1.5">
-                    <h3 className="font-medium text-sm text-gray-900 flex-1">{request.title}</h3>
+                    <div className="flex items-start gap-2 flex-1">
+                      {bulkSelectMode && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="mt-0.5 w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer"
+                        />
+                      )}
+                      <h3 className="font-medium text-sm text-gray-900 flex-1">{request.title}</h3>
+                    </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {request.source === 'zapier' && (
                         <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier integrace">
