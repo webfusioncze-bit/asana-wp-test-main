@@ -21,6 +21,18 @@ interface Task {
   created_by: string | null;
 }
 
+interface Request {
+  id: string;
+  title: string;
+  deadline: string | null;
+  status: string;
+  priority: string;
+  folder_id: string | null;
+  assigned_to: string | null;
+  created_by: string | null;
+  client_name: string | null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -37,8 +49,9 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const digestType = (url.searchParams.get('digest_type') || 'daily') as DigestType;
+    const testEmail = url.searchParams.get('test_email');
 
-    console.log(`Processing ${digestType} digest emails...`);
+    console.log(`Processing ${digestType} digest emails...${testEmail ? ` (TEST MODE for ${testEmail})` : ''}`);
 
     // Calculate date ranges
     const now = new Date();
@@ -84,14 +97,24 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Date range: ${startDate} to ${endDate}`);
 
-    // Get all active users
-    const { data: users, error: usersError } = await supabase
+    // Get all active users (or just the test user if in test mode)
+    let usersQuery = supabase
       .from('user_profiles')
       .select('id, email, display_name, first_name, last_name, avatar_url')
       .not('email', 'is', null);
 
+    if (testEmail) {
+      usersQuery = usersQuery.eq('email', testEmail);
+    }
+
+    const { data: users, error: usersError } = await usersQuery;
+
     if (usersError || !users) {
       throw new Error(`Failed to fetch users: ${usersError?.message}`);
+    }
+
+    if (testEmail && users.length === 0) {
+      throw new Error(`User with email ${testEmail} not found`);
     }
 
     console.log(`Found ${users.length} users`);
@@ -147,16 +170,48 @@ Deno.serve(async (req: Request) => {
           console.error(`Error fetching created tasks for user ${user.email}:`, createdError);
         }
 
-        const totalTasks = (assignedTasks?.length || 0) + (overdueTasks?.length || 0) + (createdTasks?.length || 0);
+        // Get requests assigned to user in date range
+        const { data: assignedRequests, error: requestsError } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('assigned_to', user.id)
+          .neq('status', 'completed')
+          .neq('status', 'cancelled')
+          .gte('deadline', startDate)
+          .lte('deadline', endDate + 'T23:59:59')
+          .order('deadline', { ascending: true });
 
-        // Skip if no tasks
-        if (totalTasks === 0) {
-          console.log(`Skipping ${user.email} - no tasks`);
+        if (requestsError) {
+          console.error(`Error fetching requests for user ${user.email}:`, requestsError);
+        }
+
+        // Get overdue requests assigned to user
+        const { data: overdueRequests, error: overdueRequestsError } = await supabase
+          .from('requests')
+          .select('*')
+          .eq('assigned_to', user.id)
+          .neq('status', 'completed')
+          .neq('status', 'cancelled')
+          .lt('deadline', todayStr)
+          .not('deadline', 'is', null)
+          .order('deadline', { ascending: true });
+
+        if (overdueRequestsError) {
+          console.error(`Error fetching overdue requests for user ${user.email}:`, overdueRequestsError);
+        }
+
+        const totalTasks = (assignedTasks?.length || 0) + (overdueTasks?.length || 0) + (createdTasks?.length || 0);
+        const totalRequests = (assignedRequests?.length || 0) + (overdueRequests?.length || 0);
+        const totalItems = totalTasks + totalRequests;
+
+        // Skip if no tasks or requests
+        if (totalItems === 0) {
+          console.log(`Skipping ${user.email} - no tasks or requests`);
           emailsSkipped++;
           continue;
         }
 
-        console.log(`Sending email to ${user.email} - ${assignedTasks?.length || 0} scheduled, ${overdueTasks?.length || 0} overdue, ${createdTasks?.length || 0} created by user`);
+        console.log(`Sending email to ${user.email} - Tasks: ${assignedTasks?.length || 0} scheduled, ${overdueTasks?.length || 0} overdue, ${createdTasks?.length || 0} created | Requests: ${assignedRequests?.length || 0} scheduled, ${overdueRequests?.length || 0} overdue`);
 
         // Generate and send email
         const html = await generateDigestEmail({
@@ -164,12 +219,16 @@ Deno.serve(async (req: Request) => {
           assignedTasks: assignedTasks || [],
           overdueTasks: overdueTasks || [],
           createdTasks: createdTasks || [],
+          assignedRequests: assignedRequests || [],
+          overdueRequests: overdueRequests || [],
           title,
           digestType,
           startDate,
           endDate,
           supabase,
         });
+
+        const totalOverdue = (overdueTasks?.length || 0) + (overdueRequests?.length || 0);
 
         // Send email via send-email-digest function
         const response = await fetch(
@@ -182,9 +241,16 @@ Deno.serve(async (req: Request) => {
             },
             body: JSON.stringify({
               to: user.email,
-              subject: `${subject}${overdueTasks && overdueTasks.length > 0 ? ` + ${overdueTasks.length} zpožděný${overdueTasks.length > 1 ? 'ch' : ''}` : ''}`,
+              subject: `${subject}${totalOverdue > 0 ? ` + ${totalOverdue} zpožděný${totalOverdue > 1 ? 'ch' : ''}` : ''}`,
               html,
-              text: generatePlainText({ assignedTasks: assignedTasks || [], overdueTasks: overdueTasks || [], createdTasks: createdTasks || [], title }),
+              text: generatePlainText({
+                assignedTasks: assignedTasks || [],
+                overdueTasks: overdueTasks || [],
+                createdTasks: createdTasks || [],
+                assignedRequests: assignedRequests || [],
+                overdueRequests: overdueRequests || [],
+                title
+              }),
             }),
           }
         );
@@ -245,6 +311,8 @@ async function generateDigestEmail({
   assignedTasks,
   overdueTasks,
   createdTasks,
+  assignedRequests,
+  overdueRequests,
   title,
   digestType,
   startDate,
@@ -255,6 +323,8 @@ async function generateDigestEmail({
   assignedTasks: Task[];
   overdueTasks: Task[];
   createdTasks: Task[];
+  assignedRequests: Request[];
+  overdueRequests: Request[];
   title: string;
   digestType: DigestType;
   startDate: string;
@@ -336,8 +406,69 @@ async function generateDigestEmail({
     `;
   };
 
-  const overdueSection = await renderTaskList(overdueTasks, 'Zpožděné úkoly', true);
+  const renderRequestList = async (requests: Request[], sectionTitle: string, isOverdue = false) => {
+    if (requests.length === 0) return '';
+
+    const requestItems = await Promise.all(requests.map(async (request) => {
+      let folderName = '';
+      if (request.folder_id) {
+        const { data: folder } = await supabase
+          .from('folders')
+          .select('name')
+          .eq('id', request.folder_id)
+          .maybeSingle();
+        folderName = folder?.name || '';
+      }
+
+      const statusLabels: { [key: string]: string } = {
+        new: 'Nový',
+        in_progress: 'Rozpracováno',
+        planning: 'Plánování',
+        completed: 'Dokončeno',
+        cancelled: 'Zrušeno',
+      };
+
+      const priorityColors: { [key: string]: string } = {
+        high: '#ef4444',
+        medium: '#f59e0b',
+        low: '#6b7280',
+      };
+
+      const priorityColor = priorityColors[request.priority || 'medium'];
+
+      return `
+        <div style="padding: 16px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 12px; background-color: ${isOverdue ? '#fef2f2' : '#ffffff'};">
+          <div style="display: flex; align-items: flex-start; gap: 12px;">
+            <div style="width: 16px; height: 16px; border: 2px solid #d1d5db; border-radius: 4px; flex-shrink: 0; margin-top: 2px;"></div>
+            <div style="flex: 1;">
+              <div style="font-size: 14px; font-weight: 600; color: #151b26; margin-bottom: 8px;">${request.title}</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #6b7280;">
+                ${request.deadline ? `<span>📅 ${formatDate(request.deadline)}</span>` : ''}
+                ${request.client_name ? `<span>👤 ${request.client_name}</span>` : ''}
+                ${folderName ? `<span>📁 ${folderName}</span>` : ''}
+                <span style="color: #6b7280;">📋 ${statusLabels[request.status] || request.status}</span>
+                <span style="color: ${priorityColor};">● ${request.priority === 'high' ? 'Vysoká' : request.priority === 'medium' ? 'Střední' : 'Nízká'} priorita</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }));
+
+    return `
+      <div style="margin-bottom: 32px;">
+        <h2 style="font-size: 16px; font-weight: 600; color: #151b26; margin-bottom: 16px; ${isOverdue ? 'color: #dc2626;' : ''}">
+          ${sectionTitle} ${isOverdue ? '⚠️' : ''} (${requests.length})
+        </h2>
+        ${requestItems.join('')}
+      </div>
+    `;
+  };
+
+  const overdueTasksSection = await renderTaskList(overdueTasks, 'Zpožděné úkoly', true);
+  const overdueRequestsSection = await renderRequestList(overdueRequests, 'Zpožděné požadavky', true);
   const assignedSection = await renderTaskList(assignedTasks, title);
+  const assignedRequestsSection = await renderRequestList(assignedRequests, title.replace('Úkoly', 'Požadavky'));
   const createdSection = await renderTaskList(createdTasks, 'Úkoly které jste vytvořili');
 
   return `
@@ -358,13 +489,15 @@ async function generateDigestEmail({
               Dobrý den, ${userName}!
             </h1>
             <p style="font-size: 14px; color: #6b7280; margin-bottom: 32px;">
-              ${digestType === 'daily' ? 'Zde je přehled vašich úkolů na dnes' : digestType === 'weekly' ? 'Zde je přehled vašich úkolů na tento týden' : 'Zde je přehled vašich úkolů na příští týden'}${overdueTasks.length > 0 ? ' a zpožděných úkolů' : ''}.
+              ${digestType === 'daily' ? 'Zde je přehled vašich úkolů a požadavků na dnes' : digestType === 'weekly' ? 'Zde je přehled vašich úkolů a požadavků na tento týden' : 'Zde je přehled vašich úkolů a požadavků na příští týden'}${(overdueTasks.length + overdueRequests.length) > 0 ? ' a zpožděných položek' : ''}.
             </p>
 
             <a href="https://task.webfusion.cz" style="display: inline-block; background-color: #22a0a0; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 14px; margin-bottom: 32px;">Zobrazit v Task Manager</a>
 
-            ${overdueSection}
+            ${overdueTasksSection}
+            ${overdueRequestsSection}
             ${assignedSection}
+            ${assignedRequestsSection}
             ${createdSection}
           </div>
 
@@ -382,11 +515,15 @@ function generatePlainText({
   assignedTasks,
   overdueTasks,
   createdTasks,
+  assignedRequests,
+  overdueRequests,
   title,
 }: {
   assignedTasks: Task[];
   overdueTasks: Task[];
   createdTasks: Task[];
+  assignedRequests: Request[];
+  overdueRequests: Request[];
   title: string;
 }): string {
   const sections = [];
@@ -395,8 +532,16 @@ function generatePlainText({
     sections.push(`ZPOŽDĚNÉ ÚKOLY (${overdueTasks.length}):\n` + overdueTasks.map(t => `- ${t.title}`).join('\n'));
   }
 
+  if (overdueRequests.length > 0) {
+    sections.push(`ZPOŽDĚNÉ POŽADAVKY (${overdueRequests.length}):\n` + overdueRequests.map(r => `- ${r.title}`).join('\n'));
+  }
+
   if (assignedTasks.length > 0) {
     sections.push(`${title.toUpperCase()} (${assignedTasks.length}):\n` + assignedTasks.map(t => `- ${t.title}`).join('\n'));
+  }
+
+  if (assignedRequests.length > 0) {
+    sections.push(`${title.replace('Úkoly', 'POŽADAVKY').toUpperCase()} (${assignedRequests.length}):\n` + assignedRequests.map(r => `- ${r.title}`).join('\n'));
   }
 
   if (createdTasks.length > 0) {
