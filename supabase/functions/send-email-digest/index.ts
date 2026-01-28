@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
-import { SMTPClient } from 'npm:emailjs@4.0.3';
+import nodemailer from 'npm:nodemailer@6.9.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,32 +71,38 @@ Deno.serve(async (req: Request) => {
       console.error('Error logging email:', logError);
     }
 
-    const client = new SMTPClient({
-      user: smtpSettings.username,
-      password: smtpSettings.password,
-      host: smtpSettings.host,
-      port: smtpSettings.port,
-      ssl: smtpSettings.use_ssl,
-      tls: smtpSettings.use_tls,
-    });
+    console.log('Preparing to send email to:', to);
+    console.log('SMTP server:', smtpSettings.host, smtpSettings.port);
 
     try {
-      await client.sendAsync({
+      const transporter = nodemailer.createTransport({
+        host: smtpSettings.host,
+        port: smtpSettings.port,
+        secure: smtpSettings.use_ssl,
+        auth: {
+          user: smtpSettings.username,
+          pass: smtpSettings.password,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+
+      const message = {
         from: smtpSettings.from_name
           ? `${smtpSettings.from_name} <${smtpSettings.from_email}>`
           : smtpSettings.from_email,
         to: to,
         subject: subject,
         text: text || '',
-        attachment: html
-          ? [
-              {
-                data: html,
-                alternative: true,
-              },
-            ]
-          : undefined,
-      });
+        html: html || undefined,
+      };
+
+      console.log('Attempting to send email...');
+
+      await transporter.sendMail(message);
+
+      console.log('Email sent successfully to:', to);
 
       await supabase
         .from('email_logs')

@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
-import { SMTPClient } from 'npm:emailjs@4.0.3';
+import nodemailer from 'npm:nodemailer@6.9.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -86,32 +86,29 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const client = new SMTPClient({
-      user: smtpSettings.username,
-      password: smtpSettings.password,
+    const transporter = nodemailer.createTransport({
       host: smtpSettings.host,
       port: smtpSettings.port,
-      ssl: smtpSettings.use_ssl,
-      tls: smtpSettings.use_tls,
+      secure: smtpSettings.use_ssl,
+      auth: {
+        user: smtpSettings.username,
+        pass: smtpSettings.password,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
 
     const emailPromises = recipients.map(async (recipient) => {
       try {
-        await client.sendAsync({
+        await transporter.sendMail({
           from: smtpSettings.from_name
             ? `${smtpSettings.from_name} <${smtpSettings.from_email}>`
             : smtpSettings.from_email,
           to: recipient,
           subject: subject,
           text: text || '',
-          attachment: html
-            ? [
-                {
-                  data: html,
-                  alternative: true,
-                },
-              ]
-            : undefined,
+          html: html || undefined,
         });
 
         await supabase
