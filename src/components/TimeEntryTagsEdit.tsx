@@ -1,24 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
-import { TagIcon, XIcon, PlusIcon } from 'lucide-react';
+import { TagIcon, XIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { ProjectPhaseTag, ProjectPhaseTagAssignment } from '../types';
+import type { ProjectPhaseTag } from '../types';
 
-interface PhaseTagsQuickEditProps {
-  phaseId: string;
+interface TimeEntryTagsEditProps {
+  timeEntryId: string;
   canManage: boolean;
 }
 
-export function PhaseTagsQuickEdit({ phaseId, canManage }: PhaseTagsQuickEditProps) {
+export function TimeEntryTagsEdit({ timeEntryId, canManage }: TimeEntryTagsEditProps) {
   const [allTags, setAllTags] = useState<ProjectPhaseTag[]>([]);
   const [assignedTagIds, setAssignedTagIds] = useState<string[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadTags();
     loadAssignedTags();
-  }, [phaseId]);
+  }, [timeEntryId]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -42,14 +41,13 @@ export function PhaseTagsQuickEdit({ phaseId, canManage }: PhaseTagsQuickEditPro
     if (data) {
       setAllTags(data);
     }
-    setLoading(false);
   }
 
   async function loadAssignedTags() {
     const { data } = await supabase
-      .from('project_phase_tag_assignments')
+      .from('project_time_entry_tags')
       .select('tag_id')
-      .eq('phase_id', phaseId);
+      .eq('time_entry_id', timeEntryId);
 
     if (data) {
       setAssignedTagIds(data.map(t => t.tag_id));
@@ -59,9 +57,9 @@ export function PhaseTagsQuickEdit({ phaseId, canManage }: PhaseTagsQuickEditPro
   async function toggleTag(tagId: string) {
     if (assignedTagIds.includes(tagId)) {
       const { error } = await supabase
-        .from('project_phase_tag_assignments')
+        .from('project_time_entry_tags')
         .delete()
-        .eq('phase_id', phaseId)
+        .eq('time_entry_id', timeEntryId)
         .eq('tag_id', tagId);
 
       if (!error) {
@@ -69,9 +67,9 @@ export function PhaseTagsQuickEdit({ phaseId, canManage }: PhaseTagsQuickEditPro
       }
     } else {
       const { error } = await supabase
-        .from('project_phase_tag_assignments')
+        .from('project_time_entry_tags')
         .insert({
-          phase_id: phaseId,
+          time_entry_id: timeEntryId,
           tag_id: tagId
         });
 
@@ -84,58 +82,65 @@ export function PhaseTagsQuickEdit({ phaseId, canManage }: PhaseTagsQuickEditPro
   const assignedTags = allTags.filter(tag => assignedTagIds.includes(tag.id));
   const availableTags = allTags.filter(tag => !assignedTagIds.includes(tag.id));
 
-  if (loading) {
-    return <div className="text-xs text-gray-400">Načítání...</div>;
-  }
-
   return (
     <div className="relative" ref={dropdownRef}>
-      <div className="flex items-center gap-1 flex-wrap">
-        {assignedTags.map(tag => (
-          <div
-            key={tag.id}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border border-gray-200 group"
-            style={{ backgroundColor: `${tag.color}15` }}
-          >
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: tag.color }}
-            />
-            <span style={{ color: tag.color }}>{tag.name}</span>
-            {canManage && (
-              <button
-                onClick={() => toggleTag(tag.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+      <div className="flex items-center gap-1">
+        {assignedTags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {assignedTags.map(tag => (
+              <div
+                key={tag.id}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border border-gray-200 group/tag"
+                style={{ backgroundColor: `${tag.color}15` }}
               >
-                <XIcon className="w-3 h-3" style={{ color: tag.color }} />
-              </button>
-            )}
+                <div
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: tag.color }}
+                />
+                <span style={{ color: tag.color }} className="text-xs">{tag.name}</span>
+                {canManage && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleTag(tag.id);
+                    }}
+                    className="opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                  >
+                    <XIcon className="w-2.5 h-2.5" style={{ color: tag.color }} />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
         {canManage && (
           <button
-            onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center gap-1 px-2 py-0.5 text-xs text-gray-500 hover:text-gray-700 border border-dashed border-gray-300 rounded-full hover:border-gray-400 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDropdown(!showDropdown);
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded transition-all"
+            title="Přidat štítek"
           >
-            <PlusIcon className="w-3 h-3" />
-            Přidat štítek
+            <TagIcon className="w-3.5 h-3.5 text-gray-500" />
           </button>
         )}
       </div>
 
       {showDropdown && availableTags.length > 0 && (
-        <div className="absolute z-50 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 p-2 max-h-64 overflow-y-auto">
+        <div className="absolute z-50 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 p-1 max-h-48 overflow-y-auto">
           {availableTags.map(tag => (
             <button
               key={tag.id}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 toggleTag(tag.id);
                 setShowDropdown(false);
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 rounded transition-colors text-sm"
+              className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded transition-colors text-xs"
             >
               <div
-                className="w-3 h-3 rounded-full"
+                className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: tag.color }}
               />
               <span style={{ color: tag.color }}>{tag.name}</span>

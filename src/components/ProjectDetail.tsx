@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft as ArrowLeftIcon, Plus as PlusIcon, Bitcoin as EditIcon, Save as SaveIcon, Bone as XIcon, Trash as TrashIcon, Clock as ClockIcon, UserPlus as UserPlusIcon, RefreshCw as RefreshCwIcon, FolderOpen as FolderOpenIcon, Folder as FolderIcon, CheckCircle2 as CheckCircle2Icon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User } from '../types';
+import type { Project, ProjectPhase, ProjectPhaseAssignment, ProjectTimeEntry, User, ProjectPhaseTag } from '../types';
 import { ProjectMilestones } from './ProjectMilestones';
 import { ProjectTagsManager } from './ProjectTagsManager';
 import { ProjectPhaseTagsManager } from './ProjectPhaseTagsManager';
-import { PhaseTagsQuickEdit } from './PhaseTagsQuickEdit';
+import { TimeEntryTagsEdit } from './TimeEntryTagsEdit';
 
 interface ProjectDetailProps {
   projectId: string;
@@ -28,6 +28,9 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
   const [showPhaseForm, setShowPhaseForm] = useState(false);
   const [showTimeFormForPhase, setShowTimeFormForPhase] = useState<string | null>(null);
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<ProjectPhaseTag[]>([]);
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const [timeEntryTags, setTimeEntryTags] = useState<Record<string, string[]>>({});
   const phaseRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const [projectForm, setProjectForm] = useState({
@@ -68,7 +71,14 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
     loadPhases();
     loadUsers();
     loadAllProjects();
+    loadAvailableTags();
   }, [projectId]);
+
+  useEffect(() => {
+    if (phases.length > 0) {
+      loadAllTimeEntryTags();
+    }
+  }, [phases, timeEntries]);
 
   useEffect(() => {
     if (phases.length === 0) return;
@@ -250,6 +260,38 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
 
     if (!error && data) {
       setAllProjects(data);
+    }
+  }
+
+  async function loadAvailableTags() {
+    const { data } = await supabase
+      .from('project_phase_tags')
+      .select('*')
+      .order('name');
+
+    if (data) {
+      setAvailableTags(data);
+    }
+  }
+
+  async function loadAllTimeEntryTags() {
+    const allEntryIds = Object.values(timeEntries).flat().map(e => e.id);
+    if (allEntryIds.length === 0) return;
+
+    const { data } = await supabase
+      .from('project_time_entry_tags')
+      .select('time_entry_id, tag_id')
+      .in('time_entry_id', allEntryIds);
+
+    if (data) {
+      const tagsMap: Record<string, string[]> = {};
+      data.forEach(item => {
+        if (!tagsMap[item.time_entry_id]) {
+          tagsMap[item.time_entry_id] = [];
+        }
+        tagsMap[item.time_entry_id].push(item.tag_id);
+      });
+      setTimeEntryTags(tagsMap);
     }
   }
 
@@ -1013,6 +1055,44 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
           </div>
         )}
 
+        {availableTags.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700">Filtrovat podle štítku:</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedTagFilter(null)}
+                  className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                    selectedTagFilter === null
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Všechny činnosti
+                </button>
+                {availableTags.map(tag => (
+                  <button
+                    key={tag.id}
+                    onClick={() => setSelectedTagFilter(tag.id)}
+                    className={`px-3 py-1 text-sm rounded-full border transition-all ${
+                      selectedTagFilter === tag.id
+                        ? 'border-2 font-medium'
+                        : 'border border-gray-200 hover:shadow-sm'
+                    }`}
+                    style={{
+                      backgroundColor: selectedTagFilter === tag.id ? `${tag.color}25` : `${tag.color}10`,
+                      color: tag.color,
+                      borderColor: selectedTagFilter === tag.id ? tag.color : 'transparent'
+                    }}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           {phases.length === 0 ? (
             <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
@@ -1021,7 +1101,18 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
           ) : (
             phases.map((phase) => {
               const phaseAssignments = assignments[phase.id] || [];
-              const phaseTimeEntries = timeEntries[phase.id] || [];
+              let phaseTimeEntries = timeEntries[phase.id] || [];
+
+              if (selectedTagFilter) {
+                phaseTimeEntries = phaseTimeEntries.filter(entry =>
+                  timeEntryTags[entry.id]?.includes(selectedTagFilter)
+                );
+              }
+
+              if (selectedTagFilter && phaseTimeEntries.length === 0) {
+                return null;
+              }
+
               const totalHours = getTotalHours(phase.id);
               const isEditing = editingPhaseId === phase.id;
               const assignedUser = phase.assigned_user_id ? users.find(u => u.id === phase.assigned_user_id) : null;
@@ -1197,9 +1288,6 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
                             </span>
                           )}
                         </div>
-                        <div className="mt-2">
-                          <PhaseTagsQuickEdit phaseId={phase.id} canManage={canManage} />
-                        </div>
                       </>
                     )}
                   </div>
@@ -1270,19 +1358,20 @@ export function ProjectDetail({ projectId, onClose, onProjectChange, canManage }
                       ) : (
                         <div className="space-y-1">
                           {phaseTimeEntries.map(entry => (
-                            <div key={entry.id} className="flex items-start justify-between gap-2 p-2 bg-gray-50 rounded text-xs">
+                            <div key={entry.id} className="group flex items-start justify-between gap-2 p-2 bg-gray-50 rounded text-xs hover:bg-gray-100 transition-colors">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="font-medium text-gray-900">{getUserName(entry.user_id)}</span>
                                   <span className="text-blue-600 font-semibold">{entry.hours}h</span>
                                   <span className="text-gray-500">{new Date(entry.entry_date).toLocaleDateString('cs-CZ')}</span>
+                                  <TimeEntryTagsEdit timeEntryId={entry.id} canManage={canManage} />
                                 </div>
                                 <p className="text-gray-700">{entry.description}</p>
                               </div>
                               {entry.user_id === currentUserId && (
                                 <button
                                   onClick={() => deleteTimeEntry(entry.id, phase.id)}
-                                  className="p-1 hover:bg-red-100 rounded flex-shrink-0"
+                                  className="p-1 hover:bg-red-100 rounded flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                   <TrashIcon className="w-3 h-3 text-red-600" />
                                 </button>

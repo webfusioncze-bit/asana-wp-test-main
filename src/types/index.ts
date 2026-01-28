@@ -511,9 +511,9 @@ export interface ProjectPhaseTag {
   created_at: string;
 }
 
-export interface ProjectPhaseTagAssignment {
+export interface ProjectTimeEntryTag {
   id: string;
-  phase_id: string;
+  time_entry_id: string;
   tag_id: string;
   created_at: string;
 }
