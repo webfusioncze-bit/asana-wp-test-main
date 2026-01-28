@@ -565,15 +565,10 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
                                 <BriefcaseIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
 
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="text-sm font-medium text-gray-900 truncate">{project.name}</h3>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="text-sm font-medium text-gray-900">{project.name}</h3>
                                     {project.sync_enabled && project.last_sync_at && (
-                                      <RefreshCwIcon className="w-3 h-3 text-green-500" title="Synchronizováno z portálu" />
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {project.client_company_name && (
-                                      <p className="text-xs text-gray-500 truncate">{project.client_company_name}</p>
+                                      <RefreshCwIcon className="w-3 h-3 text-green-500 flex-shrink-0" title="Synchronizováno z portálu" />
                                     )}
                                     {project.tags && project.tags.length > 0 && (
                                       <div className="flex items-center gap-1 flex-shrink-0">
@@ -597,6 +592,9 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
                                       </div>
                                     )}
                                   </div>
+                                  {project.client_company_name && (
+                                    <p className="text-xs text-gray-500 truncate">{project.client_company_name}</p>
+                                  )}
                                 </div>
                               </div>
 
@@ -640,38 +638,21 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
                                   </div>
                                 )}
 
-                                <div className="flex items-center gap-2">
-                                  {project.status && (
-                                    <span
-                                      className={`text-xs px-2 py-0.5 rounded-full ${
-                                        project.status === 'active'
-                                          ? 'bg-green-100 text-green-700'
-                                          : project.status === 'completed'
-                                          ? 'bg-blue-100 text-blue-700'
-                                          : 'bg-gray-100 text-gray-700'
-                                      }`}
-                                    >
-                                      {project.status === 'active' ? 'Aktivní' :
-                                       project.status === 'completed' ? 'Dokončen' :
-                                       project.status}
-                                    </span>
-                                  )}
-                                  {project.priority && (
-                                    <span
-                                      className={`text-xs px-2 py-0.5 rounded-full ${
-                                        project.priority === 'high' || project.priority === 'urgent'
-                                          ? 'bg-red-100 text-red-700'
-                                          : project.priority === 'medium'
-                                          ? 'bg-yellow-100 text-yellow-700'
-                                          : 'bg-gray-100 text-gray-700'
-                                      }`}
-                                    >
-                                      {project.priority === 'urgent' ? 'Urgentní' :
-                                       project.priority === 'high' ? 'Vysoká' :
-                                       project.priority === 'medium' ? 'Střední' : 'Nízká'}
-                                    </span>
-                                  )}
-                                </div>
+                                {project.status && (
+                                  <span
+                                    className={`text-xs px-2 py-0.5 rounded-full ${
+                                      project.status === 'active'
+                                        ? 'bg-green-100 text-green-700'
+                                        : project.status === 'completed'
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {project.status === 'active' ? 'Aktivní' :
+                                     project.status === 'completed' ? 'Dokončen' :
+                                     project.status}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
