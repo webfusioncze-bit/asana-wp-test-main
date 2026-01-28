@@ -109,9 +109,7 @@ export async function sendTaskAssignmentEmail({
       ? `${assignedUser.first_name[0]}${assignedUser.last_name[0]}`.toUpperCase()
       : assignedUser.display_name?.[0]?.toUpperCase() || assignedUser.email[0].toUpperCase();
 
-    const subject = isReassignment
-      ? `Změna přiřazení úkolu: ${taskTitle}`
-      : `Byl jsi přiřazen k úkolu ${taskTitle}`;
+    const subject = `Byl jsi přiřazen k úkolu: ${taskTitle}`;
 
     const dueDateFormatted = dueDate
       ? new Date(dueDate).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' })
