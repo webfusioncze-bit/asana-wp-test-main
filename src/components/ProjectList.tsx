@@ -41,7 +41,7 @@ export function ProjectList({ canManage, onSelectProject, selectedProjectId, sho
 
   async function loadUsers() {
     const { data } = await supabase
-      .from('user_profiles_view')
+      .from('user_profiles')
       .select('*')
       .order('display_name');
 
