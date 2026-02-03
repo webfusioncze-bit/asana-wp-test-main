@@ -218,13 +218,40 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, sh
         return totalCount;
       };
 
+      // Načíst skupiny uživatele
+      const { data: userGroups } = await supabase
+        .from('user_group_members')
+        .select('group_id')
+        .eq('user_id', currentUserId);
+
+      const userGroupIds = (userGroups || []).map(g => g.group_id);
+
       // Načíst seznam skutečně sdílených složek
-      const { data: sharedFolderData } = await supabase
+      let sharedFolderData: { folder_id: string }[] = [];
+
+      // Složky sdílené přímo s uživatelem
+      const { data: directShares } = await supabase
         .from('folder_shares')
         .select('folder_id')
-        .or(`shared_with_user_id.eq.${currentUserId},shared_with_group_id.in.(SELECT group_id FROM user_group_members WHERE user_id = '${currentUserId}')`);
+        .eq('shared_with_user_id', currentUserId);
 
-      const sharedFolderIds = new Set((sharedFolderData || []).map(s => s.folder_id));
+      if (directShares) {
+        sharedFolderData = [...directShares];
+      }
+
+      // Složky sdílené přes skupiny
+      if (userGroupIds.length > 0) {
+        const { data: groupShares } = await supabase
+          .from('folder_shares')
+          .select('folder_id')
+          .in('shared_with_group_id', userGroupIds);
+
+        if (groupShares) {
+          sharedFolderData = [...sharedFolderData, ...groupShares];
+        }
+      }
+
+      const sharedFolderIds = new Set(sharedFolderData.map(s => s.folder_id));
 
       for (const folder of allFolders) {
         const includeCompleted = folder.name === 'Dokončené';
