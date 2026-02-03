@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon, Trash2 as TrashIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { TaskDetail } from './TaskDetail';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
 
 interface RequestDetailProps {
@@ -61,6 +62,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   const [newNote, setNewNote] = useState('');
   const [newTimeEntry, setNewTimeEntry] = useState({ hours: '', description: '', date: new Date().toISOString().split('T')[0] });
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -547,6 +549,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   };
 
   return (
+    <>
     <div className="w-[600px] border-l border-gray-200 bg-white flex flex-col">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Detail poptávky</h2>
@@ -1341,7 +1344,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
             ) : (
               <div className="space-y-2">
                 {tasks.map(task => (
-                  <div key={task.id} className="p-3 border border-gray-200 rounded-lg bg-white">
+                  <div
+                    key={task.id}
+                    onClick={() => setSelectedTaskId(task.id)}
+                    className="p-3 border border-gray-200 rounded-lg bg-white hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
+                  >
                     <h4 className="font-medium text-gray-900">{task.title}</h4>
                     {task.description && (
                       <p className="text-sm text-gray-600 mt-1">{task.description}</p>
@@ -1519,6 +1526,19 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
           </div>
         </div>
       )}
+
     </div>
+
+      {selectedTaskId && (
+        <TaskDetail
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          onTaskUpdated={() => {
+            loadTasks();
+            setSelectedTaskId(null);
+          }}
+        />
+      )}
+    </>
   );
 }
