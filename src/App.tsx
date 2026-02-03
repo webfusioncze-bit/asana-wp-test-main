@@ -39,6 +39,7 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [isRequestEditing, setIsRequestEditing] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedWebsiteId, setSelectedWebsiteId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -439,13 +440,17 @@ function App() {
                 <>
                   <RequestDetail
                     requestId={selectedRequestId}
-                    onClose={() => setSelectedRequestId(null)}
+                    onClose={() => {
+                      setSelectedRequestId(null);
+                      setIsRequestEditing(false);
+                    }}
                     onRequestUpdated={() => {
                       setRequestsRefreshKey(prev => prev + 1);
                       loadSelectedRequest();
                     }}
+                    onEditModeChange={setIsRequestEditing}
                   />
-                  {selectedRequest && (
+                  {selectedRequest && !isRequestEditing && (
                     <RequestInfoSidebar request={selectedRequest} />
                   )}
                 </>

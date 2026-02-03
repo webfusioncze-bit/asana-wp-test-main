@@ -8,11 +8,12 @@ interface RequestDetailProps {
   requestId: string;
   onClose: () => void;
   onRequestUpdated?: () => void;
+  onEditModeChange?: (isEditing: boolean) => void;
 }
 
 type TabType = 'overview' | 'tasks' | 'time' | 'notes';
 
-export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestDetailProps) {
+export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditModeChange }: RequestDetailProps) {
   const [request, setRequest] = useState<Request | null>(null);
   const [requestType, setRequestType] = useState<RequestType | null>(null);
   const [requestStatus, setRequestStatus] = useState<RequestStatusCustom | null>(null);
@@ -57,6 +58,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     monthly_management_budget: '',
     monthly_credits_budget: '',
     development_phase: '',
+    request_date: '',
+    result: '' as '' | 'success' | 'failure',
   });
 
   const [newNote, setNewNote] = useState('');
@@ -79,6 +82,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     loadTimeEntries();
     loadNotes();
   }, [requestId]);
+
+  useEffect(() => {
+    onEditModeChange?.(isEditing);
+  }, [isEditing, onEditModeChange]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -142,6 +149,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       monthly_management_budget: requestData.monthly_management_budget || '',
       monthly_credits_budget: requestData.monthly_credits_budget || '',
       development_phase: requestData.development_phase || '',
+      request_date: requestData.request_date || '',
+      result: requestData.result || '',
     });
 
     if (requestData.request_type_id) {
@@ -276,6 +285,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         monthly_management_budget: editForm.monthly_management_budget || null,
         monthly_credits_budget: editForm.monthly_credits_budget || null,
         development_phase: editForm.development_phase || null,
+        request_date: editForm.request_date || null,
+        result: editForm.result || null,
       })
       .eq('id', requestId);
 
@@ -547,7 +558,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   };
 
   return (
-    <div className="w-[600px] border-l border-gray-200 bg-white flex flex-col">
+    <div className={`${isEditing ? 'flex-1' : 'w-[600px]'} border-l border-gray-200 bg-white flex flex-col transition-all duration-300`}>
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Detail poptávky</h2>
         <div className="flex items-center gap-2">
@@ -758,7 +769,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
                     <select
@@ -784,6 +795,29 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                       {requestStatuses.map(status => (
                         <option key={status.id} value={status.id}>{status.name}</option>
                       ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Datum poptávky</label>
+                    <input
+                      type="date"
+                      value={editForm.request_date}
+                      onChange={(e) => setEditForm({ ...editForm, request_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Výsledek poptávky</label>
+                    <select
+                      value={editForm.result}
+                      onChange={(e) => setEditForm({ ...editForm, result: e.target.value as '' | 'success' | 'failure' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">Nerozhodnuto</option>
+                      <option value="success">Úspěch</option>
+                      <option value="failure">Neúspěch</option>
                     </select>
                   </div>
                 </div>
@@ -1099,6 +1133,16 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                           Správa webu
                         </span>
                       )}
+                      {request.result === 'success' && (
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+                          Úspěch
+                        </span>
+                      )}
+                      {request.result === 'failure' && (
+                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-red-100 text-red-700">
+                          Neúspěch
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -1210,6 +1254,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
 
                   <div className="space-y-3 bg-gray-50 rounded-lg p-4">
                     <h4 className="text-sm font-semibold text-gray-700">Rozpočet a termín</h4>
+                    {request.request_date && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500 text-sm flex items-center gap-1">
+                          <CalendarIcon className="w-4 h-4" />
+                          Datum poptávky:
+                        </span>
+                        <span className="text-gray-900 font-medium">{new Date(request.request_date).toLocaleDateString('cs-CZ')}</span>
+                      </div>
+                    )}
                     {request.budget && (
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500 text-sm">Rozpočet:</span>

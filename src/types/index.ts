@@ -131,6 +131,8 @@ export interface RequestStatusCustom {
   created_at: string;
 }
 
+export type RequestResult = 'success' | 'failure';
+
 export interface Request {
   id: string;
   title: string;
@@ -166,6 +168,8 @@ export interface Request {
   monthly_management_budget: string | null;
   monthly_credits_budget: string | null;
   development_phase: string | null;
+  request_date: string | null;
+  result: RequestResult | null;
 }
 
 export interface RequestAction {
