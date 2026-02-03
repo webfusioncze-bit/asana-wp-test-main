@@ -367,7 +367,7 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
       {selectedTaskId && (
         <div className="fixed inset-0 z-50 flex items-stretch justify-end">
           <div className="absolute inset-0 bg-black bg-opacity-30" onClick={() => setSelectedTaskId(null)} />
-          <div className="relative w-[480px] bg-white shadow-2xl flex flex-col">
+          <div className="relative w-[480px] bg-white shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
             <TaskDetail
               taskId={selectedTaskId}
               onClose={() => setSelectedTaskId(null)}

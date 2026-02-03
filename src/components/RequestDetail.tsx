@@ -74,13 +74,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
     loadRequestDetail();
     loadRequestTypes();
     loadRequestStatuses();
+    loadTasks();
+    loadTimeEntries();
+    loadNotes();
   }, [requestId]);
-
-  useEffect(() => {
-    if (activeTab === 'tasks') loadTasks();
-    if (activeTab === 'time') loadTimeEntries();
-    if (activeTab === 'notes') loadNotes();
-  }, [activeTab, requestId]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -1529,13 +1526,13 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
       {selectedTaskId && (
         <div className="fixed inset-0 z-50 flex items-stretch justify-end">
           <div className="absolute inset-0 bg-black bg-opacity-30" onClick={() => setSelectedTaskId(null)} />
-          <div className="relative w-[480px] bg-white shadow-2xl flex flex-col">
+          <div className="relative w-[480px] bg-white shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
             <TaskDetail
               taskId={selectedTaskId}
               onClose={() => setSelectedTaskId(null)}
               onTaskUpdated={() => {
                 loadTasks();
-                onTaskUpdated?.();
+                onRequestUpdated?.();
               }}
             />
           </div>
