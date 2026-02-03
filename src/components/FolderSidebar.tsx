@@ -222,7 +222,7 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, sh
       const { data: sharedFolderData } = await supabase
         .from('folder_shares')
         .select('folder_id')
-        .or(`user_id.eq.${currentUserId},group_id.in.(SELECT group_id FROM user_group_members WHERE user_id = '${currentUserId}')`);
+        .or(`shared_with_user_id.eq.${currentUserId},shared_with_group_id.in.(SELECT group_id FROM user_group_members WHERE user_id = '${currentUserId}')`);
 
       const sharedFolderIds = new Set((sharedFolderData || []).map(s => s.folder_id));
 
