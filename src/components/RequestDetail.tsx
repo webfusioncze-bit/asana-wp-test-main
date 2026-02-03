@@ -71,6 +71,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   });
 
   useEffect(() => {
+    setIsEditing(false);
     loadRequestDetail();
     loadRequestTypes();
     loadRequestStatuses();
@@ -665,6 +666,23 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
               </button>
             </>
           )}
+          {isEditing && (
+            <>
+              <button
+                onClick={handleSaveEdit}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                <SaveIcon className="w-4 h-4" />
+                Ulozit
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+              >
+                Zrusit
+              </button>
+            </>
+          )}
           {!isEditing && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
@@ -1004,22 +1022,6 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
                     onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   />
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    onClick={handleSaveEdit}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-                  >
-                    <SaveIcon className="w-4 h-4" />
-                    Uložit
-                  </button>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    Zrušit
-                  </button>
                 </div>
               </div>
             ) : (
