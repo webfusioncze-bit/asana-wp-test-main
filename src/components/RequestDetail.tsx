@@ -60,7 +60,10 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     development_phase: '',
     request_date: '',
     result: '' as '' | 'success' | 'failure',
+    closure_date: '',
   });
+
+  const [visibleFields, setVisibleFields] = useState<Set<string>>(new Set());
 
   const [newNote, setNewNote] = useState('');
   const [newTimeEntry, setNewTimeEntry] = useState({ hours: '', description: '', date: new Date().toISOString().split('T')[0] });
@@ -151,7 +154,35 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       development_phase: requestData.development_phase || '',
       request_date: requestData.request_date || '',
       result: requestData.result || '',
+      closure_date: requestData.closure_date || '',
     });
+
+    const filledFields = new Set<string>();
+    if (requestData.client_name) filledFields.add('client_name');
+    if (requestData.client_email) filledFields.add('client_email');
+    if (requestData.client_phone) filledFields.add('client_phone');
+    if (requestData.subpage_count > 1) filledFields.add('subpage_count');
+    if (requestData.source) filledFields.add('source');
+    if (requestData.storage_url) filledFields.add('storage_url');
+    if (requestData.current_website_url) filledFields.add('current_website_url');
+    if (requestData.budget) filledFields.add('budget');
+    if (requestData.accepted_price > 0) filledFields.add('accepted_price');
+    if (requestData.additional_services) filledFields.add('additional_services');
+    if (requestData.delivery_speed) filledFields.add('delivery_speed');
+    if (requestData.ai_usage) filledFields.add('ai_usage');
+    if (requestData.project_materials_link) filledFields.add('project_materials_link');
+    if (requestData.deadline) filledFields.add('deadline');
+    if (requestData.favorite_eshop) filledFields.add('favorite_eshop');
+    if (requestData.product_count) filledFields.add('product_count');
+    if (requestData.marketing_goal) filledFields.add('marketing_goal');
+    if (requestData.competitor_url) filledFields.add('competitor_url');
+    if (requestData.monthly_management_budget) filledFields.add('monthly_management_budget');
+    if (requestData.monthly_credits_budget) filledFields.add('monthly_credits_budget');
+    if (requestData.development_phase) filledFields.add('development_phase');
+    if (requestData.request_date) filledFields.add('request_date');
+    if (requestData.result) filledFields.add('result');
+    if (requestData.closure_date) filledFields.add('closure_date');
+    setVisibleFields(filledFields);
 
     if (requestData.request_type_id) {
       const { data: typeData } = await supabase
@@ -287,6 +318,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
         development_phase: editForm.development_phase || null,
         request_date: editForm.request_date || null,
         result: editForm.result || null,
+        closure_date: editForm.closure_date || null,
       })
       .eq('id', requestId);
 
@@ -749,33 +781,22 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
           <div className="space-y-6">
             {isEditing ? (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Název *</label>
-                  <input
-                    type="text"
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Popis</label>
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Název *</label>
+                    <input
+                      type="text"
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Typ</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Typ</label>
                     <select
                       value={editForm.request_type_id}
                       onChange={(e) => setEditForm({ ...editForm, request_type_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Bez typu</option>
                       {requestTypes.map(type => (
@@ -783,13 +804,12 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                       ))}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Stav</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Stav</label>
                     <select
                       value={editForm.request_status_id}
                       onChange={(e) => setEditForm({ ...editForm, request_status_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
                     >
                       <option value="">Nový</option>
                       {requestStatuses.map(status => (
@@ -797,265 +817,326 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                       ))}
                     </select>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Datum poptávky</label>
-                    <input
-                      type="date"
-                      value={editForm.request_date}
-                      onChange={(e) => setEditForm({ ...editForm, request_date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Výsledek poptávky</label>
-                    <select
-                      value={editForm.result}
-                      onChange={(e) => setEditForm({ ...editForm, result: e.target.value as '' | 'success' | 'failure' })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="">Nerozhodnuto</option>
-                      <option value="success">Úspěch</option>
-                      <option value="failure">Neúspěch</option>
-                    </select>
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                {(visibleFields.has('description') || editForm.description) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Jméno klienta</label>
-                    <input
-                      type="text"
-                      value={editForm.client_name}
-                      onChange={(e) => setEditForm({ ...editForm, client_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-500">Popis</label>
+                      <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('description'); return n; }); setEditForm({...editForm, description: ''}); }} className="text-xs text-gray-400 hover:text-red-500">Odebrat</button>
+                    </div>
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      rows={2}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                     />
                   </div>
+                )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={editForm.client_email}
-                      onChange={(e) => setEditForm({ ...editForm, client_email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-                    <input
-                      type="tel"
-                      value={editForm.client_phone}
-                      onChange={(e) => setEditForm({ ...editForm, client_phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(visibleFields.has('client_name') || editForm.client_name) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Klient</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('client_name'); return n; }); setEditForm({...editForm, client_name: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.client_name} onChange={(e) => setEditForm({ ...editForm, client_name: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('client_email') || editForm.client_email) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Email</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('client_email'); return n; }); setEditForm({...editForm, client_email: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="email" value={editForm.client_email} onChange={(e) => setEditForm({ ...editForm, client_email: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('client_phone') || editForm.client_phone) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Telefon</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('client_phone'); return n; }); setEditForm({...editForm, client_phone: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="tel" value={editForm.client_phone} onChange={(e) => setEditForm({ ...editForm, client_phone: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('budget') || editForm.budget) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Rozpocet</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('budget'); return n; }); setEditForm({...editForm, budget: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.budget} onChange={(e) => setEditForm({ ...editForm, budget: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('accepted_price') || editForm.accepted_price > 0) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Akc. cena</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('accepted_price'); return n; }); setEditForm({...editForm, accepted_price: 0}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="number" value={editForm.accepted_price} onChange={(e) => setEditForm({ ...editForm, accepted_price: parseFloat(e.target.value) || 0 })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('deadline') || editForm.deadline) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Termin</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('deadline'); return n; }); setEditForm({...editForm, deadline: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="date" value={editForm.deadline} onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('request_date') || editForm.request_date) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Datum popt.</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('request_date'); return n; }); setEditForm({...editForm, request_date: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="date" value={editForm.request_date} onChange={(e) => setEditForm({ ...editForm, request_date: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('closure_date') || editForm.closure_date) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Datum uzavreni</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('closure_date'); return n; }); setEditForm({...editForm, closure_date: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="date" value={editForm.closure_date} onChange={(e) => setEditForm({ ...editForm, closure_date: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('result') || editForm.result) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Vysledek</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('result'); return n; }); setEditForm({...editForm, result: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <select value={editForm.result} onChange={(e) => setEditForm({ ...editForm, result: e.target.value as '' | 'success' | 'failure' })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary">
+                        <option value="">Nerozhodnuto</option>
+                        <option value="success">Uspech</option>
+                        <option value="failure">Neuspech</option>
+                      </select>
+                    </div>
+                  )}
+                  {(visibleFields.has('subpage_count') || editForm.subpage_count > 1) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Podstranky</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('subpage_count'); return n; }); setEditForm({...editForm, subpage_count: 1}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="number" value={editForm.subpage_count} onChange={(e) => setEditForm({ ...editForm, subpage_count: parseInt(e.target.value) || 1 })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('source') || editForm.source) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Zdroj</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('source'); return n; }); setEditForm({...editForm, source: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.source} onChange={(e) => setEditForm({ ...editForm, source: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('current_website_url') || editForm.current_website_url) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Aktualni web</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('current_website_url'); return n; }); setEditForm({...editForm, current_website_url: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="url" value={editForm.current_website_url} onChange={(e) => setEditForm({ ...editForm, current_website_url: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('storage_url') || editForm.storage_url) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Uloziste</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('storage_url'); return n; }); setEditForm({...editForm, storage_url: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="url" value={editForm.storage_url} onChange={(e) => setEditForm({ ...editForm, storage_url: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('delivery_speed') || editForm.delivery_speed) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Rychlost</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('delivery_speed'); return n; }); setEditForm({...editForm, delivery_speed: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.delivery_speed} onChange={(e) => setEditForm({ ...editForm, delivery_speed: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('ai_usage') || editForm.ai_usage) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">AI</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('ai_usage'); return n; }); setEditForm({...editForm, ai_usage: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.ai_usage} onChange={(e) => setEditForm({ ...editForm, ai_usage: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('project_materials_link') || editForm.project_materials_link) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Podklady</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('project_materials_link'); return n; }); setEditForm({...editForm, project_materials_link: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="url" value={editForm.project_materials_link} onChange={(e) => setEditForm({ ...editForm, project_materials_link: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('favorite_eshop') || editForm.favorite_eshop) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Obl. e-shop</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('favorite_eshop'); return n; }); setEditForm({...editForm, favorite_eshop: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="url" value={editForm.favorite_eshop} onChange={(e) => setEditForm({ ...editForm, favorite_eshop: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('product_count') || editForm.product_count) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Produkty</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('product_count'); return n; }); setEditForm({...editForm, product_count: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.product_count} onChange={(e) => setEditForm({ ...editForm, product_count: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('marketing_goal') || editForm.marketing_goal) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Cil mktg</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('marketing_goal'); return n; }); setEditForm({...editForm, marketing_goal: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.marketing_goal} onChange={(e) => setEditForm({ ...editForm, marketing_goal: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('competitor_url') || editForm.competitor_url) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Konkurence</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('competitor_url'); return n; }); setEditForm({...editForm, competitor_url: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="url" value={editForm.competitor_url} onChange={(e) => setEditForm({ ...editForm, competitor_url: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('monthly_management_budget') || editForm.monthly_management_budget) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Mes. sprava</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('monthly_management_budget'); return n; }); setEditForm({...editForm, monthly_management_budget: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.monthly_management_budget} onChange={(e) => setEditForm({ ...editForm, monthly_management_budget: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('monthly_credits_budget') || editForm.monthly_credits_budget) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Mes. kredity</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('monthly_credits_budget'); return n; }); setEditForm({...editForm, monthly_credits_budget: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.monthly_credits_budget} onChange={(e) => setEditForm({ ...editForm, monthly_credits_budget: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
+                  {(visibleFields.has('development_phase') || editForm.development_phase) && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500">Faze vyvoje</label>
+                        <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('development_phase'); return n; }); setEditForm({...editForm, development_phase: ''}); }} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                      </div>
+                      <input type="text" value={editForm.development_phase} onChange={(e) => setEditForm({ ...editForm, development_phase: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {(visibleFields.has('additional_services') || editForm.additional_services) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Počet podstránek</label>
-                    <input
-                      type="number"
-                      value={editForm.subpage_count}
-                      onChange={(e) => setEditForm({ ...editForm, subpage_count: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-500">Dalsi sluzby</label>
+                      <button onClick={() => { setVisibleFields(prev => { const n = new Set(prev); n.delete('additional_services'); return n; }); setEditForm({...editForm, additional_services: ''}); }} className="text-xs text-gray-400 hover:text-red-500">Odebrat</button>
+                    </div>
+                    <textarea value={editForm.additional_services} onChange={(e) => setEditForm({ ...editForm, additional_services: e.target.value })} rows={2} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
                   </div>
+                )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Zdroj</label>
-                    <input
-                      type="text"
-                      value={editForm.source}
-                      onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
+                <div className="pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 mb-2">Pridat pole:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {!visibleFields.has('description') && !editForm.description && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('description'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Popis</button>
+                    )}
+                    {!visibleFields.has('client_name') && !editForm.client_name && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('client_name'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Klient</button>
+                    )}
+                    {!visibleFields.has('client_email') && !editForm.client_email && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('client_email'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Email</button>
+                    )}
+                    {!visibleFields.has('client_phone') && !editForm.client_phone && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('client_phone'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Telefon</button>
+                    )}
+                    {!visibleFields.has('budget') && !editForm.budget && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('budget'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Rozpocet</button>
+                    )}
+                    {!visibleFields.has('accepted_price') && editForm.accepted_price === 0 && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('accepted_price'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Akc. cena</button>
+                    )}
+                    {!visibleFields.has('deadline') && !editForm.deadline && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('deadline'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Termin</button>
+                    )}
+                    {!visibleFields.has('request_date') && !editForm.request_date && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('request_date'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Datum popt.</button>
+                    )}
+                    {!visibleFields.has('closure_date') && !editForm.closure_date && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('closure_date'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Datum uzavreni</button>
+                    )}
+                    {!visibleFields.has('result') && !editForm.result && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('result'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Vysledek</button>
+                    )}
+                    {!visibleFields.has('subpage_count') && editForm.subpage_count <= 1 && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('subpage_count'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Podstranky</button>
+                    )}
+                    {!visibleFields.has('source') && !editForm.source && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('source'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Zdroj</button>
+                    )}
+                    {!visibleFields.has('current_website_url') && !editForm.current_website_url && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('current_website_url'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Aktualni web</button>
+                    )}
+                    {!visibleFields.has('storage_url') && !editForm.storage_url && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('storage_url'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Uloziste</button>
+                    )}
+                    {!visibleFields.has('additional_services') && !editForm.additional_services && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('additional_services'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Dalsi sluzby</button>
+                    )}
+                    {!visibleFields.has('delivery_speed') && !editForm.delivery_speed && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('delivery_speed'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Rychlost</button>
+                    )}
+                    {!visibleFields.has('ai_usage') && !editForm.ai_usage && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('ai_usage'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ AI</button>
+                    )}
+                    {!visibleFields.has('project_materials_link') && !editForm.project_materials_link && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('project_materials_link'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Podklady</button>
+                    )}
+                    {!visibleFields.has('favorite_eshop') && !editForm.favorite_eshop && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('favorite_eshop'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Obl. e-shop</button>
+                    )}
+                    {!visibleFields.has('product_count') && !editForm.product_count && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('product_count'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Produkty</button>
+                    )}
+                    {!visibleFields.has('marketing_goal') && !editForm.marketing_goal && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('marketing_goal'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Cil mktg</button>
+                    )}
+                    {!visibleFields.has('competitor_url') && !editForm.competitor_url && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('competitor_url'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Konkurence</button>
+                    )}
+                    {!visibleFields.has('monthly_management_budget') && !editForm.monthly_management_budget && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('monthly_management_budget'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Mes. sprava</button>
+                    )}
+                    {!visibleFields.has('monthly_credits_budget') && !editForm.monthly_credits_budget && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('monthly_credits_budget'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Mes. kredity</button>
+                    )}
+                    {!visibleFields.has('development_phase') && !editForm.development_phase && (
+                      <button onClick={() => setVisibleFields(prev => new Set(prev).add('development_phase'))} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded transition-colors">+ Faze vyvoje</button>
+                    )}
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Aktuální web</label>
-                  <input
-                    type="url"
-                    value={editForm.current_website_url}
-                    onChange={(e) => setEditForm({ ...editForm, current_website_url: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Odkaz na uložiště</label>
-                  <input
-                    type="url"
-                    value={editForm.storage_url}
-                    onChange={(e) => setEditForm({ ...editForm, storage_url: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Další poptávané služby</label>
-                  <textarea
-                    value={editForm.additional_services}
-                    onChange={(e) => setEditForm({ ...editForm, additional_services: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Další služby nebo požadavky..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rychlost dodání</label>
-                    <input
-                      type="text"
-                      value={editForm.delivery_speed}
-                      onChange={(e) => setEditForm({ ...editForm, delivery_speed: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="např. Standardní, Expres..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Využití AI</label>
-                    <input
-                      type="text"
-                      value={editForm.ai_usage}
-                      onChange={(e) => setEditForm({ ...editForm, ai_usage: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="např. Ano, Ne..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Podklady k projektu</label>
-                    <input
-                      type="url"
-                      value={editForm.project_materials_link}
-                      onChange={(e) => setEditForm({ ...editForm, project_materials_link: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">E-shop, který se mi líbí</label>
-                    <input
-                      type="url"
-                      value={editForm.favorite_eshop}
-                      onChange={(e) => setEditForm({ ...editForm, favorite_eshop: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Počet produktů e-shopu</label>
-                    <input
-                      type="text"
-                      value={editForm.product_count}
-                      onChange={(e) => setEditForm({ ...editForm, product_count: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="např. 50-200"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cíl marketingu</label>
-                    <input
-                      type="text"
-                      value={editForm.marketing_goal}
-                      onChange={(e) => setEditForm({ ...editForm, marketing_goal: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="např. Získání nových zákazníků"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresa konkurence</label>
-                    <input
-                      type="url"
-                      value={editForm.competitor_url}
-                      onChange={(e) => setEditForm({ ...editForm, competitor_url: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet na měsíční správu</label>
-                    <input
-                      type="text"
-                      value={editForm.monthly_management_budget}
-                      onChange={(e) => setEditForm({ ...editForm, monthly_management_budget: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="např. 5 000 Kč"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet na měsíční kredity</label>
-                    <input
-                      type="text"
-                      value={editForm.monthly_credits_budget}
-                      onChange={(e) => setEditForm({ ...editForm, monthly_credits_budget: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="např. 10 000 Kč"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fáze vývoje aplikace</label>
-                  <input
-                    type="text"
-                    value={editForm.development_phase}
-                    onChange={(e) => setEditForm({ ...editForm, development_phase: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="např. MVP, Beta, Produkce"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rozpočet</label>
-                    <input
-                      type="text"
-                      value={editForm.budget}
-                      onChange={(e) => setEditForm({ ...editForm, budget: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="např. 50000 Kč nebo 'Dle dohody'"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Akceptovaná cena (Kč)</label>
-                    <input
-                      type="number"
-                      value={editForm.accepted_price}
-                      onChange={(e) => setEditForm({ ...editForm, accepted_price: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Termín</label>
-                  <input
-                    type="date"
-                    value={editForm.deadline}
-                    onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
                 </div>
               </div>
             ) : (
@@ -1261,6 +1342,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                           Datum poptávky:
                         </span>
                         <span className="text-gray-900 font-medium">{new Date(request.request_date).toLocaleDateString('cs-CZ')}</span>
+                      </div>
+                    )}
+                    {request.closure_date && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500 text-sm flex items-center gap-1">
+                          <CalendarIcon className="w-4 h-4" />
+                          Datum uzavreni:
+                        </span>
+                        <span className="text-gray-900 font-medium">{new Date(request.closure_date).toLocaleDateString('cs-CZ')}</span>
                       </div>
                     )}
                     {request.budget && (

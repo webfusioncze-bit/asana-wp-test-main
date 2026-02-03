@@ -170,6 +170,7 @@ export interface Request {
   development_phase: string | null;
   request_date: string | null;
   result: RequestResult | null;
+  closure_date: string | null;
 }
 
 export interface RequestAction {
