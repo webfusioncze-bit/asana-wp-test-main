@@ -330,7 +330,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     setTaskHierarchy(hierarchy);
   }
 
-  async function updateTaskField(field: string, value: any) {
+  async function updateTaskField(field: string, value: any, closeEditor: boolean = true) {
     if (!task) return;
 
     const updateData: any = {
@@ -406,8 +406,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
       }
     }
 
-    setEditingField(null);
-    loadTask();
+    if (closeEditor) {
+      setEditingField(null);
+    }
+    await loadTask();
     onTaskUpdated();
   }
 
@@ -882,10 +884,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             <UserIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Přiřazení" />
             {editingField === 'assigned_to' ? (
               <select
-                defaultValue={task.assigned_to}
+                value={task.assigned_to || ''}
                 autoFocus
                 onChange={(e) => {
-                  updateTaskField('assigned_to', e.target.value);
+                  updateTaskField('assigned_to', e.target.value, false);
                 }}
                 onBlur={() => setEditingField(null)}
                 className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
@@ -1041,10 +1043,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               <AlertCircleIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Priorita" />
               {editingField === 'priority' ? (
                 <select
-                  defaultValue={task.priority || 'medium'}
+                  value={task.priority || 'medium'}
                   autoFocus
                   onChange={(e) => {
-                    updateTaskField('priority', e.target.value as Task['priority']);
+                    updateTaskField('priority', e.target.value as Task['priority'], false);
                   }}
                   onBlur={() => setEditingField(null)}
                   className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
@@ -1070,10 +1072,10 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
               <CircleIcon className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" title="Status" />
               {editingField === 'status' ? (
                 <select
-                  defaultValue={task.status || 'todo'}
+                  value={task.status || 'todo'}
                   autoFocus
                   onChange={(e) => {
-                    updateTaskField('status', e.target.value as Task['status']);
+                    updateTaskField('status', e.target.value as Task['status'], false);
                   }}
                   onBlur={() => setEditingField(null)}
                   className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary"
