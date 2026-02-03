@@ -408,6 +408,11 @@ function App() {
                     onTaskUpdated={() => {
                       setTasksRefreshKey(prev => prev + 1);
                     }}
+                    onOpenRequest={(requestId) => {
+                      setSelectedTaskId(null);
+                      setViewMode('requests');
+                      setSelectedRequestId(requestId);
+                    }}
                   />
                 </div>
               )}

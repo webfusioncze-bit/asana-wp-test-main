@@ -31,9 +31,10 @@ interface TaskDetailProps {
   taskId: string;
   onClose: () => void;
   onTaskUpdated: () => void;
+  onOpenRequest?: (requestId: string) => void;
 }
 
-export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) {
+export function TaskDetail({ taskId, onClose, onTaskUpdated, onOpenRequest }: TaskDetailProps) {
   const [task, setTask] = useState<Task | null>(null);
   const [relatedRequest, setRelatedRequest] = useState<any | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
@@ -778,8 +779,19 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
           </div>
         </div>
         {relatedRequest && (
-          <div className="mb-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="text-xs text-gray-600 mb-0.5">Poptávka:</div>
+          <div
+            className={`mb-2 p-2 bg-blue-50 rounded-lg border border-blue-200 ${onOpenRequest ? 'cursor-pointer hover:bg-blue-100 hover:border-blue-300 transition-colors' : ''}`}
+            onClick={onOpenRequest ? () => {
+              onClose();
+              onOpenRequest(relatedRequest.id);
+            } : undefined}
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-600 mb-0.5">Poptávka:</div>
+              {onOpenRequest && (
+                <span className="text-xs text-blue-600">Otevřít</span>
+              )}
+            </div>
             <div className="text-sm font-medium text-gray-900">{relatedRequest.title}</div>
             {relatedRequest.client_name && (
               <div className="text-xs text-gray-600">Klient: {relatedRequest.client_name}</div>
