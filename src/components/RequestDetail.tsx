@@ -549,7 +549,6 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
   };
 
   return (
-    <>
     <div className="w-[600px] border-l border-gray-200 bg-white flex flex-col">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Detail poptávky</h2>
@@ -1527,18 +1526,21 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated }: RequestD
         </div>
       )}
 
-    </div>
-
       {selectedTaskId && (
-        <TaskDetail
-          taskId={selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-          onTaskUpdated={() => {
-            loadTasks();
-            setSelectedTaskId(null);
-          }}
-        />
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end">
+          <div className="absolute inset-0 bg-black bg-opacity-30" onClick={() => setSelectedTaskId(null)} />
+          <div className="relative w-[480px] bg-white shadow-2xl flex flex-col">
+            <TaskDetail
+              taskId={selectedTaskId}
+              onClose={() => setSelectedTaskId(null)}
+              onTaskUpdated={() => {
+                loadTasks();
+                onTaskUpdated?.();
+              }}
+            />
+          </div>
+        </div>
       )}
-    </>
+    </div>
   );
 }

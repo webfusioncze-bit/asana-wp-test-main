@@ -35,6 +35,7 @@ interface TaskDetailProps {
 
 export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) {
   const [task, setTask] = useState<Task | null>(null);
+  const [relatedRequest, setRelatedRequest] = useState<any | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -168,6 +169,18 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
     }
 
     setTask(data);
+
+    if (data?.request_id) {
+      const { data: requestData } = await supabase
+        .from('requests')
+        .select('id, title, client_name')
+        .eq('id', data.request_id)
+        .maybeSingle();
+
+      setRelatedRequest(requestData);
+    } else {
+      setRelatedRequest(null);
+    }
   }
 
   async function loadComments() {
@@ -710,7 +723,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
 
   if (!task) {
     return (
-      <div className="w-[480px] bg-white border-l border-gray-200 flex items-center justify-center">
+      <div className="flex items-center justify-center h-full">
         <p className="text-gray-500">Načítání...</p>
       </div>
     );
@@ -743,7 +756,7 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
   };
 
   return (
-    <div className="w-[480px] bg-white border-l border-gray-200 flex flex-col h-full">
+    <div className="bg-white flex flex-col h-full">
       <div className="px-3 py-2 border-b border-gray-200">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-base font-semibold text-gray-800">Detail úkolu</h2>
@@ -762,6 +775,15 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated }: TaskDetailProps) 
             </button>
           </div>
         </div>
+        {relatedRequest && (
+          <div className="mb-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="text-xs text-gray-600 mb-0.5">Poptávka:</div>
+            <div className="text-sm font-medium text-gray-900">{relatedRequest.title}</div>
+            {relatedRequest.client_name && (
+              <div className="text-xs text-gray-600">Klient: {relatedRequest.client_name}</div>
+            )}
+          </div>
+        )}
         {taskHierarchy.length > 1 && (
           <div className="flex items-center gap-2 text-xs text-gray-600 overflow-x-auto">
             {taskHierarchy.map((hierarchyTask, index) => (

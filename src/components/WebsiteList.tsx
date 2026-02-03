@@ -365,11 +365,16 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
       </div>
 
       {selectedTaskId && (
-        <TaskDetail
-          taskId={selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-          onTaskUpdated={() => {}}
-        />
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end">
+          <div className="absolute inset-0 bg-black bg-opacity-30" onClick={() => setSelectedTaskId(null)} />
+          <div className="relative w-[480px] bg-white shadow-2xl flex flex-col">
+            <TaskDetail
+              taskId={selectedTaskId}
+              onClose={() => setSelectedTaskId(null)}
+              onTaskUpdated={() => {}}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

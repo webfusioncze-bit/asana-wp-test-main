@@ -401,13 +401,15 @@ function App() {
                 onSelectTask={setSelectedTaskId}
               />
               {selectedTaskId && (
-                <TaskDetail
-                  taskId={selectedTaskId}
-                  onClose={() => setSelectedTaskId(null)}
-                  onTaskUpdated={() => {
-                    setTasksRefreshKey(prev => prev + 1);
-                  }}
-                />
+                <div className="w-[480px] flex flex-col h-full">
+                  <TaskDetail
+                    taskId={selectedTaskId}
+                    onClose={() => setSelectedTaskId(null)}
+                    onTaskUpdated={() => {
+                      setTasksRefreshKey(prev => prev + 1);
+                    }}
+                  />
+                </div>
               )}
               {showTaskCreation && (
                 <TaskCreationPanel
