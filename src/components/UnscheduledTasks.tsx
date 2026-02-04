@@ -193,6 +193,7 @@ export function UnscheduledTasks({ onTaskClick }: UnscheduledTasksProps) {
                       onClick={() => onTaskClick(task.id)}
                       onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                       onSubtaskClick={onTaskClick}
+                      onParentTaskClick={onTaskClick}
                     />
                   );
                 })}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon, PaperclipIcon, GripVerticalIcon } from 'lucide-react';
+import { CheckCircle2Icon, CircleIcon, UserIcon, CalendarIcon, ChevronDownIcon, ChevronRightIcon, AlertCircleIcon, PaperclipIcon, GripVerticalIcon, CornerUpLeftIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TaskTagsQuickEdit } from './TaskTagsQuickEdit';
 import type { Task, Category, User, FolderTag } from '../types';
@@ -12,11 +12,12 @@ interface TaskItemSimpleProps {
   onClick: () => void;
   onUpdateStatus: (status: Task['status']) => void;
   onSubtaskClick?: (taskId: string) => void;
+  onParentTaskClick?: (taskId: string) => void;
   onDragStart?: (task: Task) => void;
   draggable?: boolean;
 }
 
-export function TaskItemSimple({ task, category, assignedUser, createdByUser, onClick, onUpdateStatus, onSubtaskClick, onDragStart, draggable = false }: TaskItemSimpleProps) {
+export function TaskItemSimple({ task, category, assignedUser, createdByUser, onClick, onUpdateStatus, onSubtaskClick, onParentTaskClick, onDragStart, draggable = false }: TaskItemSimpleProps) {
   const [subtasks, setSubtasks] = useState<Task[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [subtaskCategories, setSubtaskCategories] = useState<Category[]>([]);
@@ -25,12 +26,16 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
   const [taskTags, setTaskTags] = useState<FolderTag[]>([]);
   const [taskTagIds, setTaskTagIds] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [parentTask, setParentTask] = useState<Task | null>(null);
 
   useEffect(() => {
     loadSubtasks();
     checkAttachments();
     loadTaskTags();
-  }, [task.id]);
+    if (task.parent_task_id) {
+      loadParentTask();
+    }
+  }, [task.id, task.parent_task_id]);
 
   async function loadTaskTags() {
     if (!task.folder_id) return;
@@ -63,6 +68,23 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
     if (!error && data && data.length > 0) {
       setHasAttachments(true);
     }
+  }
+
+  async function loadParentTask() {
+    if (!task.parent_task_id) return;
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', task.parent_task_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error loading parent task:', error);
+      return;
+    }
+
+    setParentTask(data);
   }
 
   async function loadSubtasks() {
@@ -271,6 +293,22 @@ export function TaskItemSimple({ task, category, assignedUser, createdByUser, on
         >
           {task.title}
         </span>
+
+        {parentTask && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onParentTaskClick) {
+                onParentTaskClick(parentTask.id);
+              }
+            }}
+            className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors flex-shrink-0"
+            title={`Nadrazeny ukol: ${parentTask.title}`}
+          >
+            <CornerUpLeftIcon className="w-3 h-3" />
+            <span className="max-w-[120px] truncate">{parentTask.title}</span>
+          </button>
+        )}
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {totalSubtasks > 0 && (

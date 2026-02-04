@@ -398,6 +398,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
               onClick={() => onTaskClick(task.id)}
               onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
               onSubtaskClick={onTaskClick}
+              onParentTaskClick={onTaskClick}
               draggable={true}
               onDragStart={handleDragStart}
             />
@@ -522,6 +523,7 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
                     onClick={() => onTaskClick(task.id)}
                     onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                     onSubtaskClick={onTaskClick}
+                    onParentTaskClick={onTaskClick}
                     draggable={true}
                     onDragStart={handleDragStart}
                   />

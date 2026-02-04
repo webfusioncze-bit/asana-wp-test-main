@@ -231,6 +231,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
                   onClick={() => onTaskClick(task.id)}
                   onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                   onSubtaskClick={onTaskClick}
+                  onParentTaskClick={onTaskClick}
                 />
               );
             })}
@@ -261,6 +262,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
                   onClick={() => onTaskClick(task.id)}
                   onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                   onSubtaskClick={onTaskClick}
+                  onParentTaskClick={onTaskClick}
                 />
               );
             })}
@@ -296,6 +298,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
                   onClick={() => onTaskClick(task.id)}
                   onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                   onSubtaskClick={onTaskClick}
+                  onParentTaskClick={onTaskClick}
                 />
               );
             })}
@@ -360,6 +363,7 @@ export function TaskOverview({ onTaskClick }: TaskOverviewProps) {
                   onClick={() => onTaskClick(task.id)}
                   onUpdateStatus={(status) => updateTaskStatus(task.id, status)}
                   onSubtaskClick={onTaskClick}
+                  onParentTaskClick={onTaskClick}
                 />
               );
             })}

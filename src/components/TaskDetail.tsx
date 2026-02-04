@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon, MailIcon, ActivityIcon, UserPlusIcon, AlertCircleIcon, CircleIcon } from 'lucide-react';
+import { XIcon, CalendarIcon, TagIcon, FolderIcon, TrashIcon, UserIcon, ClockIcon, PlusIcon, RepeatIcon, UploadIcon, FileIcon, DownloadIcon, MailIcon, ActivityIcon, UserPlusIcon, AlertCircleIcon, CircleIcon, CornerUpLeftIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { sendTaskAssignmentEmail } from '../lib/emailNotifications';
 import type { Task, TaskComment, Category, Folder, User, TimeEntry, FolderTag } from '../types';
@@ -799,29 +799,48 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated, onOpenRequest }: Ta
           </div>
         )}
         {taskHierarchy.length > 1 && (
-          <div className="flex items-center gap-2 text-xs text-gray-600 overflow-x-auto">
-            {taskHierarchy.map((hierarchyTask, index) => (
-              <div key={hierarchyTask.id} className="flex items-center gap-2 flex-shrink-0">
-                {index > 0 && <span>/</span>}
-                <button
-                  onClick={() => {
-                    if (hierarchyTask.id !== taskId) {
-                      onClose();
-                      setTimeout(() => {
-                        const event = new CustomEvent('selectTask', { detail: hierarchyTask.id });
-                        window.dispatchEvent(event);
-                      }, 100);
-                    }
-                  }}
-                  className={`hover:text-primary transition-colors truncate max-w-[150px] ${
-                    hierarchyTask.id === taskId ? 'font-medium text-primary' : ''
-                  }`}
-                  title={hierarchyTask.title}
-                >
-                  {hierarchyTask.title}
-                </button>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+            <div className="text-xs text-blue-600 font-medium mb-1">Nadrazeny ukol</div>
+            <button
+              onClick={() => {
+                const parentTask = taskHierarchy[taskHierarchy.length - 2];
+                if (parentTask && parentTask.id !== taskId) {
+                  onClose();
+                  setTimeout(() => {
+                    const event = new CustomEvent('selectTask', { detail: parentTask.id });
+                    window.dispatchEvent(event);
+                  }, 100);
+                }
+              }}
+              className="flex items-center gap-2 text-sm text-gray-900 hover:text-blue-700 transition-colors group w-full text-left"
+            >
+              <CornerUpLeftIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+              <span className="truncate group-hover:underline">{taskHierarchy[taskHierarchy.length - 2]?.title}</span>
+            </button>
+            {taskHierarchy.length > 2 && (
+              <div className="flex items-center gap-1 mt-2 pt-2 border-t border-blue-200 text-xs text-gray-500 overflow-x-auto">
+                {taskHierarchy.slice(0, -1).map((hierarchyTask, index) => (
+                  <div key={hierarchyTask.id} className="flex items-center gap-1 flex-shrink-0">
+                    {index > 0 && <span className="text-gray-400">/</span>}
+                    <button
+                      onClick={() => {
+                        if (hierarchyTask.id !== taskId) {
+                          onClose();
+                          setTimeout(() => {
+                            const event = new CustomEvent('selectTask', { detail: hierarchyTask.id });
+                            window.dispatchEvent(event);
+                          }, 100);
+                        }
+                      }}
+                      className="hover:text-blue-600 transition-colors truncate max-w-[100px]"
+                      title={hierarchyTask.title}
+                    >
+                      {hierarchyTask.title}
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
