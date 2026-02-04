@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon, CheckCheck as CheckCheckIcon, Trash2 as Trash2Icon, FolderIcon, XIcon, MailIcon, UserIcon, ChevronDownIcon, UsersIcon, FilterIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon, CheckCheck as CheckCheckIcon, Trash2 as Trash2Icon, FolderIcon, XIcon, MailIcon, UserIcon, ChevronDownIcon, UsersIcon, FilterIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -35,6 +35,8 @@ interface RequestWithUser extends Request {
 
 type TakenFilterType = 'mine' | 'assigned_to_me' | 'all' | string;
 
+const UNTAKEN_PAGE_SIZE = 5;
+
 export function RequestList({ folderId, selectedRequestId, onSelectRequest }: RequestListProps) {
   const [requests, setRequests] = useState<RequestWithUser[]>([]);
   const [allRequests, setAllRequests] = useState<RequestWithUser[]>([]);
@@ -52,6 +54,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const [showBulkFolderMenu, setShowBulkFolderMenu] = useState(false);
   const [takenFilter, setTakenFilter] = useState<TakenFilterType>('mine');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [untakenPage, setUntakenPage] = useState(1);
   const { isLoading: cacheLoading } = useDataCache();
 
   const isSearchMode = searchQuery.length > 0;
@@ -298,6 +301,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   };
 
   const untakenRequests = requests.filter(r => !r.assigned_user_id);
+  const untakenTotalPages = Math.ceil(untakenRequests.length / UNTAKEN_PAGE_SIZE);
+  const paginatedUntakenRequests = untakenRequests.slice(
+    (untakenPage - 1) * UNTAKEN_PAGE_SIZE,
+    untakenPage * UNTAKEN_PAGE_SIZE
+  );
 
   const takenRequests = requests.filter(r => {
     if (!r.assigned_user_id) return false;
@@ -360,7 +368,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const handleBulkDelete = async () => {
     if (selectedRequests.size === 0) return;
 
-    if (!confirm(`Opravdu chcete smazat ${selectedRequests.size} poptavek?`)) {
+    if (!confirm(`Opravdu chcete smazat ${selectedRequests.size} poptávek?`)) {
       return;
     }
 
@@ -373,7 +381,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
     if (error) {
       console.error('Error deleting requests:', error);
-      alert('Chyba pri mazani poptavek');
+      alert('Chyba při mazání poptávek');
       return;
     }
 
@@ -384,7 +392,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
   const handleQuickDismiss = async (e: React.MouseEvent, requestId: string) => {
     e.stopPropagation();
-    if (!confirm('Opravdu chcete tuto poptavku smazat?')) {
+    if (!confirm('Opravdu chcete tuto poptávku smazat?')) {
       return;
     }
 
@@ -395,7 +403,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
     if (error) {
       console.error('Error deleting request:', error);
-      alert('Chyba pri mazani poptavky');
+      alert('Chyba při mazání poptávky');
       return;
     }
 
@@ -414,7 +422,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
     if (error) {
       console.error('Error moving requests:', error);
-      alert('Chyba pri presunu poptavek');
+      alert('Chyba při přesunu poptávek');
       return;
     }
 
@@ -426,8 +434,8 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
   const getFilterLabel = () => {
     if (takenFilter === 'mine') return 'Moje';
-    if (takenFilter === 'assigned_to_me') return 'Pridelene mne';
-    if (takenFilter === 'all') return 'Vsechny';
+    if (takenFilter === 'assigned_to_me') return 'Přidělené mně';
+    if (takenFilter === 'all') return 'Všechny';
     const user = allUsers.find(u => u.id === takenFilter);
     if (user) {
       return user.first_name && user.last_name
@@ -452,7 +460,93 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     return '?';
   };
 
-  const renderRequestCard = (request: RequestWithUser, showOwner: boolean = true) => {
+  const renderUntakenRequestCard = (request: RequestWithUser) => {
+    const requestType = requestTypes.find(t => t.id === request.request_type_id);
+    const isSelected = selectedRequests.has(request.id);
+
+    return (
+      <div
+        key={request.id}
+        onClick={() => {
+          if (bulkSelectMode) {
+            toggleRequestSelection(request.id);
+          } else {
+            onSelectRequest(request.id);
+          }
+        }}
+        className={`px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center gap-2 ${
+          bulkSelectMode && isSelected
+            ? 'border-primary bg-blue-50'
+            : selectedRequestId === request.id
+            ? 'border-primary bg-primary/5'
+            : 'border-gray-200 hover:border-blue-300 bg-white'
+        }`}
+      >
+        {bulkSelectMode && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => {}}
+            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer flex-shrink-0"
+          />
+        )}
+        <h3 className="font-medium text-sm text-gray-900 flex-1 truncate">{request.title}</h3>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {requestType && (
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style={{
+                backgroundColor: requestType.color + '15',
+                color: requestType.color
+              }}
+            >
+              {requestType.name}
+            </span>
+          )}
+          {isEmailRequest(request) ? (
+            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-full shadow-sm" title="Email">
+              <MailIcon className="w-3 h-3" />
+            </div>
+          ) : request.source === 'zapier' && (
+            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier">
+              <ZapIcon className="w-3 h-3" />
+            </div>
+          )}
+          {isAppRequest(request) && (
+            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Aplikace">
+              <SmartphoneIcon className="w-3 h-3" />
+            </div>
+          )}
+          {isEshopRequest(request) && (
+            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop">
+              <ShoppingCartIcon className="w-3 h-3" />
+            </div>
+          )}
+          {isPPCRequest(request) && (
+            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC">
+              <TrendingUpIcon className="w-3 h-3" />
+            </div>
+          )}
+          {isManagementRequest(request) && (
+            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Správa">
+              <SettingsIcon className="w-3 h-3" />
+            </div>
+          )}
+          {isEmailRequest(request) && (
+            <button
+              onClick={(e) => handleQuickDismiss(e, request.id)}
+              className="flex items-center justify-center w-5 h-5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors"
+              title="Odmítnout (smazat)"
+            >
+              <XIcon className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTakenRequestCard = (request: RequestWithUser, showOwner: boolean = true) => {
     const requestType = requestTypes.find(t => t.id === request.request_type_id);
     const requestStatus = requestStatuses.find(s => s.id === request.request_status_id);
     const stats = requestStats[request.id] || { notesCount: 0, tasksCount: 0, totalTime: 0 };
@@ -493,42 +587,33 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {isEmailRequest(request) ? (
-              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-full shadow-sm" title="Email na hello@webfusion.cz">
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-full shadow-sm" title="Email">
                 <MailIcon className="w-3 h-3" />
               </div>
             ) : request.source === 'zapier' && (
-              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier integrace">
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier">
                 <ZapIcon className="w-3 h-3" />
               </div>
             )}
             {isAppRequest(request) && (
-              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Vyvoj aplikace">
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Aplikace">
                 <SmartphoneIcon className="w-3 h-3" />
               </div>
             )}
             {isEshopRequest(request) && (
-              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop poptavka">
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop">
                 <ShoppingCartIcon className="w-3 h-3" />
               </div>
             )}
             {isPPCRequest(request) && (
-              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC poptavka">
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC">
                 <TrendingUpIcon className="w-3 h-3" />
               </div>
             )}
             {isManagementRequest(request) && (
-              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Sprava webu">
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Správa">
                 <SettingsIcon className="w-3 h-3" />
               </div>
-            )}
-            {isEmailRequest(request) && (
-              <button
-                onClick={(e) => handleQuickDismiss(e, request.id)}
-                className="flex items-center justify-center w-5 h-5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors"
-                title="Odmitnout (smazat)"
-              >
-                <XIcon className="w-3 h-3" />
-              </button>
             )}
           </div>
         </div>
@@ -563,12 +648,12 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
             </span>
           ) : (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-              Nova
+              Nová
             </span>
           )}
           {isPendingAcceptance && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700 animate-pulse">
-              Ceka na prevzeti
+              Čeká na převzetí
             </span>
           )}
         </div>
@@ -592,20 +677,20 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
               </span>
             </div>
           )}
-          <div className="flex items-center gap-0.5 text-gray-600" title="Pocet poznamek">
+          <div className="flex items-center gap-0.5 text-gray-600" title="Počet poznámek">
             <MessageSquareIcon className="w-3 h-3" />
             <span className="text-xs font-medium">{stats.notesCount}</span>
           </div>
-          <div className="flex items-center gap-0.5 text-gray-600" title="Pocet ukolu">
+          <div className="flex items-center gap-0.5 text-gray-600" title="Počet úkolů">
             <CheckSquareIcon className="w-3 h-3" />
             <span className="text-xs font-medium">{stats.tasksCount}</span>
           </div>
-          <div className="flex items-center gap-0.5 text-gray-600" title="Celkovy straveny cas">
+          <div className="flex items-center gap-0.5 text-gray-600" title="Celkový strávený čas">
             <ClockIcon className="w-3 h-3" />
             <span className="text-xs font-medium">{stats.totalTime}h</span>
           </div>
           {request.product_count && (
-            <div className="flex items-center gap-0.5 text-indigo-600" title="Pocet produktu e-shopu">
+            <div className="flex items-center gap-0.5 text-indigo-600" title="Počet produktů e-shopu">
               <ShoppingCartIcon className="w-3 h-3" />
               <span className="text-xs font-medium">{request.product_count}</span>
             </div>
@@ -637,9 +722,9 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
             {isSearchMode ? (
-              <span>Vysledky ({globalSearchResults.length})</span>
+              <span>Výsledky ({globalSearchResults.length})</span>
             ) : (
-              folderId ? 'Poptavky' : 'Prehled poptavek'
+              folderId ? 'Poptávky' : 'Přehled poptávek'
             )}
           </h2>
           <div className="flex items-center gap-2">
@@ -652,7 +737,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       ? 'bg-gray-200 text-gray-700'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
-                  title="Hromadny vyber"
+                  title="Hromadný výběr"
                 >
                   <CheckCheckIcon className="w-4 h-4" />
                 </button>
@@ -661,7 +746,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
                 >
                   <PlusIcon className="w-4 h-4" />
-                  Nova
+                  Nová
                 </button>
               </>
             )}
@@ -672,7 +757,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Hledat ve vsech poptavkach..."
+            placeholder="Hledat ve všech poptávkách..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -692,9 +777,9 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium text-gray-700">
                 {selectedRequests.size > 0 ? (
-                  <span>Vybrano: {selectedRequests.size}</span>
+                  <span>Vybráno: {selectedRequests.size}</span>
                 ) : (
-                  <span>Vyberte poptavky</span>
+                  <span>Vyberte poptávky</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -703,14 +788,14 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                     onClick={selectAllVisible}
                     className="text-xs text-primary hover:text-primary-dark font-medium"
                   >
-                    Vybrat vse
+                    Vybrat vše
                   </button>
                 ) : (
                   <button
                     onClick={deselectAll}
                     className="text-xs text-primary hover:text-primary-dark font-medium"
                   >
-                    Zrusit vyber
+                    Zrušit výběr
                   </button>
                 )}
               </div>
@@ -723,7 +808,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                     className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm"
                   >
                     <FolderIcon className="w-4 h-4" />
-                    Presunout
+                    Přesunout
                   </button>
                   {showBulkFolderMenu && (
                     <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
@@ -732,7 +817,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                           onClick={() => handleBulkMove(null)}
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
                         >
-                          Nove poptavky
+                          Nové poptávky
                         </button>
                         {requestStatuses.map((status) => (
                           <button
@@ -766,17 +851,17 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Nacitani...</div>
+          <div className="text-center py-12 text-gray-500">Načítání...</div>
         ) : isSearchMode ? (
           searchLoading ? (
-            <div className="text-center py-12 text-gray-500">Vyhledavam...</div>
+            <div className="text-center py-12 text-gray-500">Vyhledávám...</div>
           ) : globalSearchResults.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">Zadne vysledky</div>
+            <div className="text-center py-12 text-gray-500">Žádné výsledky</div>
           ) : (
             <div className="p-4 space-y-4">
               {Object.entries(groupedSearchResults).map(([statusId, groupRequests]) => {
                 const status = statusId === 'new' ? null : requestStatuses.find(s => s.id === statusId);
-                const statusName = status ? status.name : 'Nove poptavky';
+                const statusName = status ? status.name : 'Nové poptávky';
                 const statusColor = status ? status.color : '#3B82F6';
 
                 return (
@@ -792,7 +877,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       <span className="text-xs text-gray-500">({groupRequests.length})</span>
                     </div>
                     <div className="space-y-2">
-                      {groupRequests.map((request) => renderRequestCard(request, true))}
+                      {groupRequests.map((request) => renderTakenRequestCard(request, true))}
                     </div>
                   </div>
                 );
@@ -803,17 +888,40 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
           <div className="divide-y divide-gray-200">
             {untakenRequests.length > 0 && (
               <div className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                    Neprevzate poptavky
-                  </h3>
-                  <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
-                    {untakenRequests.length}
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      Nepřevzaté poptávky
+                    </h3>
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                      {untakenRequests.length}
+                    </span>
+                  </div>
+                  {untakenTotalPages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setUntakenPage(p => Math.max(1, p - 1))}
+                        disabled={untakenPage === 1}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <span className="text-xs text-gray-600 min-w-[40px] text-center">
+                        {untakenPage}/{untakenTotalPages}
+                      </span>
+                      <button
+                        onClick={() => setUntakenPage(p => Math.min(untakenTotalPages, p + 1))}
+                        disabled={untakenPage === untakenTotalPages}
+                        className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRightIcon className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  {untakenRequests.map((request) => renderRequestCard(request, false))}
+                <div className="space-y-1.5">
+                  {paginatedUntakenRequests.map((request) => renderUntakenRequestCard(request))}
                 </div>
               </div>
             )}
@@ -823,7 +931,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                   <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                    Prevzate poptavky
+                    Převzaté poptávky
                   </h3>
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
                     {takenRequests.length}
@@ -833,7 +941,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       onClick={() => setTakenFilter('assigned_to_me')}
                       className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium animate-pulse hover:bg-amber-200 transition-colors"
                     >
-                      {pendingAssignmentCount} ceka na prevzeti
+                      {pendingAssignmentCount} čeká na převzetí
                     </button>
                   )}
                 </div>
@@ -859,7 +967,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                           }`}
                         >
                           <UserIcon className="w-4 h-4" />
-                          Moje prevzate
+                          Moje převzaté
                         </button>
                         <button
                           onClick={() => { setTakenFilter('assigned_to_me'); setShowFilterMenu(false); }}
@@ -868,7 +976,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                           }`}
                         >
                           <UserIcon className="w-4 h-4" />
-                          Pridelene mne
+                          Přidělené mně
                           {pendingAssignmentCount > 0 && (
                             <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
                               {pendingAssignmentCount}
@@ -882,14 +990,14 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                           }`}
                         >
                           <UsersIcon className="w-4 h-4" />
-                          Vsechny prevzate
+                          Všechny převzaté
                         </button>
 
                         {allUsers.length > 0 && (
                           <>
                             <div className="border-t border-gray-200 my-2"></div>
                             <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase">
-                              Podle uzivatele
+                              Podle uživatele
                             </div>
                             {allUsers.map(user => (
                               <button
@@ -923,14 +1031,14 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
               {takenRequests.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 text-sm">
-                  {takenFilter === 'mine' && 'Zatim nemte zadne prevzate poptavky'}
-                  {takenFilter === 'assigned_to_me' && 'Zadne poptavky cekajici na prevzeti'}
-                  {takenFilter === 'all' && 'Zatim zadne prevzate poptavky'}
-                  {takenFilter !== 'mine' && takenFilter !== 'assigned_to_me' && takenFilter !== 'all' && 'Tento uzivatel nema zadne poptavky'}
+                  {takenFilter === 'mine' && 'Zatím nemáte žádné převzaté poptávky'}
+                  {takenFilter === 'assigned_to_me' && 'Žádné poptávky čekající na převzetí'}
+                  {takenFilter === 'all' && 'Zatím žádné převzaté poptávky'}
+                  {takenFilter !== 'mine' && takenFilter !== 'assigned_to_me' && takenFilter !== 'all' && 'Tento uživatel nemá žádné poptávky'}
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {takenRequests.map((request) => renderRequestCard(request, takenFilter === 'all' || (takenFilter !== 'mine' && takenFilter !== 'assigned_to_me')))}
+                  {takenRequests.map((request) => renderTakenRequestCard(request, takenFilter === 'all' || (takenFilter !== 'mine' && takenFilter !== 'assigned_to_me')))}
                 </div>
               )}
             </div>
