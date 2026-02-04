@@ -176,11 +176,48 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     setRequestStats(stats);
   }
 
-  const filteredRequests = requests.filter((request) =>
-    request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    request.client_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRequests = requests.filter((request) => {
+    if (!searchQuery) return true;
+
+    const query = searchQuery.toLowerCase();
+
+    const searchableFields = [
+      request.title,
+      request.description,
+      request.client_name,
+      request.client_email,
+      request.client_phone,
+      request.budget,
+      request.source,
+      request.storage_url,
+      request.current_website_url,
+      request.additional_services,
+      request.delivery_speed,
+      request.ai_usage,
+      request.project_materials_link,
+      request.favorite_eshop,
+      request.marketing_goal,
+      request.competitor_url,
+      request.monthly_management_budget,
+      request.monthly_credits_budget,
+      request.development_phase,
+      request.status,
+      request.priority,
+      request.subpage_count?.toString(),
+      request.product_count?.toString(),
+      request.accepted_price?.toString(),
+      request.estimated_hours?.toString(),
+      (request as any).assigned_user?.display_name,
+      (request as any).assigned_user?.email,
+      (request as any).assigned_user?.first_name,
+      (request as any).assigned_user?.last_name,
+      (request as any).zapier_source?.name,
+    ];
+
+    return searchableFields.some(field =>
+      field && field.toString().toLowerCase().includes(query)
+    );
+  });
 
   const toggleBulkSelect = () => {
     setBulkSelectMode(!bulkSelectMode);
