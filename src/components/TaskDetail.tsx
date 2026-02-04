@@ -32,9 +32,10 @@ interface TaskDetailProps {
   onClose: () => void;
   onTaskUpdated: () => void;
   onOpenRequest?: (requestId: string) => void;
+  onSelectTask?: (taskId: string) => void;
 }
 
-export function TaskDetail({ taskId, onClose, onTaskUpdated, onOpenRequest }: TaskDetailProps) {
+export function TaskDetail({ taskId, onClose, onTaskUpdated, onOpenRequest, onSelectTask }: TaskDetailProps) {
   const [task, setTask] = useState<Task | null>(null);
   const [relatedRequest, setRelatedRequest] = useState<any | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
@@ -804,12 +805,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated, onOpenRequest }: Ta
             <button
               onClick={() => {
                 const parentTask = taskHierarchy[taskHierarchy.length - 2];
-                if (parentTask && parentTask.id !== taskId) {
-                  onClose();
-                  setTimeout(() => {
-                    const event = new CustomEvent('selectTask', { detail: parentTask.id });
-                    window.dispatchEvent(event);
-                  }, 100);
+                if (parentTask && parentTask.id !== taskId && onSelectTask) {
+                  onSelectTask(parentTask.id);
                 }
               }}
               className="flex items-center gap-2 text-sm text-gray-900 hover:text-blue-700 transition-colors group w-full text-left"
@@ -824,12 +821,8 @@ export function TaskDetail({ taskId, onClose, onTaskUpdated, onOpenRequest }: Ta
                     {index > 0 && <span className="text-gray-400">/</span>}
                     <button
                       onClick={() => {
-                        if (hierarchyTask.id !== taskId) {
-                          onClose();
-                          setTimeout(() => {
-                            const event = new CustomEvent('selectTask', { detail: hierarchyTask.id });
-                            window.dispatchEvent(event);
-                          }, 100);
+                        if (hierarchyTask.id !== taskId && onSelectTask) {
+                          onSelectTask(hierarchyTask.id);
                         }
                       }}
                       className="hover:text-blue-600 transition-colors truncate max-w-[100px]"

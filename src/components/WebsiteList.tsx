@@ -372,6 +372,7 @@ export function WebsiteList({ selectedWebsiteId, onSelectWebsite, canManage, vie
               taskId={selectedTaskId}
               onClose={() => setSelectedTaskId(null)}
               onTaskUpdated={() => {}}
+              onSelectTask={setSelectedTaskId}
             />
           </div>
         </div>

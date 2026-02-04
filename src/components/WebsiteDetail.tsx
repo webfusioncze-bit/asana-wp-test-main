@@ -1133,6 +1133,7 @@ export function WebsiteDetail({ websiteId, onClose }: WebsiteDetailProps) {
               onTaskUpdated={() => {
                 loadWebsiteData();
               }}
+              onSelectTask={setSelectedTaskId}
             />
           </div>
         </div>

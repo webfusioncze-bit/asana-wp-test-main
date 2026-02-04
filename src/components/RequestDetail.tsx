@@ -1696,6 +1696,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                 loadTasks();
                 onRequestUpdated?.();
               }}
+              onSelectTask={setSelectedTaskId}
             />
           </div>
         </div>

@@ -414,6 +414,7 @@ function App() {
                       setViewMode('requests');
                       setSelectedRequestId(requestId);
                     }}
+                    onSelectTask={setSelectedTaskId}
                   />
                 </div>
               )}
