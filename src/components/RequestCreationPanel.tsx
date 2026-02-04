@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bone as XIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Folder, User, RequestType, RequestStatusCustom } from '../types';
+import type { User, RequestType, RequestStatusCustom } from '../types';
 
 interface RequestCreationPanelProps {
   folderId: string | null;
@@ -10,7 +10,6 @@ interface RequestCreationPanelProps {
 }
 
 export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: RequestCreationPanelProps) {
-  const [folders, setFolders] = useState<Folder[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [requestTypes, setRequestTypes] = useState<RequestType[]>([]);
   const [requestStatuses, setRequestStatuses] = useState<RequestStatusCustom[]>([]);
@@ -26,10 +25,9 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
     estimated_hours: '',
     budget: '',
     deadline: '',
-    folder_id: folderId || '',
     assigned_to: '',
     request_type_id: '',
-    request_status_id: '',
+    request_status_id: folderId || '',
     subpage_count: '1',
     source: '',
     storage_url: '',
@@ -41,26 +39,10 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
   });
 
   useEffect(() => {
-    loadFolders();
     loadUsers();
     loadRequestTypes();
     loadRequestStatuses();
   }, []);
-
-  async function loadFolders() {
-    const { data, error } = await supabase
-      .from('folders')
-      .select('*')
-      .eq('folder_type', 'requests')
-      .order('position', { ascending: true });
-
-    if (error) {
-      console.error('Error loading folders:', error);
-      return;
-    }
-
-    setFolders(data || []);
-  }
 
   async function loadUsers() {
     const { data: profiles, error } = await supabase
@@ -127,7 +109,6 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
         estimated_hours: formData.estimated_hours ? parseFloat(formData.estimated_hours) : 0,
         budget: formData.budget || null,
         deadline: formData.deadline || null,
-        folder_id: formData.folder_id || null,
         assigned_to: formData.assigned_to || user.id,
         created_by: user.id,
         request_type_id: formData.request_type_id || null,
@@ -255,8 +236,7 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
                 value={formData.request_status_id}
                 onChange={(e) => setFormData({
                   ...formData,
-                  request_status_id: e.target.value,
-                  folder_id: e.target.value
+                  request_status_id: e.target.value
                 })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
@@ -448,20 +428,6 @@ export function RequestCreationPanel({ folderId, onClose, onRequestCreated }: Re
               <option value="">Automaticky (já)</option>
               {users.map(user => (
                 <option key={user.id} value={user.id}>{user.email}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Složka</label>
-            <select
-              value={formData.folder_id}
-              onChange={(e) => setFormData({ ...formData, folder_id: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Bez složky</option>
-              {folders.map(folder => (
-                <option key={folder.id} value={folder.id}>{folder.name}</option>
               ))}
             </select>
           </div>
