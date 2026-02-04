@@ -34,6 +34,7 @@ interface RequestWithUser extends Request {
 }
 
 type TakenFilterType = 'mine' | 'all' | string;
+type UntakenFilterType = 'unassigned' | 'assigned_pending';
 
 const UNTAKEN_PAGE_SIZE = 5;
 
@@ -55,6 +56,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const [takenFilter, setTakenFilter] = useState<TakenFilterType>('mine');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [untakenPage, setUntakenPage] = useState(1);
+  const [untakenFilter, setUntakenFilter] = useState<UntakenFilterType>('unassigned');
   const { isLoading: cacheLoading } = useDataCache();
 
   const isSearchMode = searchQuery.length > 0;
@@ -300,9 +302,16 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     );
   };
 
-  const untakenRequests = requests.filter(r => !r.assigned_user_id);
-  const untakenTotalPages = Math.ceil(untakenRequests.length / UNTAKEN_PAGE_SIZE);
-  const paginatedUntakenRequests = untakenRequests.slice(
+  const unassignedRequests = requests.filter(r => !r.assigned_user_id);
+  const assignedPendingRequests = requests.filter(r =>
+    r.assigned_user_id && !r.is_taken && r.assigned_user_id !== currentUserId
+  );
+
+  const displayedUntakenRequests = untakenFilter === 'unassigned'
+    ? unassignedRequests
+    : assignedPendingRequests;
+  const untakenTotalPages = Math.ceil(displayedUntakenRequests.length / UNTAKEN_PAGE_SIZE);
+  const paginatedUntakenRequests = displayedUntakenRequests.slice(
     (untakenPage - 1) * UNTAKEN_PAGE_SIZE,
     untakenPage * UNTAKEN_PAGE_SIZE
   );
@@ -358,7 +367,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   };
 
   const selectAllVisible = () => {
-    const allVisible = [...untakenRequests, ...takenRequests];
+    const allVisible = [...displayedUntakenRequests, ...takenRequests];
     setSelectedRequests(new Set(allVisible.map(r => r.id)));
   };
 
@@ -783,7 +792,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {selectedRequests.size < (untakenRequests.length + takenRequests.length) ? (
+                {selectedRequests.size < (displayedUntakenRequests.length + takenRequests.length) ? (
                   <button
                     onClick={selectAllVisible}
                     className="text-xs text-primary hover:text-primary-dark font-medium"
@@ -886,17 +895,49 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
           )
         ) : (
           <div className="divide-y divide-gray-200">
-            {untakenRequests.length > 0 && (
+            {(unassignedRequests.length > 0 || assignedPendingRequests.length > 0) && (
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                      Nepřevzaté poptávky
-                    </h3>
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
-                      {untakenRequests.length}
-                    </span>
+                    <div className={`w-2 h-2 rounded-full ${untakenFilter === 'unassigned' ? 'bg-red-500' : 'bg-orange-500'}`}></div>
+                    <div className="flex bg-gray-100 rounded-lg p-0.5">
+                      <button
+                        onClick={() => { setUntakenFilter('unassigned'); setUntakenPage(1); }}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                          untakenFilter === 'unassigned'
+                            ? 'bg-white text-gray-800 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                      >
+                        Nepřiřazené
+                        <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
+                          untakenFilter === 'unassigned'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-200 text-gray-600'
+                        }`}>
+                          {unassignedRequests.length}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => { setUntakenFilter('assigned_pending'); setUntakenPage(1); }}
+                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                          untakenFilter === 'assigned_pending'
+                            ? 'bg-white text-gray-800 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                      >
+                        Přidělené
+                        {assignedPendingRequests.length > 0 && (
+                          <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
+                            untakenFilter === 'assigned_pending'
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-orange-100 text-orange-700 animate-pulse'
+                          }`}>
+                            {assignedPendingRequests.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   {untakenTotalPages > 1 && (
                     <div className="flex items-center gap-1">
@@ -920,9 +961,17 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                     </div>
                   )}
                 </div>
-                <div className="space-y-1.5">
-                  {paginatedUntakenRequests.map((request) => renderUntakenRequestCard(request))}
-                </div>
+                {displayedUntakenRequests.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {paginatedUntakenRequests.map((request) => renderUntakenRequestCard(request))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 text-center py-4">
+                    {untakenFilter === 'unassigned'
+                      ? 'Žádné nepřiřazené poptávky'
+                      : 'Žádné přidělené nepřevzaté poptávky'}
+                  </p>
+                )}
               </div>
             )}
 
