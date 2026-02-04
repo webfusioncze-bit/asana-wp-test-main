@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon, CheckCheck as CheckCheckIcon, Trash2 as Trash2Icon, FolderIcon, XIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon, CheckCheck as CheckCheckIcon, Trash2 as Trash2Icon, FolderIcon, XIcon, MailIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -47,6 +47,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     return !!request.development_phase;
   };
 
+  const isEmailRequest = (request: any) => {
+    const sourceName = request.zapier_source?.name?.toLowerCase() || '';
+    return sourceName.includes('email') || sourceName.includes('emaily');
+  };
+
   useEffect(() => {
     loadData();
   }, [folderId]);
@@ -78,7 +83,8 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
       .from('requests')
       .select(`
         *,
-        assigned_user:user_profiles!requests_assigned_to_fkey(id, email, display_name, first_name, last_name)
+        assigned_user:user_profiles!requests_assigned_to_fkey(id, email, display_name, first_name, last_name),
+        zapier_source:zapier_sources!requests_zapier_source_id_fkey(id, name)
       `)
       .order('created_at', { ascending: false });
 
@@ -223,6 +229,26 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     await loadRequestsAndStats();
     setSelectedRequests(new Set());
     setBulkSelectMode(false);
+  };
+
+  const handleQuickDismiss = async (e: React.MouseEvent, requestId: string) => {
+    e.stopPropagation();
+    if (!confirm('Opravdu chcete tuto poptavku smazat?')) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('requests')
+      .delete()
+      .eq('id', requestId);
+
+    if (error) {
+      console.error('Error deleting request:', error);
+      alert('Chyba pri mazani poptavky');
+      return;
+    }
+
+    await loadRequestsAndStats();
   };
 
   const handleBulkMove = async (statusId: string | null) => {
@@ -445,7 +471,11 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       <h3 className="font-medium text-sm text-gray-900 flex-1">{request.title}</h3>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {request.source === 'zapier' && (
+                      {isEmailRequest(request) ? (
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-full shadow-sm" title="Email na hello@webfusion.cz">
+                          <MailIcon className="w-3 h-3" />
+                        </div>
+                      ) : request.source === 'zapier' && (
                         <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier integrace">
                           <ZapIcon className="w-3 h-3" />
                         </div>
@@ -469,6 +499,15 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                         <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Správa webu">
                           <SettingsIcon className="w-3 h-3" />
                         </div>
+                      )}
+                      {isEmailRequest(request) && (
+                        <button
+                          onClick={(e) => handleQuickDismiss(e, request.id)}
+                          className="flex items-center justify-center w-5 h-5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors"
+                          title="Odmitnout (smazat)"
+                        >
+                          <XIcon className="w-3 h-3" />
+                        </button>
                       )}
                     </div>
                   </div>

@@ -155,12 +155,20 @@ Deno.serve(async (req: Request) => {
       created_by: adminUsers[0].user_id,
       assigned_to: null,
       source: "zapier",
+      zapier_source_id: source.id,
     };
 
     for (const [webhookField, requestField] of Object.entries(fieldMapping)) {
       if (payload[webhookField] !== undefined) {
         mappedData[requestField as string] = payload[webhookField];
       }
+    }
+
+    // Special handling for email integrations - format title with client email
+    const isEmailIntegration = source.name?.toLowerCase().includes('email') ||
+                               source.name?.toLowerCase().includes('emaily');
+    if (isEmailIntegration && mappedData.client_email) {
+      mappedData.title = `Novy email na hello - ${mappedData.client_email}`;
     }
 
     // Create request
