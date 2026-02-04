@@ -20,16 +20,20 @@ interface RequestStats {
 
 export function RequestList({ folderId, selectedRequestId, onSelectRequest }: RequestListProps) {
   const [requests, setRequests] = useState<Request[]>([]);
+  const [allRequests, setAllRequests] = useState<Request[]>([]);
   const [requestTypes, setRequestTypes] = useState<RequestType[]>([]);
   const [requestStatuses, setRequestStatuses] = useState<RequestStatusCustom[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [showCreationPanel, setShowCreationPanel] = useState(false);
   const [requestStats, setRequestStats] = useState<Record<string, RequestStats>>({});
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
   const [showBulkFolderMenu, setShowBulkFolderMenu] = useState(false);
   const { loadRequests: loadCachedRequests, invalidateRequests, isLoading: cacheLoading } = useDataCache();
+
+  const isSearchMode = searchQuery.length > 0;
 
   const isEshopRequest = (request: Request) => {
     return !!(request.favorite_eshop || request.product_count);
@@ -55,6 +59,12 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   useEffect(() => {
     loadData();
   }, [folderId]);
+
+  useEffect(() => {
+    if (searchQuery.length > 0) {
+      loadAllRequests();
+    }
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -176,11 +186,26 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     setRequestStats(stats);
   }
 
-  const filteredRequests = requests.filter((request) => {
-    if (!searchQuery) return true;
+  async function loadAllRequests() {
+    setSearchLoading(true);
+    const { data, error } = await supabase
+      .from('requests')
+      .select(`
+        *,
+        assigned_user:user_profiles!requests_assigned_to_fkey(id, email, display_name, first_name, last_name),
+        zapier_source:zapier_sources!requests_zapier_source_id_fkey(id, name)
+      `)
+      .order('created_at', { ascending: false });
 
-    const query = searchQuery.toLowerCase();
+    if (error) {
+      console.error('Error loading all requests:', error);
+    } else {
+      setAllRequests(data || []);
+    }
+    setSearchLoading(false);
+  }
 
+  const filterRequest = (request: Request, query: string) => {
     const searchableFields = [
       request.title,
       request.description,
@@ -217,7 +242,27 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     return searchableFields.some(field =>
       field && field.toString().toLowerCase().includes(query)
     );
+  };
+
+  const filteredRequests = requests.filter((request) => {
+    if (!searchQuery) return true;
+    return filterRequest(request, searchQuery.toLowerCase());
   });
+
+  const globalSearchResults = isSearchMode
+    ? allRequests.filter(request => filterRequest(request, searchQuery.toLowerCase()))
+    : [];
+
+  const groupedSearchResults = isSearchMode
+    ? globalSearchResults.reduce((acc, request) => {
+        const statusId = request.request_status_id || 'new';
+        if (!acc[statusId]) {
+          acc[statusId] = [];
+        }
+        acc[statusId].push(request);
+        return acc;
+      }, {} as Record<string, Request[]>)
+    : {};
 
   const toggleBulkSelect = () => {
     setBulkSelectMode(!bulkSelectMode);
@@ -349,27 +394,35 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
-            {folderId ? 'Poptávky' : 'Nové poptávky'}
+            {isSearchMode ? (
+              <span>Vysledky ({globalSearchResults.length})</span>
+            ) : (
+              folderId ? 'Poptavky' : 'Nove poptavky'
+            )}
           </h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleBulkSelect}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
-                bulkSelectMode
-                  ? 'bg-gray-200 text-gray-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-              title="Hromadný výběr"
-            >
-              <CheckCheckIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setShowCreationPanel(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
-            >
-              <PlusIcon className="w-4 h-4" />
-              Nová poptávka
-            </button>
+            {!isSearchMode && (
+              <>
+                <button
+                  onClick={toggleBulkSelect}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                    bulkSelectMode
+                      ? 'bg-gray-200 text-gray-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                  title="Hromadny vyber"
+                >
+                  <CheckCheckIcon className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setShowCreationPanel(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  Nova poptavka
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -377,14 +430,22 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Hledat poptávky..."
+            placeholder="Hledat ve vsech poptavkach..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
+          {isSearchMode && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {bulkSelectMode && (
+        {!isSearchMode && bulkSelectMode && (
           <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium text-gray-700">
@@ -463,10 +524,93 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Načítání...</div>
+          <div className="text-center py-12 text-gray-500">Nacitani...</div>
+        ) : isSearchMode ? (
+          searchLoading ? (
+            <div className="text-center py-12 text-gray-500">Vyhledavam...</div>
+          ) : globalSearchResults.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">Zadne vysledky</div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(groupedSearchResults).map(([statusId, groupRequests]) => {
+                const status = statusId === 'new' ? null : requestStatuses.find(s => s.id === statusId);
+                const statusName = status ? status.name : 'Nove poptavky';
+                const statusColor = status ? status.color : '#3B82F6';
+
+                return (
+                  <div key={statusId} className="space-y-1">
+                    <div className="flex items-center gap-2 py-1.5 px-2 bg-gray-50 rounded-lg sticky top-0">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: statusColor }}
+                      />
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        {statusName}
+                      </span>
+                      <span className="text-xs text-gray-500">({groupRequests.length})</span>
+                    </div>
+                    <div className="space-y-1">
+                      {groupRequests.map((request) => {
+                        const requestType = requestTypes.find(t => t.id === request.request_type_id);
+
+                        return (
+                          <div
+                            key={request.id}
+                            onClick={() => onSelectRequest(request.id)}
+                            className={`px-3 py-2 rounded-lg border cursor-pointer transition-all ${
+                              selectedRequestId === request.id
+                                ? 'border-primary bg-primary/5'
+                                : 'border-gray-200 hover:border-blue-300 bg-white'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="font-medium text-sm text-gray-900 truncate flex-1">{request.title}</h3>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                {isEmailRequest(request) && (
+                                  <MailIcon className="w-3.5 h-3.5 text-sky-500" />
+                                )}
+                                {isAppRequest(request) && (
+                                  <SmartphoneIcon className="w-3.5 h-3.5 text-purple-500" />
+                                )}
+                                {isEshopRequest(request) && (
+                                  <ShoppingCartIcon className="w-3.5 h-3.5 text-indigo-500" />
+                                )}
+                                {isPPCRequest(request) && (
+                                  <TrendingUpIcon className="w-3.5 h-3.5 text-green-500" />
+                                )}
+                                {isManagementRequest(request) && (
+                                  <SettingsIcon className="w-3.5 h-3.5 text-blue-500" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {request.client_name && (
+                                <span className="text-xs text-gray-500 truncate">{request.client_name}</span>
+                              )}
+                              {requestType && (
+                                <span
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium"
+                                  style={{
+                                    backgroundColor: requestType.color + '15',
+                                    color: requestType.color
+                                  }}
+                                >
+                                  {requestType.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
         ) : filteredRequests.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            {searchQuery ? 'Žádné výsledky' : 'Zatím žádné poptávky'}
+            Zatim zadne poptavky
           </div>
         ) : (
           <div className="space-y-2">
@@ -518,22 +662,22 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                         </div>
                       )}
                       {isAppRequest(request) && (
-                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Vývoj aplikace">
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Vyvoj aplikace">
                           <SmartphoneIcon className="w-3 h-3" />
                         </div>
                       )}
                       {isEshopRequest(request) && (
-                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop poptávka">
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop poptavka">
                           <ShoppingCartIcon className="w-3 h-3" />
                         </div>
                       )}
                       {isPPCRequest(request) && (
-                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC poptávka">
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC poptavka">
                           <TrendingUpIcon className="w-3 h-3" />
                         </div>
                       )}
                       {isManagementRequest(request) && (
-                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Správa webu">
+                        <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Sprava webu">
                           <SettingsIcon className="w-3 h-3" />
                         </div>
                       )}
@@ -579,35 +723,35 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-                        Nová
+                        Nova
                       </span>
                     )}
                     {!request.assigned_to ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">
-                        Nepřevzata
+                        Neprevzata
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                        Převzata
+                        Prevzata
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2 pt-1.5 border-t border-gray-100">
-                    <div className="flex items-center gap-0.5 text-gray-600" title="Počet poznámek">
+                    <div className="flex items-center gap-0.5 text-gray-600" title="Pocet poznamek">
                       <MessageSquareIcon className="w-3 h-3" />
                       <span className="text-xs font-medium">{stats.notesCount}</span>
                     </div>
-                    <div className="flex items-center gap-0.5 text-gray-600" title="Počet úkolů">
+                    <div className="flex items-center gap-0.5 text-gray-600" title="Pocet ukolu">
                       <CheckSquareIcon className="w-3 h-3" />
                       <span className="text-xs font-medium">{stats.tasksCount}</span>
                     </div>
-                    <div className="flex items-center gap-0.5 text-gray-600" title="Celkový strávený čas">
+                    <div className="flex items-center gap-0.5 text-gray-600" title="Celkovy straveny cas">
                       <ClockIcon className="w-3 h-3" />
                       <span className="text-xs font-medium">{stats.totalTime}h</span>
                     </div>
                     {request.product_count && (
-                      <div className="flex items-center gap-0.5 text-indigo-600" title="Počet produktů e-shopu">
+                      <div className="flex items-center gap-0.5 text-indigo-600" title="Pocet produktu e-shopu">
                         <ShoppingCartIcon className="w-3 h-3" />
                         <span className="text-xs font-medium">{request.product_count}</span>
                       </div>
