@@ -304,7 +304,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
   const unassignedRequests = requests.filter(r => !r.assigned_user_id);
   const assignedPendingRequests = requests.filter(r =>
-    r.assigned_user_id && !r.is_taken && r.assigned_user_id !== currentUserId
+    r.assigned_user_id && !r.is_taken
   );
 
   const displayedUntakenRequests = untakenFilter === 'unassigned'
@@ -472,6 +472,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const renderUntakenRequestCard = (request: RequestWithUser) => {
     const requestType = requestTypes.find(t => t.id === request.request_type_id);
     const isSelected = selectedRequests.has(request.id);
+    const isAssigned = !!request.assigned_user_id;
 
     return (
       <div
@@ -483,7 +484,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
             onSelectRequest(request.id);
           }
         }}
-        className={`px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center gap-2 ${
+        className={`px-3 py-2 rounded-lg border cursor-pointer transition-all ${
           bulkSelectMode && isSelected
             ? 'border-primary bg-blue-50'
             : selectedRequestId === request.id
@@ -491,65 +492,74 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
             : 'border-gray-200 hover:border-blue-300 bg-white'
         }`}
       >
-        {bulkSelectMode && (
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => {}}
-            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer flex-shrink-0"
-          />
-        )}
-        <h3 className="font-medium text-sm text-gray-900 flex-1 truncate">{request.title}</h3>
-        <div className="flex items-center gap-1 flex-shrink-0">
-          {requestType && (
-            <span
-              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
-              style={{
-                backgroundColor: requestType.color + '15',
-                color: requestType.color
-              }}
-            >
-              {requestType.name}
-            </span>
+        <div className="flex items-center gap-2">
+          {bulkSelectMode && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {}}
+              className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary cursor-pointer flex-shrink-0"
+            />
           )}
-          {isEmailRequest(request) ? (
-            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-full shadow-sm" title="Email">
-              <MailIcon className="w-3 h-3" />
-            </div>
-          ) : request.source === 'zapier' && (
-            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier">
-              <ZapIcon className="w-3 h-3" />
-            </div>
-          )}
-          {isAppRequest(request) && (
-            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Aplikace">
-              <SmartphoneIcon className="w-3 h-3" />
-            </div>
-          )}
-          {isEshopRequest(request) && (
-            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop">
-              <ShoppingCartIcon className="w-3 h-3" />
-            </div>
-          )}
-          {isPPCRequest(request) && (
-            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC">
-              <TrendingUpIcon className="w-3 h-3" />
-            </div>
-          )}
-          {isManagementRequest(request) && (
-            <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Správa">
-              <SettingsIcon className="w-3 h-3" />
-            </div>
-          )}
-          {isEmailRequest(request) && (
-            <button
-              onClick={(e) => handleQuickDismiss(e, request.id)}
-              className="flex items-center justify-center w-5 h-5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors"
-              title="Odmítnout (smazat)"
-            >
-              <XIcon className="w-3 h-3" />
-            </button>
-          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium text-sm text-gray-900 truncate">{request.title}</h3>
+            {isAssigned && (
+              <p className="text-[10px] text-gray-500 mt-0.5">
+                Přiděleno: {getUserDisplayName(request.assigned_owner)}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {requestType && (
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+                style={{
+                  backgroundColor: requestType.color + '15',
+                  color: requestType.color
+                }}
+              >
+                {requestType.name}
+              </span>
+            )}
+            {isEmailRequest(request) ? (
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-full shadow-sm" title="Email">
+                <MailIcon className="w-3 h-3" />
+              </div>
+            ) : request.source === 'zapier' && (
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full shadow-sm" title="Zapier">
+                <ZapIcon className="w-3 h-3" />
+              </div>
+            )}
+            {isAppRequest(request) && (
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-full shadow-sm" title="Aplikace">
+                <SmartphoneIcon className="w-3 h-3" />
+              </div>
+            )}
+            {isEshopRequest(request) && (
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-full shadow-sm" title="E-shop">
+                <ShoppingCartIcon className="w-3 h-3" />
+              </div>
+            )}
+            {isPPCRequest(request) && (
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-full shadow-sm" title="PPC">
+                <TrendingUpIcon className="w-3 h-3" />
+              </div>
+            )}
+            {isManagementRequest(request) && (
+              <div className="flex items-center justify-center w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full shadow-sm" title="Správa">
+                <SettingsIcon className="w-3 h-3" />
+              </div>
+            )}
+            {isEmailRequest(request) && (
+              <button
+                onClick={(e) => handleQuickDismiss(e, request.id)}
+                className="flex items-center justify-center w-5 h-5 bg-red-100 hover:bg-red-200 text-red-600 rounded-full transition-colors"
+                title="Odmítnout (smazat)"
+              >
+                <XIcon className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
