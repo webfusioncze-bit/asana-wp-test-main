@@ -268,7 +268,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     if (requestData.assigned_user_id) {
       const { data: ownerData } = await supabase
         .from('user_profiles')
-        .select('id, email, first_name, last_name, display_name')
+        .select('id, email, first_name, last_name, display_name, avatar_url')
         .eq('id', requestData.assigned_user_id)
         .maybeSingle();
 
@@ -278,7 +278,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
           email: ownerData.email || '',
           first_name: ownerData.first_name,
           last_name: ownerData.last_name,
-          display_name: ownerData.display_name
+          display_name: ownerData.display_name,
+          avatar_url: ownerData.avatar_url
         });
       }
     } else {
@@ -364,7 +365,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
   async function loadAllUsers() {
     const { data } = await supabase
       .from('user_profiles')
-      .select('id, email, first_name, last_name, display_name')
+      .select('id, email, first_name, last_name, display_name, avatar_url')
       .order('first_name');
 
     if (data) {
@@ -373,7 +374,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
         email: u.email || '',
         first_name: u.first_name,
         last_name: u.last_name,
-        display_name: u.display_name
+        display_name: u.display_name,
+        avatar_url: u.avatar_url
       })));
     }
   }
@@ -418,7 +420,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       .eq('id', requestId);
 
     if (error) {
-      alert('Chyba pri prideleni poptavky: ' + error.message);
+      alert('Chyba při přidělení poptávky: ' + error.message);
       return;
     }
 
@@ -495,7 +497,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       .eq('id', requestId);
 
     if (error) {
-      alert('Chyba pri prevzeti poptavky: ' + error.message);
+      alert('Chyba při převzetí poptávky: ' + error.message);
       return;
     }
 
@@ -873,7 +875,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
 
   if (loading) {
     return (
-      <div className="w-[600px] border-l border-gray-200 bg-white flex flex-col">
+      <div className="w-[690px] border-l border-gray-200 bg-white flex flex-col">
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">Detail poptávky</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -889,7 +891,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
 
   if (!request) {
     return (
-      <div className="w-[600px] border-l border-gray-200 bg-white flex flex-col">
+      <div className="w-[690px] border-l border-gray-200 bg-white flex flex-col">
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-800">Detail poptávky</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -936,7 +938,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
   };
 
   return (
-    <div className={`${isEditing ? 'flex-1' : 'w-[600px]'} border-l border-gray-200 bg-white flex flex-col transition-all duration-300`}>
+    <div className={`${isEditing ? 'flex-1' : 'w-[690px]'} border-l border-gray-200 bg-white flex flex-col transition-all duration-300`}>
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Detail poptávky</h2>
         <div className="flex items-center gap-2">
@@ -1491,46 +1493,126 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
             ) : (
               <>
                   <div>
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <h3 className="text-xl font-semibold text-gray-900">{request.title}</h3>
-                      <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{request.title}</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {requestType && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium"
+                            style={{ backgroundColor: requestType.color + '20', color: requestType.color }}
+                          >
+                            {requestType.name}
+                          </span>
+                        )}
+                        {requestStatus ? (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium"
+                            style={{ backgroundColor: requestStatus.color + '20', color: requestStatus.color }}
+                          >
+                            {requestStatus.name}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
+                            Nová poptávka
+                          </span>
+                        )}
+                        {!request.assigned_user_id ? (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
+                            Nepřevzatá
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+                            Převzatá
+                          </span>
+                        )}
+                        {request.source === 'zapier' && (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700 gap-0.5">
+                            <ZapIcon className="w-2 h-2" />
+                            Zapier
+                          </span>
+                        )}
+                        {isAppRequest(request) && (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 gap-0.5">
+                            <SmartphoneIcon className="w-2 h-2" />
+                            Aplikace
+                          </span>
+                        )}
+                        {isEshopRequest(request) && (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 gap-0.5">
+                            <ShoppingCartIcon className="w-2 h-2" />
+                            E-shop
+                          </span>
+                        )}
+                        {isPPCRequest(request) && (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700 gap-0.5">
+                            <TrendingUpIcon className="w-2 h-2" />
+                            PPC
+                          </span>
+                        )}
+                        {isManagementRequest(request) && (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 gap-0.5">
+                            <SettingsIcon className="w-2 h-2" />
+                            Správa webu
+                          </span>
+                        )}
+                        {request.result === 'success' && (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+                            Úspěch
+                          </span>
+                        )}
+                        {request.result === 'failure' && (
+                          <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-red-100 text-red-700">
+                            Neúspěch
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         {!request.assigned_user_id && (
                           <button
                             onClick={handleTakeRequest}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm whitespace-nowrap flex items-center gap-2"
+                            className="px-2.5 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium text-xs whitespace-nowrap flex items-center gap-1.5"
                           >
-                            <UserIcon className="w-4 h-4" />
-                            Prebiram poptavku
+                            <CheckCircleIcon className="w-3.5 h-3.5" />
+                            Přebírám
                           </button>
                         )}
                         {request.assigned_user_id === currentUserId && !request.is_taken && (
                           <button
                             onClick={handleTakeRequest}
-                            className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-medium text-sm whitespace-nowrap flex items-center gap-2 animate-pulse"
+                            className="px-2.5 py-1 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors font-medium text-xs whitespace-nowrap flex items-center gap-1.5 animate-pulse"
                           >
-                            <UserIcon className="w-4 h-4" />
-                            Prevzit poptavku
+                            <CheckCircleIcon className="w-3.5 h-3.5" />
+                            Převzít
                           </button>
                         )}
                         <div className="relative assignment-dropdown-container">
                           <button
                             onClick={() => setShowAssignmentDropdown(!showAssignmentDropdown)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-2"
-                            title="Pridelit poptavku"
+                            className="px-2.5 py-1 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-xs flex items-center gap-1.5"
+                            title="Přidělit poptávku"
                           >
-                            <UserPlusIcon className="w-4 h-4 text-gray-500" />
+                            <UserPlusIcon className="w-3.5 h-3.5 text-gray-500" />
                             {assignedOwner ? (
-                              <span className="text-gray-700">{assignedOwner.first_name && assignedOwner.last_name ? `${assignedOwner.first_name} ${assignedOwner.last_name}` : assignedOwner.display_name || assignedOwner.email}</span>
+                              <>
+                                {assignedOwner.avatar_url ? (
+                                  <img src={assignedOwner.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center text-[9px] font-medium text-gray-600">
+                                    {assignedOwner.first_name ? assignedOwner.first_name.charAt(0) : assignedOwner.email.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="text-gray-700 max-w-[60px] truncate">{assignedOwner.first_name || assignedOwner.email.split('@')[0]}</span>
+                              </>
                             ) : (
-                              <span className="text-gray-500">Pridelit</span>
+                              <span className="text-gray-500">Přidělit</span>
                             )}
-                            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+                            <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
                           </button>
                           {showAssignmentDropdown && (
                             <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
                               <div className="p-2 space-y-1">
                                 <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                                  Pridelit poptavku
+                                  Přidělit poptávku
                                 </div>
                                 {assignedOwner && (
                                   <button
@@ -1538,7 +1620,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                                     className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-red-50 text-red-600 flex items-center gap-2"
                                   >
                                     <XIcon className="w-4 h-4" />
-                                    <span className="text-sm">Zrusit prirazeni</span>
+                                    <span className="text-sm">Zrušit přiřazení</span>
                                   </button>
                                 )}
                                 {allUsers.map((user) => (
@@ -1551,9 +1633,13 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                                         : 'hover:bg-gray-50'
                                     }`}
                                   >
-                                    <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
-                                      {user.first_name ? user.first_name.charAt(0) : user.email.charAt(0).toUpperCase()}
-                                    </div>
+                                    {user.avatar_url ? (
+                                      <img src={user.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
+                                        {user.first_name ? user.first_name.charAt(0) : user.email.charAt(0).toUpperCase()}
+                                      </div>
+                                    )}
                                     <span className="text-sm">
                                       {user.first_name && user.last_name
                                         ? `${user.first_name} ${user.last_name}`
@@ -1566,77 +1652,6 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                           )}
                         </div>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {requestType && (
-                        <span
-                          className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium"
-                          style={{ backgroundColor: requestType.color + '20', color: requestType.color }}
-                        >
-                          {requestType.name}
-                        </span>
-                      )}
-                      {requestStatus ? (
-                        <span
-                          className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium"
-                          style={{ backgroundColor: requestStatus.color + '20', color: requestStatus.color }}
-                        >
-                          {requestStatus.name}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
-                          Nová poptávka
-                        </span>
-                      )}
-                      {!request.assigned_user_id ? (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
-                          Neprevzata
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
-                          Prevzata
-                        </span>
-                      )}
-                      {request.source === 'zapier' && (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700 gap-0.5">
-                          <ZapIcon className="w-2 h-2" />
-                          Zapier
-                        </span>
-                      )}
-                      {isAppRequest(request) && (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 gap-0.5">
-                          <SmartphoneIcon className="w-2 h-2" />
-                          Aplikace
-                        </span>
-                      )}
-                      {isEshopRequest(request) && (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-indigo-100 text-indigo-700 gap-0.5">
-                          <ShoppingCartIcon className="w-2 h-2" />
-                          E-shop
-                        </span>
-                      )}
-                      {isPPCRequest(request) && (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700 gap-0.5">
-                          <TrendingUpIcon className="w-2 h-2" />
-                          PPC
-                        </span>
-                      )}
-                      {isManagementRequest(request) && (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 gap-0.5">
-                          <SettingsIcon className="w-2 h-2" />
-                          Správa webu
-                        </span>
-                      )}
-                      {request.result === 'success' && (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
-                          Úspěch
-                        </span>
-                      )}
-                      {request.result === 'failure' && (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-red-100 text-red-700">
-                          Neúspěch
-                        </span>
-                      )}
                     </div>
                   </div>
 
