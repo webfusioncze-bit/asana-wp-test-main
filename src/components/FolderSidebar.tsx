@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import type { Folder, User, FolderShare, Project } from '../types';
 import { FolderSettingsModal } from './FolderSettingsModal';
 import { FolderSidebarSkeleton } from './LoadingSkeleton';
+import { RequestStatistics } from './RequestStatistics';
 import { useDataCache } from '../contexts/DataCacheContext';
 
 interface FolderSidebarProps {
@@ -838,6 +839,10 @@ export function FolderSidebar({ selectedFolderId, onSelectFolder, folderType, sh
           </>
         )}
       </div>
+
+      {folderType === 'requests' && (
+        <RequestStatistics />
+      )}
 
       {showSettingsModal && settingsFolderId && (
         <FolderSettingsModal
