@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon, Trash2 as TrashIcon, History as HistoryIcon, UserPlus as UserPlusIcon, ChevronDown as ChevronDownIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon, Trash2 as TrashIcon, History as HistoryIcon, UserPlus as UserPlusIcon, ChevronDown as ChevronDownIcon, CheckCircle as CheckCircleIcon, ArrowRightLeft as ArrowRightLeftIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TaskDetail } from './TaskDetail';
 import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote, RequestActivityLog } from '../types';
@@ -36,6 +36,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
   const [requestTypes, setRequestTypes] = useState<RequestType[]>([]);
   const [requestStatuses, setRequestStatuses] = useState<RequestStatusCustom[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [editForm, setEditForm] = useState({
     title: '',
@@ -105,6 +106,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
 
   useEffect(() => {
     setIsEditing(false);
+    loadCurrentUser();
     loadRequestDetail();
     loadRequestTypes();
     loadRequestStatuses();
@@ -114,6 +116,13 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     loadActivityLog();
     loadAllUsers();
   }, [requestId]);
+
+  async function loadCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+    }
+  }
 
   useEffect(() => {
     onEditModeChange?.(isEditing);
@@ -395,10 +404,17 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     if (!user) return;
 
     const previousOwnerId = request?.assigned_user_id;
+    const isSelfAssign = userId === user.id;
+    const isReassign = previousOwnerId && previousOwnerId !== userId;
+
+    const updateData: Record<string, unknown> = {
+      assigned_user_id: userId,
+      is_taken: isSelfAssign ? true : false
+    };
 
     const { error } = await supabase
       .from('requests')
-      .update({ assigned_user_id: userId })
+      .update(updateData)
       .eq('id', requestId);
 
     if (error) {
@@ -418,9 +434,14 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
         ? `${previousUser.first_name} ${previousUser.last_name}`
         : previousUser?.display_name || previousUser?.email || null;
 
-      await logActivity('assigned', 'assigned_user_id', previousUserName, newUserName, { assigned_user_id: userId });
+      const actionType = isReassign ? 'reassigned' : (isSelfAssign ? 'taken' : 'assigned');
+      await logActivity(actionType, 'assigned_user_id', previousUserName, newUserName, {
+        assigned_user_id: userId,
+        self_assigned: isSelfAssign,
+        is_reassign: isReassign
+      });
 
-      if (userId !== user.id) {
+      if (!isSelfAssign) {
         try {
           const response = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-request-assignment-email`,
@@ -466,9 +487,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    const wasPreviouslyAssigned = request?.assigned_user_id === user.id && !request?.is_taken;
+
     const { error } = await supabase
       .from('requests')
-      .update({ assigned_to: user.id, assigned_user_id: user.id })
+      .update({ assigned_to: user.id, assigned_user_id: user.id, is_taken: true })
       .eq('id', requestId);
 
     if (error) {
@@ -481,7 +504,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       ? `${currentUser.first_name} ${currentUser.last_name}`
       : currentUser?.display_name || currentUser?.email || user.email || '';
 
-    await logActivity('assigned', 'assigned_user_id', null, userName, { self_assigned: true });
+    if (wasPreviouslyAssigned) {
+      await logActivity('taken', 'is_taken', 'false', 'true', { user_name: userName });
+    } else {
+      await logActivity('taken', 'assigned_user_id', null, userName, { self_assigned: true });
+    }
 
     loadRequestDetail();
     loadActivityLog();
@@ -1476,6 +1503,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                             Prebiram poptavku
                           </button>
                         )}
+                        {request.assigned_user_id === currentUserId && !request.is_taken && (
+                          <button
+                            onClick={handleTakeRequest}
+                            className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors font-medium text-sm whitespace-nowrap flex items-center gap-2 animate-pulse"
+                          >
+                            <UserIcon className="w-4 h-4" />
+                            Prevzit poptavku
+                          </button>
+                        )}
                         <div className="relative assignment-dropdown-container">
                           <button
                             onClick={() => setShowAssignmentDropdown(!showAssignmentDropdown)}
@@ -2036,7 +2072,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                     const getActivityIcon = () => {
                       switch (activity.action_type) {
                         case 'assigned':
-                          return <UserPlusIcon className="w-4 h-4 text-green-600" />;
+                          return <UserPlusIcon className="w-4 h-4 text-blue-600" />;
+                        case 'taken':
+                          return <CheckCircleIcon className="w-4 h-4 text-green-600" />;
+                        case 'reassigned':
+                          return <ArrowRightLeftIcon className="w-4 h-4 text-amber-600" />;
                         case 'unassigned':
                           return <XIcon className="w-4 h-4 text-red-600" />;
                         case 'status_changed':
@@ -2060,6 +2100,18 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                           return (
                             <span>
                               pridelil(a) poptavku uzivateli <strong>{activity.new_value}</strong>
+                            </span>
+                          );
+                        case 'taken':
+                          return (
+                            <span>
+                              prevzal(a) poptavku
+                            </span>
+                          );
+                        case 'reassigned':
+                          return (
+                            <span>
+                              predelil(a) poptavku z <strong>{activity.old_value}</strong> na <strong>{activity.new_value}</strong>
                             </span>
                           );
                         case 'unassigned':

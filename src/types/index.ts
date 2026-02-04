@@ -172,6 +172,7 @@ export interface Request {
   result: RequestResult | null;
   closure_date: string | null;
   assigned_user_id: string | null;
+  is_taken: boolean;
 }
 
 export interface RequestAction {
@@ -213,12 +214,15 @@ export type RequestActivityActionType =
   | 'created'
   | 'assigned'
   | 'unassigned'
+  | 'taken'
+  | 'reassigned'
   | 'field_changed'
   | 'status_changed'
   | 'type_changed'
   | 'note_added'
   | 'task_created'
-  | 'time_added';
+  | 'time_added'
+  | 'folder_changed';
 
 export interface RequestActivityLog {
   id: string;
