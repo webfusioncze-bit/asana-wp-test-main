@@ -1677,12 +1677,12 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                   </div>
 
                   {request.description && (
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="bg-gray-50 rounded-lg p-4 overflow-hidden">
                       <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                         <FileTextIcon className="w-4 h-4" />
                         Popis poptávky
                       </h4>
-                      <p className="text-gray-700 whitespace-pre-wrap">{request.description}</p>
+                      <p className="text-gray-700 whitespace-pre-wrap break-all">{request.description}</p>
                     </div>
                   )}
 
@@ -1843,97 +1843,106 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                     <HistoryIcon className="w-4 h-4" />
                     Historie aktivit
                   </h4>
-                  {activityLog.length === 0 ? (
-                    <div className="text-xs text-gray-500">
-                      <p>Vytvořeno: {new Date(request.created_at).toLocaleString('cs-CZ')}</p>
-                      <p>Upraveno: {new Date(request.updated_at).toLocaleString('cs-CZ')}</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {activityLog.slice(0, 10).map((activity) => {
-                        const user = activityUsers[activity.user_id];
-                        const userName = user?.first_name && user?.last_name
-                          ? `${user.first_name} ${user.last_name}`
-                          : user?.display_name || user?.email || 'Neznámý';
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {activityLog.slice(0, 10).map((activity) => {
+                      const user = activityUsers[activity.user_id];
+                      const userName = user?.first_name && user?.last_name
+                        ? `${user.first_name} ${user.last_name}`
+                        : user?.display_name || user?.email || 'Neznámý';
 
-                        const getActivityIcon = () => {
-                          switch (activity.action_type) {
-                            case 'assigned':
-                              return <UserPlusIcon className="w-3 h-3 text-blue-600" />;
-                            case 'taken':
-                              return <CheckCircleIcon className="w-3 h-3 text-green-600" />;
-                            case 'reassigned':
-                              return <ArrowRightLeftIcon className="w-3 h-3 text-amber-600" />;
-                            case 'unassigned':
-                              return <XIcon className="w-3 h-3 text-red-600" />;
-                            case 'status_changed':
-                              return <RefreshIcon className="w-3 h-3 text-blue-600" />;
-                            case 'field_changed':
-                              return <EditIcon className="w-3 h-3 text-orange-600" />;
-                            case 'note_added':
-                              return <MessageSquareIcon className="w-3 h-3 text-purple-600" />;
-                            case 'task_created':
-                              return <CheckSquareIcon className="w-3 h-3 text-teal-600" />;
-                            case 'time_added':
-                              return <ClockIcon className="w-3 h-3 text-cyan-600" />;
-                            default:
-                              return <HistoryIcon className="w-3 h-3 text-gray-600" />;
-                          }
-                        };
+                      const getActivityIcon = () => {
+                        switch (activity.action_type) {
+                          case 'assigned':
+                            return <UserPlusIcon className="w-3 h-3 text-blue-600" />;
+                          case 'taken':
+                            return <CheckCircleIcon className="w-3 h-3 text-green-600" />;
+                          case 'reassigned':
+                            return <ArrowRightLeftIcon className="w-3 h-3 text-amber-600" />;
+                          case 'unassigned':
+                            return <XIcon className="w-3 h-3 text-red-600" />;
+                          case 'status_changed':
+                            return <RefreshIcon className="w-3 h-3 text-blue-600" />;
+                          case 'field_changed':
+                            return <EditIcon className="w-3 h-3 text-orange-600" />;
+                          case 'note_added':
+                            return <MessageSquareIcon className="w-3 h-3 text-purple-600" />;
+                          case 'task_created':
+                            return <CheckSquareIcon className="w-3 h-3 text-teal-600" />;
+                          case 'time_added':
+                            return <ClockIcon className="w-3 h-3 text-cyan-600" />;
+                          default:
+                            return <HistoryIcon className="w-3 h-3 text-gray-600" />;
+                        }
+                      };
 
-                        const getActivityText = () => {
-                          switch (activity.action_type) {
-                            case 'assigned':
-                              return `přidělil(a) → ${activity.new_value}`;
-                            case 'taken':
-                              return 'převzal(a)';
-                            case 'reassigned':
-                              return `předělil(a) ${activity.old_value} → ${activity.new_value}`;
-                            case 'unassigned':
-                              return `zrušil(a) přiřazení`;
-                            case 'status_changed':
-                              return `změnil(a) stav → ${activity.new_value}`;
-                            case 'field_changed':
-                              return `změnil(a) ${activity.field_name}`;
-                            case 'note_added':
-                              return 'přidal(a) poznámku';
-                            case 'task_created':
-                              return `vytvořil(a) úkol`;
-                            case 'time_added':
-                              return `vykázal(a) ${activity.new_value}`;
-                            default:
-                              return activity.action_type;
-                          }
-                        };
+                      const getActivityText = () => {
+                        switch (activity.action_type) {
+                          case 'assigned':
+                            return `přidělil(a) → ${activity.new_value}`;
+                          case 'taken':
+                            return 'převzal(a)';
+                          case 'reassigned':
+                            return `předělil(a) ${activity.old_value} → ${activity.new_value}`;
+                          case 'unassigned':
+                            return `zrušil(a) přiřazení`;
+                          case 'status_changed':
+                            return `změnil(a) stav → ${activity.new_value}`;
+                          case 'field_changed':
+                            return `změnil(a) ${activity.field_name}`;
+                          case 'note_added':
+                            return 'přidal(a) poznámku';
+                          case 'task_created':
+                            return `vytvořil(a) úkol`;
+                          case 'time_added':
+                            return `vykázal(a) ${activity.new_value}`;
+                          default:
+                            return activity.action_type;
+                        }
+                      };
 
-                        return (
-                          <div key={activity.id} className="flex items-start gap-2 text-xs">
-                            <div className="mt-0.5 flex-shrink-0">
-                              {getActivityIcon()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-gray-800">{userName}</span>
-                              <span className="text-gray-600 ml-1">{getActivityText()}</span>
-                            </div>
-                            <span className="text-gray-400 flex-shrink-0">
-                              {new Date(activity.created_at).toLocaleDateString('cs-CZ', {
-                                day: 'numeric',
-                                month: 'short',
-                              })}
-                            </span>
+                      return (
+                        <div key={activity.id} className="flex items-start gap-2 text-xs">
+                          <div className="mt-0.5 flex-shrink-0">
+                            {getActivityIcon()}
                           </div>
-                        );
-                      })}
-                      {activityLog.length > 10 && (
-                        <button
-                          onClick={() => setActiveTab('activity')}
-                          className="text-xs text-primary hover:text-primary-dark font-medium"
-                        >
-                          Zobrazit všech {activityLog.length} záznamů →
-                        </button>
-                      )}
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium text-gray-800">{userName}</span>
+                            <span className="text-gray-600 ml-1">{getActivityText()}</span>
+                          </div>
+                          <span className="text-gray-400 flex-shrink-0">
+                            {new Date(activity.created_at).toLocaleDateString('cs-CZ', {
+                              day: 'numeric',
+                              month: 'short',
+                            })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {activityLog.length > 10 && (
+                      <button
+                        onClick={() => setActiveTab('activity')}
+                        className="text-xs text-primary hover:text-primary-dark font-medium"
+                      >
+                        Zobrazit všech {activityLog.length} záznamů →
+                      </button>
+                    )}
+                    <div className="flex items-start gap-2 text-xs pt-2 border-t border-gray-100 mt-2">
+                      <div className="mt-0.5 flex-shrink-0">
+                        <PlusIcon className="w-3 h-3 text-green-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-gray-800">Poptávka vytvořena</span>
+                      </div>
+                      <span className="text-gray-400 flex-shrink-0">
+                        {new Date(request.created_at).toLocaleString('cs-CZ', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
                     </div>
-                  )}
+                  </div>
                 </div>
               </>
             )}
