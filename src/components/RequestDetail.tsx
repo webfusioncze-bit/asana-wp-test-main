@@ -406,12 +406,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     if (!user) return;
 
     const previousOwnerId = request?.assigned_user_id;
-    const isSelfAssign = userId === user.id;
     const isReassign = previousOwnerId && previousOwnerId !== userId;
 
     const updateData: Record<string, unknown> = {
       assigned_user_id: userId,
-      is_taken: isSelfAssign ? true : false
+      is_taken: false
     };
 
     const { error } = await supabase
@@ -436,22 +435,26 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
         ? `${previousUser.first_name} ${previousUser.last_name}`
         : previousUser?.display_name || previousUser?.email || null;
 
-      const actionType = isReassign ? 'reassigned' : (isSelfAssign ? 'taken' : 'assigned');
+      const actionType = isReassign ? 'reassigned' : 'assigned';
       await logActivity(actionType, 'assigned_user_id', previousUserName, newUserName, {
         assigned_user_id: userId,
-        self_assigned: isSelfAssign,
         is_reassign: isReassign
       });
 
-      if (!isSelfAssign) {
-        try {
+      try {
+        const session = await supabase.auth.getSession();
+        const accessToken = session.data.session?.access_token;
+
+        if (!accessToken) {
+          console.error('No access token available for sending assignment email');
+        } else {
           const response = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-request-assignment-email`,
             {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                'Authorization': `Bearer ${accessToken}`,
               },
               body: JSON.stringify({
                 request_id: requestId,
@@ -461,12 +464,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
             }
           );
 
+          const result = await response.json();
           if (!response.ok) {
-            console.error('Failed to send assignment email');
+            console.error('Failed to send assignment email:', result);
+          } else {
+            console.log('Assignment email response:', result);
           }
-        } catch (err) {
-          console.error('Error sending assignment email:', err);
         }
+      } catch (err) {
+        console.error('Error sending assignment email:', err);
       }
     } else {
       const previousUser = previousOwnerId ? allUsers.find(u => u.id === previousOwnerId) : null;
@@ -2073,7 +2079,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-800">Historie aktivit</h3>
             {activityLog.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">Zatim zadna aktivita</p>
+              <p className="text-center text-gray-500 py-8">Zatím žádná aktivita</p>
             ) : (
               <div className="relative">
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
@@ -2114,37 +2120,37 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                         case 'assigned':
                           return (
                             <span>
-                              pridelil(a) poptavku uzivateli <strong>{activity.new_value}</strong>
+                              přidělil(a) poptávku uživateli <strong>{activity.new_value}</strong>
                             </span>
                           );
                         case 'taken':
                           return (
                             <span>
-                              prevzal(a) poptavku
+                              převzal(a) poptávku
                             </span>
                           );
                         case 'reassigned':
                           return (
                             <span>
-                              predelil(a) poptavku z <strong>{activity.old_value}</strong> na <strong>{activity.new_value}</strong>
+                              předělil(a) poptávku z <strong>{activity.old_value}</strong> na <strong>{activity.new_value}</strong>
                             </span>
                           );
                         case 'unassigned':
                           return (
                             <span>
-                              zrusil(a) prirazeni uzivatele <strong>{activity.old_value}</strong>
+                              zrušil(a) přiřazení uživatele <strong>{activity.old_value}</strong>
                             </span>
                           );
                         case 'status_changed':
                           return (
                             <span>
-                              zmenil(a) stav z <strong>{activity.old_value || 'Zadny'}</strong> na <strong>{activity.new_value}</strong>
+                              změnil(a) stav z <strong>{activity.old_value || 'Žádný'}</strong> na <strong>{activity.new_value}</strong>
                             </span>
                           );
                         case 'field_changed':
                           return (
                             <span>
-                              zmenil(a) pole <strong>{activity.field_name}</strong>
+                              změnil(a) pole <strong>{activity.field_name}</strong>
                               {activity.old_value && activity.new_value && (
                                 <> z "{activity.old_value.substring(0, 30)}{activity.old_value.length > 30 ? '...' : ''}" na "{activity.new_value.substring(0, 30)}{activity.new_value.length > 30 ? '...' : ''}"</>
                               )}
@@ -2152,26 +2158,26 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                                 <> na "{activity.new_value.substring(0, 50)}{activity.new_value.length > 50 ? '...' : ''}"</>
                               )}
                               {activity.old_value && !activity.new_value && (
-                                <> (smazano)</>
+                                <> (smazáno)</>
                               )}
                             </span>
                           );
                         case 'note_added':
                           return (
                             <span>
-                              pridal(a) poznamku: "{activity.new_value}"
+                              přidal(a) poznámku: "{activity.new_value}"
                             </span>
                           );
                         case 'task_created':
                           return (
                             <span>
-                              vytvoril(a) ukol: <strong>{activity.new_value}</strong>
+                              vytvořil(a) úkol: <strong>{activity.new_value}</strong>
                             </span>
                           );
                         case 'time_added':
                           return (
                             <span>
-                              vykazal(a) <strong>{activity.new_value}</strong> casu
+                              vykázal(a) <strong>{activity.new_value}</strong> času
                             </span>
                           );
                         default:
