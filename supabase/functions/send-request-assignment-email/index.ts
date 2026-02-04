@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
 
     const assignerName = assignerUser?.first_name && assignerUser?.last_name
       ? `${assignerUser.first_name} ${assignerUser.last_name}`
-      : assignerUser?.display_name || assignerUser?.email || 'Neznamy uzivatel';
+      : assignerUser?.display_name || assignerUser?.email || 'Neznámý uživatel';
 
     const assignedUserName = assignedUser?.first_name && assignedUser?.last_name
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
@@ -118,22 +118,8 @@ Deno.serve(async (req: Request) => {
       requestTypeName = typeData?.name || '';
     }
 
-    const priorityLabels: Record<string, string> = {
-      low: 'Nizka',
-      medium: 'Stredni',
-      high: 'Vysoka',
-      urgent: 'Urgentni',
-    };
-
-    const priorityColors: Record<string, string> = {
-      low: '#6b7280',
-      medium: '#f59e0b',
-      high: '#ef4444',
-      urgent: '#dc2626',
-    };
-
     const formatDate = (dateStr: string | null) => {
-      if (!dateStr) return 'Neni nastaven';
+      if (!dateStr) return 'Není nastaven';
       return new Date(dateStr).toLocaleDateString('cs-CZ', {
         day: 'numeric',
         month: 'long',
@@ -141,7 +127,7 @@ Deno.serve(async (req: Request) => {
       });
     };
 
-    const subject = `Byla vam pridelena poptavka: ${requestData.title}`;
+    const subject = `Byla vám přidělena poptávka: ${requestData.title}`;
 
     const html = `
       <!DOCTYPE html>
@@ -158,10 +144,10 @@ Deno.serve(async (req: Request) => {
 
             <div style="padding: 32px 40px;">
               <h1 style="font-size: 24px; font-weight: 700; color: #151b26; margin-bottom: 8px;">
-                Dobry den, ${assignedUserName}!
+                Dobrý den, ${assignedUserName}!
               </h1>
               <p style="font-size: 14px; color: #6b7280; margin-bottom: 24px;">
-                Uzivatel <strong>${assignerName}</strong> vam pridelil novou poptavku k zpracovani.
+                Uživatel <strong>${assignerName}</strong> vám přidělil novou poptávku ke zpracování.
               </p>
 
               <div style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
@@ -190,21 +176,16 @@ Deno.serve(async (req: Request) => {
                     </div>
                   ` : ''}
 
-                  <div>
-                    <span style="color: #6b7280;">Priorita:</span>
-                    <span style="color: ${priorityColors[requestData.priority] || '#6b7280'}; font-weight: 500;"> ${priorityLabels[requestData.priority] || 'Stredni'}</span>
-                  </div>
-
                   ${requestData.deadline ? `
                     <div>
-                      <span style="color: #6b7280;">Termin:</span>
+                      <span style="color: #6b7280;">Termín:</span>
                       <span style="color: #151b26; font-weight: 500;"> ${formatDate(requestData.deadline)}</span>
                     </div>
                   ` : ''}
 
                   ${requestData.budget ? `
                     <div>
-                      <span style="color: #6b7280;">Rozpocet:</span>
+                      <span style="color: #6b7280;">Rozpočet:</span>
                       <span style="color: #151b26; font-weight: 500;"> ${requestData.budget}</span>
                     </div>
                   ` : ''}
@@ -212,13 +193,13 @@ Deno.serve(async (req: Request) => {
               </div>
 
               <a href="https://task.webfusion.cz" style="display: inline-block; background-color: #22a0a0; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 14px;">
-                Zobrazit poptavku
+                Zobrazit poptávku
               </a>
             </div>
 
             <div style="padding: 24px 40px 32px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; line-height: 1.6;">
-              Toto je automaticky generovany email ze systemu Task Manager.<br>
-              Chcete zmenit zpusob dorucovani notifikaci? <a href="https://task.webfusion.cz" style="color: #22a0a0; text-decoration: none;">Upravte nastaveni</a>
+              Toto je automaticky generovaný email ze systému Task Manager.<br>
+              Chcete změnit způsob doručování notifikací? <a href="https://task.webfusion.cz" style="color: #22a0a0; text-decoration: none;">Upravte nastavení</a>
             </div>
           </div>
         </body>
@@ -226,19 +207,18 @@ Deno.serve(async (req: Request) => {
     `;
 
     const text = `
-Dobry den, ${assignedUserName}!
+Dobrý den, ${assignedUserName}!
 
-Uzivatel ${assignerName} vam pridelil novou poptavku k zpracovani.
+Uživatel ${assignerName} vám přidělil novou poptávku ke zpracování.
 
-POPTAVKA: ${requestData.title}
+POPTÁVKA: ${requestData.title}
 ${requestData.description ? `Popis: ${requestData.description.substring(0, 200)}${requestData.description.length > 200 ? '...' : ''}\n` : ''}
 ${requestData.client_name ? `Klient: ${requestData.client_name}\n` : ''}
 ${requestTypeName ? `Typ: ${requestTypeName}\n` : ''}
-Priorita: ${priorityLabels[requestData.priority] || 'Stredni'}
-${requestData.deadline ? `Termin: ${formatDate(requestData.deadline)}\n` : ''}
-${requestData.budget ? `Rozpocet: ${requestData.budget}\n` : ''}
+${requestData.deadline ? `Termín: ${formatDate(requestData.deadline)}\n` : ''}
+${requestData.budget ? `Rozpočet: ${requestData.budget}\n` : ''}
 
-Zobrazit poptavku: https://task.webfusion.cz
+Zobrazit poptávku: https://task.webfusion.cz
     `.trim();
 
     const { error: logError } = await supabase

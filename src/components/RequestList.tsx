@@ -33,7 +33,7 @@ interface RequestWithUser extends Request {
   } | null;
 }
 
-type TakenFilterType = 'mine' | 'assigned_to_me' | 'all' | string;
+type TakenFilterType = 'mine' | 'all' | string;
 
 const UNTAKEN_PAGE_SIZE = 5;
 
@@ -307,23 +307,24 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     untakenPage * UNTAKEN_PAGE_SIZE
   );
 
+  const myPendingRequests = requests.filter(r =>
+    r.assigned_user_id === currentUserId && !r.is_taken
+  );
+
   const takenRequests = requests.filter(r => {
     if (!r.assigned_user_id) return false;
+    if (r.assigned_user_id === currentUserId && !r.is_taken) return false;
 
     if (takenFilter === 'mine') {
       return r.assigned_user_id === currentUserId && r.is_taken;
-    } else if (takenFilter === 'assigned_to_me') {
-      return r.assigned_user_id === currentUserId && !r.is_taken;
     } else if (takenFilter === 'all') {
-      return true;
+      return r.is_taken;
     } else {
-      return r.assigned_user_id === takenFilter;
+      return r.assigned_user_id === takenFilter && r.is_taken;
     }
   });
 
-  const pendingAssignmentCount = requests.filter(r =>
-    r.assigned_user_id === currentUserId && !r.is_taken
-  ).length;
+  const pendingAssignmentCount = myPendingRequests.length;
 
   const globalSearchResults = isSearchMode
     ? allRequests.filter(request => filterRequest(request, searchQuery.toLowerCase()))
@@ -434,7 +435,6 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
   const getFilterLabel = () => {
     if (takenFilter === 'mine') return 'Moje';
-    if (takenFilter === 'assigned_to_me') return 'Přidělené mně';
     if (takenFilter === 'all') return 'Všechny';
     const user = allUsers.find(u => u.id === takenFilter);
     if (user) {
@@ -926,6 +926,25 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
               </div>
             )}
 
+            {myPendingRequests.length > 0 && (
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      Moje čekající na převzetí
+                    </h3>
+                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium animate-pulse">
+                      {myPendingRequests.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {myPendingRequests.map((request) => renderUntakenRequestCard(request))}
+                </div>
+              </div>
+            )}
+
             <div className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -936,14 +955,6 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
                     {takenRequests.length}
                   </span>
-                  {pendingAssignmentCount > 0 && takenFilter !== 'assigned_to_me' && (
-                    <button
-                      onClick={() => setTakenFilter('assigned_to_me')}
-                      className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium animate-pulse hover:bg-amber-200 transition-colors"
-                    >
-                      {pendingAssignmentCount} čeká na převzetí
-                    </button>
-                  )}
                 </div>
                 <div className="relative filter-menu-container">
                   <button
@@ -968,20 +979,6 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
                         >
                           <UserIcon className="w-4 h-4" />
                           Moje převzaté
-                        </button>
-                        <button
-                          onClick={() => { setTakenFilter('assigned_to_me'); setShowFilterMenu(false); }}
-                          className={`w-full text-left px-3 py-2 text-sm rounded flex items-center gap-2 ${
-                            takenFilter === 'assigned_to_me' ? 'bg-primary/10 text-primary font-medium' : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <UserIcon className="w-4 h-4" />
-                          Přidělené mně
-                          {pendingAssignmentCount > 0 && (
-                            <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                              {pendingAssignmentCount}
-                            </span>
-                          )}
                         </button>
                         <button
                           onClick={() => { setTakenFilter('all'); setShowFilterMenu(false); }}
@@ -1032,13 +1029,12 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
               {takenRequests.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 text-sm">
                   {takenFilter === 'mine' && 'Zatím nemáte žádné převzaté poptávky'}
-                  {takenFilter === 'assigned_to_me' && 'Žádné poptávky čekající na převzetí'}
                   {takenFilter === 'all' && 'Zatím žádné převzaté poptávky'}
-                  {takenFilter !== 'mine' && takenFilter !== 'assigned_to_me' && takenFilter !== 'all' && 'Tento uživatel nemá žádné poptávky'}
+                  {takenFilter !== 'mine' && takenFilter !== 'all' && 'Tento uživatel nemá žádné poptávky'}
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {takenRequests.map((request) => renderTakenRequestCard(request, takenFilter === 'all' || (takenFilter !== 'mine' && takenFilter !== 'assigned_to_me')))}
+                  {takenRequests.map((request) => renderTakenRequestCard(request, takenFilter === 'all' || takenFilter !== 'mine'))}
                 </div>
               )}
             </div>

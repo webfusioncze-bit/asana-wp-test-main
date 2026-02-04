@@ -25,6 +25,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAssignmentDropdown, setShowAssignmentDropdown] = useState(false);
+  const [assigningRequest, setAssigningRequest] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -402,26 +403,31 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
   }
 
   async function handleAssignRequest(userId: string | null) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (assigningRequest) return;
+    setAssigningRequest(true);
+    setShowAssignmentDropdown(false);
 
-    const previousOwnerId = request?.assigned_user_id;
-    const isReassign = previousOwnerId && previousOwnerId !== userId;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const updateData: Record<string, unknown> = {
-      assigned_user_id: userId,
-      is_taken: false
-    };
+      const previousOwnerId = request?.assigned_user_id;
+      const isReassign = previousOwnerId && previousOwnerId !== userId;
 
-    const { error } = await supabase
-      .from('requests')
-      .update(updateData)
-      .eq('id', requestId);
+      const updateData: Record<string, unknown> = {
+        assigned_user_id: userId,
+        is_taken: false
+      };
 
-    if (error) {
-      alert('Chyba při přidělení poptávky: ' + error.message);
-      return;
-    }
+      const { error } = await supabase
+        .from('requests')
+        .update(updateData)
+        .eq('id', requestId);
+
+      if (error) {
+        alert('Chyba při přidělení poptávky: ' + error.message);
+        return;
+      }
 
     if (userId) {
       const newUser = allUsers.find(u => u.id === userId);
@@ -483,11 +489,13 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       await logActivity('unassigned', 'assigned_user_id', previousUserName, null);
     }
 
-    setShowAssignmentDropdown(false);
     loadRequestDetail();
     loadActivityLog();
     if (onRequestUpdated) {
       onRequestUpdated();
+    }
+    } finally {
+      setAssigningRequest(false);
     }
   }
 
@@ -1593,11 +1601,18 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                         )}
                         <div className="relative assignment-dropdown-container">
                           <button
-                            onClick={() => setShowAssignmentDropdown(!showAssignmentDropdown)}
-                            className="px-2.5 py-1 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors text-xs flex items-center gap-1.5"
+                            onClick={() => !assigningRequest && setShowAssignmentDropdown(!showAssignmentDropdown)}
+                            disabled={assigningRequest}
+                            className={`px-2.5 py-1 border border-gray-300 rounded-md transition-colors text-xs flex items-center gap-1.5 ${
+                              assigningRequest ? 'opacity-70 cursor-wait' : 'hover:bg-gray-50'
+                            }`}
                             title="Přidělit poptávku"
                           >
-                            <UserPlusIcon className="w-3.5 h-3.5 text-gray-500" />
+                            {assigningRequest ? (
+                              <RefreshIcon className="w-3.5 h-3.5 text-gray-500 animate-spin" />
+                            ) : (
+                              <UserPlusIcon className="w-3.5 h-3.5 text-gray-500" />
+                            )}
                             {assignedOwner ? (
                               <>
                                 {assignedOwner.avatar_url ? (
@@ -1610,9 +1625,9 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                                 <span className="text-gray-700 max-w-[60px] truncate">{assignedOwner.first_name || assignedOwner.email.split('@')[0]}</span>
                               </>
                             ) : (
-                              <span className="text-gray-500">Přidělit</span>
+                              <span className="text-gray-500">{assigningRequest ? 'Přiděluji...' : 'Přidělit'}</span>
                             )}
-                            <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />
+                            {!assigningRequest && <ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />}
                           </button>
                           {showAssignmentDropdown && (
                             <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
@@ -1823,9 +1838,102 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                     )}
                   </div>
 
-                <div className="text-xs text-gray-500 pt-4 border-t border-gray-200">
-                  <p>Vytvořeno: {new Date(request.created_at).toLocaleString('cs-CZ')}</p>
-                  <p>Upraveno: {new Date(request.updated_at).toLocaleString('cs-CZ')}</p>
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <HistoryIcon className="w-4 h-4" />
+                    Historie aktivit
+                  </h4>
+                  {activityLog.length === 0 ? (
+                    <div className="text-xs text-gray-500">
+                      <p>Vytvořeno: {new Date(request.created_at).toLocaleString('cs-CZ')}</p>
+                      <p>Upraveno: {new Date(request.updated_at).toLocaleString('cs-CZ')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {activityLog.slice(0, 10).map((activity) => {
+                        const user = activityUsers[activity.user_id];
+                        const userName = user?.first_name && user?.last_name
+                          ? `${user.first_name} ${user.last_name}`
+                          : user?.display_name || user?.email || 'Neznámý';
+
+                        const getActivityIcon = () => {
+                          switch (activity.action_type) {
+                            case 'assigned':
+                              return <UserPlusIcon className="w-3 h-3 text-blue-600" />;
+                            case 'taken':
+                              return <CheckCircleIcon className="w-3 h-3 text-green-600" />;
+                            case 'reassigned':
+                              return <ArrowRightLeftIcon className="w-3 h-3 text-amber-600" />;
+                            case 'unassigned':
+                              return <XIcon className="w-3 h-3 text-red-600" />;
+                            case 'status_changed':
+                              return <RefreshIcon className="w-3 h-3 text-blue-600" />;
+                            case 'field_changed':
+                              return <EditIcon className="w-3 h-3 text-orange-600" />;
+                            case 'note_added':
+                              return <MessageSquareIcon className="w-3 h-3 text-purple-600" />;
+                            case 'task_created':
+                              return <CheckSquareIcon className="w-3 h-3 text-teal-600" />;
+                            case 'time_added':
+                              return <ClockIcon className="w-3 h-3 text-cyan-600" />;
+                            default:
+                              return <HistoryIcon className="w-3 h-3 text-gray-600" />;
+                          }
+                        };
+
+                        const getActivityText = () => {
+                          switch (activity.action_type) {
+                            case 'assigned':
+                              return `přidělil(a) → ${activity.new_value}`;
+                            case 'taken':
+                              return 'převzal(a)';
+                            case 'reassigned':
+                              return `předělil(a) ${activity.old_value} → ${activity.new_value}`;
+                            case 'unassigned':
+                              return `zrušil(a) přiřazení`;
+                            case 'status_changed':
+                              return `změnil(a) stav → ${activity.new_value}`;
+                            case 'field_changed':
+                              return `změnil(a) ${activity.field_name}`;
+                            case 'note_added':
+                              return 'přidal(a) poznámku';
+                            case 'task_created':
+                              return `vytvořil(a) úkol`;
+                            case 'time_added':
+                              return `vykázal(a) ${activity.new_value}`;
+                            default:
+                              return activity.action_type;
+                          }
+                        };
+
+                        return (
+                          <div key={activity.id} className="flex items-start gap-2 text-xs">
+                            <div className="mt-0.5 flex-shrink-0">
+                              {getActivityIcon()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-gray-800">{userName}</span>
+                              <span className="text-gray-600 ml-1">{getActivityText()}</span>
+                            </div>
+                            <span className="text-gray-400 flex-shrink-0">
+                              {new Date(activity.created_at).toLocaleDateString('cs-CZ', {
+                                day: 'numeric',
+                                month: 'short',
+                              })}
+                            </span>
+                          </div>
+                        );
+                      })}
+                      {activityLog.length > 10 && (
+                        <button
+                          onClick={() => setActiveTab('activity')}
+                          className="text-xs text-primary hover:text-primary-dark font-medium"
+                        >
+                          Zobrazit všech {activityLog.length} záznamů →
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}
