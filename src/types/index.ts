@@ -171,6 +171,7 @@ export interface Request {
   request_date: string | null;
   result: RequestResult | null;
   closure_date: string | null;
+  assigned_user_id: string | null;
 }
 
 export interface RequestAction {
@@ -206,6 +207,29 @@ export interface RequestNote {
   note: string;
   created_at: string;
   updated_at: string;
+}
+
+export type RequestActivityActionType =
+  | 'created'
+  | 'assigned'
+  | 'unassigned'
+  | 'field_changed'
+  | 'status_changed'
+  | 'type_changed'
+  | 'note_added'
+  | 'task_created'
+  | 'time_added';
+
+export interface RequestActivityLog {
+  id: string;
+  request_id: string;
+  user_id: string;
+  action_type: RequestActivityActionType;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface ZapierSource {

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon, Trash2 as TrashIcon } from 'lucide-react';
+import { X as XIcon, Edit2 as EditIcon, Save as SaveIcon, Plus as PlusIcon, Clock as ClockIcon, MessageSquare as MessageSquareIcon, CheckSquare as CheckSquareIcon, Calendar as CalendarIcon, User as UserIcon, DollarSign as DollarSignIcon, ExternalLink as ExternalLinkIcon, FileText as FileTextIcon, RefreshCw as RefreshIcon, ShoppingCart as ShoppingCartIcon, Zap as ZapIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Tag as TagIcon, Smartphone as SmartphoneIcon, Trash2 as TrashIcon, History as HistoryIcon, UserPlus as UserPlusIcon, ChevronDown as ChevronDownIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TaskDetail } from './TaskDetail';
-import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote } from '../types';
+import type { Request, RequestType, RequestStatusCustom, User, Task, TimeEntry, RequestNote, RequestActivityLog } from '../types';
 
 interface RequestDetailProps {
   requestId: string;
@@ -11,26 +11,31 @@ interface RequestDetailProps {
   onEditModeChange?: (isEditing: boolean) => void;
 }
 
-type TabType = 'overview' | 'tasks' | 'time' | 'notes';
+type TabType = 'overview' | 'tasks' | 'time' | 'notes' | 'activity';
 
 export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditModeChange }: RequestDetailProps) {
   const [request, setRequest] = useState<Request | null>(null);
   const [requestType, setRequestType] = useState<RequestType | null>(null);
   const [requestStatus, setRequestStatus] = useState<RequestStatusCustom | null>(null);
   const [assignedUser, setAssignedUser] = useState<User | null>(null);
+  const [assignedOwner, setAssignedOwner] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [showStatusSelector, setShowStatusSelector] = useState(false);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAssignmentDropdown, setShowAssignmentDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [notes, setNotes] = useState<RequestNote[]>([]);
+  const [activityLog, setActivityLog] = useState<RequestActivityLog[]>([]);
+  const [activityUsers, setActivityUsers] = useState<Record<string, User>>({});
 
   const [requestTypes, setRequestTypes] = useState<RequestType[]>([]);
   const [requestStatuses, setRequestStatuses] = useState<RequestStatusCustom[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
   const [editForm, setEditForm] = useState({
     title: '',
@@ -106,6 +111,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     loadTasks();
     loadTimeEntries();
     loadNotes();
+    loadActivityLog();
+    loadAllUsers();
   }, [requestId]);
 
   useEffect(() => {
@@ -121,11 +128,14 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       if (showCategorySelector && !target.closest('.category-selector-container')) {
         setShowCategorySelector(false);
       }
+      if (showAssignmentDropdown && !target.closest('.assignment-dropdown-container')) {
+        setShowAssignmentDropdown(false);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showStatusSelector, showCategorySelector]);
+  }, [showStatusSelector, showCategorySelector, showAssignmentDropdown]);
 
   async function loadRequestDetail() {
     setLoading(true);
@@ -246,6 +256,26 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       setAssignedUser(null);
     }
 
+    if (requestData.assigned_user_id) {
+      const { data: ownerData } = await supabase
+        .from('user_profiles')
+        .select('id, email, first_name, last_name, display_name')
+        .eq('id', requestData.assigned_user_id)
+        .maybeSingle();
+
+      if (ownerData) {
+        setAssignedOwner({
+          id: ownerData.id,
+          email: ownerData.email || '',
+          first_name: ownerData.first_name,
+          last_name: ownerData.last_name,
+          display_name: ownerData.display_name
+        });
+      }
+    } else {
+      setAssignedOwner(null);
+    }
+
     setLoading(false);
   }
 
@@ -289,27 +319,268 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     if (data) setNotes(data);
   }
 
+  async function loadActivityLog() {
+    const { data } = await supabase
+      .from('request_activity_log')
+      .select('*')
+      .eq('request_id', requestId)
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      setActivityLog(data);
+      const userIds = [...new Set(data.map(a => a.user_id))];
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('user_profiles')
+          .select('id, email, first_name, last_name, display_name')
+          .in('id', userIds);
+
+        if (users) {
+          const usersMap: Record<string, User> = {};
+          users.forEach(u => {
+            usersMap[u.id] = {
+              id: u.id,
+              email: u.email || '',
+              first_name: u.first_name,
+              last_name: u.last_name,
+              display_name: u.display_name
+            };
+          });
+          setActivityUsers(usersMap);
+        }
+      }
+    }
+  }
+
+  async function loadAllUsers() {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('id, email, first_name, last_name, display_name')
+      .order('first_name');
+
+    if (data) {
+      setAllUsers(data.map(u => ({
+        id: u.id,
+        email: u.email || '',
+        first_name: u.first_name,
+        last_name: u.last_name,
+        display_name: u.display_name
+      })));
+    }
+  }
+
+  async function logActivity(
+    actionType: string,
+    fieldName?: string,
+    oldValue?: string | null,
+    newValue?: string | null,
+    metadata?: Record<string, unknown>
+  ) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('request_activity_log').insert({
+      request_id: requestId,
+      user_id: user.id,
+      action_type: actionType,
+      field_name: fieldName || null,
+      old_value: oldValue || null,
+      new_value: newValue || null,
+      metadata: metadata || {}
+    });
+  }
+
+  async function handleAssignRequest(userId: string | null) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const previousOwnerId = request?.assigned_user_id;
+
+    const { error } = await supabase
+      .from('requests')
+      .update({ assigned_user_id: userId })
+      .eq('id', requestId);
+
+    if (error) {
+      alert('Chyba pri prideleni poptavky: ' + error.message);
+      return;
+    }
+
+    if (userId) {
+      const newUser = allUsers.find(u => u.id === userId);
+      const previousUser = previousOwnerId ? allUsers.find(u => u.id === previousOwnerId) : null;
+
+      const newUserName = newUser?.first_name && newUser?.last_name
+        ? `${newUser.first_name} ${newUser.last_name}`
+        : newUser?.display_name || newUser?.email || '';
+
+      const previousUserName = previousUser?.first_name && previousUser?.last_name
+        ? `${previousUser.first_name} ${previousUser.last_name}`
+        : previousUser?.display_name || previousUser?.email || null;
+
+      await logActivity('assigned', 'assigned_user_id', previousUserName, newUserName, { assigned_user_id: userId });
+
+      if (userId !== user.id) {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-request-assignment-email`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              },
+              body: JSON.stringify({
+                request_id: requestId,
+                assigned_user_id: userId,
+                assigner_user_id: user.id,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            console.error('Failed to send assignment email');
+          }
+        } catch (err) {
+          console.error('Error sending assignment email:', err);
+        }
+      }
+    } else {
+      const previousUser = previousOwnerId ? allUsers.find(u => u.id === previousOwnerId) : null;
+      const previousUserName = previousUser?.first_name && previousUser?.last_name
+        ? `${previousUser.first_name} ${previousUser.last_name}`
+        : previousUser?.display_name || previousUser?.email || null;
+
+      await logActivity('unassigned', 'assigned_user_id', previousUserName, null);
+    }
+
+    setShowAssignmentDropdown(false);
+    loadRequestDetail();
+    loadActivityLog();
+    if (onRequestUpdated) {
+      onRequestUpdated();
+    }
+  }
+
   async function handleTakeRequest() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { error } = await supabase
       .from('requests')
-      .update({ assigned_to: user.id })
+      .update({ assigned_to: user.id, assigned_user_id: user.id })
       .eq('id', requestId);
 
     if (error) {
-      alert('Chyba při převzetí poptávky: ' + error.message);
+      alert('Chyba pri prevzeti poptavky: ' + error.message);
       return;
     }
 
+    const currentUser = allUsers.find(u => u.id === user.id);
+    const userName = currentUser?.first_name && currentUser?.last_name
+      ? `${currentUser.first_name} ${currentUser.last_name}`
+      : currentUser?.display_name || currentUser?.email || user.email || '';
+
+    await logActivity('assigned', 'assigned_user_id', null, userName, { self_assigned: true });
+
     loadRequestDetail();
+    loadActivityLog();
     if (onRequestUpdated) {
       onRequestUpdated();
     }
   }
 
   async function handleSaveEdit() {
+    if (!request) return;
+
+    const fieldLabels: Record<string, string> = {
+      title: 'Nazev',
+      description: 'Popis',
+      client_name: 'Jmeno klienta',
+      client_email: 'E-mail klienta',
+      client_phone: 'Telefon klienta',
+      request_type_id: 'Typ poptavky',
+      request_status_id: 'Stav poptavky',
+      subpage_count: 'Pocet podstranek',
+      source: 'Zdroj poptavky',
+      storage_url: 'Odkaz na uloziste',
+      current_website_url: 'Aktualni web',
+      budget: 'Rozpocet',
+      accepted_price: 'Akceptovana cena',
+      additional_services: 'Dalsi sluzby',
+      delivery_speed: 'Rychlost dodani',
+      ai_usage: 'Vyuziti AI',
+      project_materials_link: 'Podklady k projektu',
+      deadline: 'Termin',
+      favorite_eshop: 'Oblibeny e-shop',
+      product_count: 'Pocet produktu',
+      marketing_goal: 'Cil marketingu',
+      competitor_url: 'Adresa konkurence',
+      monthly_management_budget: 'Mesicni sprava',
+      monthly_credits_budget: 'Mesicni kredity',
+      development_phase: 'Faze vyvoje',
+      request_date: 'Datum poptavky',
+      result: 'Vysledek',
+      closure_date: 'Datum uzavreni'
+    };
+
+    const changes: Array<{ field: string; oldValue: string | null; newValue: string | null }> = [];
+
+    const checkChange = (field: string, oldVal: unknown, newVal: unknown) => {
+      const oldStr = oldVal === null || oldVal === undefined || oldVal === '' ? null : String(oldVal);
+      const newStr = newVal === null || newVal === undefined || newVal === '' ? null : String(newVal);
+      if (oldStr !== newStr) {
+        changes.push({ field, oldValue: oldStr, newValue: newStr });
+      }
+    };
+
+    checkChange('title', request.title, editForm.title);
+    checkChange('description', request.description, editForm.description);
+    checkChange('client_name', request.client_name, editForm.client_name);
+    checkChange('client_email', request.client_email, editForm.client_email);
+    checkChange('client_phone', request.client_phone, editForm.client_phone);
+    checkChange('subpage_count', request.subpage_count, editForm.subpage_count);
+    checkChange('source', request.source, editForm.source);
+    checkChange('storage_url', request.storage_url, editForm.storage_url);
+    checkChange('current_website_url', request.current_website_url, editForm.current_website_url);
+    checkChange('budget', request.budget, editForm.budget);
+    checkChange('accepted_price', request.accepted_price, editForm.accepted_price);
+    checkChange('additional_services', request.additional_services, editForm.additional_services);
+    checkChange('delivery_speed', request.delivery_speed, editForm.delivery_speed);
+    checkChange('ai_usage', request.ai_usage, editForm.ai_usage);
+    checkChange('project_materials_link', request.project_materials_link, editForm.project_materials_link);
+    checkChange('deadline', request.deadline, editForm.deadline);
+    checkChange('favorite_eshop', request.favorite_eshop, editForm.favorite_eshop);
+    checkChange('product_count', request.product_count, editForm.product_count);
+    checkChange('marketing_goal', request.marketing_goal, editForm.marketing_goal);
+    checkChange('competitor_url', request.competitor_url, editForm.competitor_url);
+    checkChange('monthly_management_budget', request.monthly_management_budget, editForm.monthly_management_budget);
+    checkChange('monthly_credits_budget', request.monthly_credits_budget, editForm.monthly_credits_budget);
+    checkChange('development_phase', request.development_phase, editForm.development_phase);
+    checkChange('request_date', request.request_date, editForm.request_date);
+    checkChange('result', request.result, editForm.result);
+    checkChange('closure_date', request.closure_date, editForm.closure_date);
+
+    if (request.request_type_id !== (editForm.request_type_id || null)) {
+      const oldType = requestTypes.find(t => t.id === request.request_type_id);
+      const newType = requestTypes.find(t => t.id === editForm.request_type_id);
+      changes.push({
+        field: 'request_type_id',
+        oldValue: oldType?.name || null,
+        newValue: newType?.name || null
+      });
+    }
+
+    if (request.request_status_id !== (editForm.request_status_id || null)) {
+      const oldStatus = requestStatuses.find(s => s.id === request.request_status_id);
+      const newStatus = requestStatuses.find(s => s.id === editForm.request_status_id);
+      changes.push({
+        field: 'request_status_id',
+        oldValue: oldStatus?.name || null,
+        newValue: newStatus?.name || null
+      });
+    }
+
     const { error } = await supabase
       .from('requests')
       .update({
@@ -345,18 +616,27 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       .eq('id', requestId);
 
     if (error) {
-      alert('Chyba při ukládání: ' + error.message);
+      alert('Chyba pri ukladani: ' + error.message);
       return;
+    }
+
+    for (const change of changes) {
+      const label = fieldLabels[change.field] || change.field;
+      await logActivity('field_changed', label, change.oldValue, change.newValue);
     }
 
     setIsEditing(false);
     loadRequestDetail();
+    loadActivityLog();
     if (onRequestUpdated) {
       onRequestUpdated();
     }
   }
 
   async function handleStatusChange(statusId: string) {
+    const oldStatus = requestStatuses.find(s => s.id === request?.request_status_id);
+    const newStatus = requestStatuses.find(s => s.id === statusId);
+
     const { error } = await supabase
       .from('requests')
       .update({
@@ -365,12 +645,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       .eq('id', requestId);
 
     if (error) {
-      alert('Chyba při změně stavu: ' + error.message);
+      alert('Chyba pri zmene stavu: ' + error.message);
       return;
     }
 
+    await logActivity('status_changed', 'Stav', oldStatus?.name || 'Nova poptavka', newStatus?.name || null);
+
     setShowStatusSelector(false);
     loadRequestDetail();
+    loadActivityLog();
     if (onRequestUpdated) {
       onRequestUpdated();
     }
@@ -476,12 +759,16 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       });
 
     if (error) {
-      alert('Chyba při přidávání poznámky: ' + error.message);
+      alert('Chyba pri pridavani poznamky: ' + error.message);
       return;
     }
 
+    const notePreview = newNote.length > 50 ? newNote.substring(0, 50) + '...' : newNote;
+    await logActivity('note_added', null, null, notePreview);
+
     setNewNote('');
     loadNotes();
+    loadActivityLog();
   }
 
   async function handleAddTimeEntry() {
@@ -501,12 +788,19 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       });
 
     if (error) {
-      alert('Chyba při přidávání času: ' + error.message);
+      alert('Chyba pri pridavani casu: ' + error.message);
       return;
     }
 
+    await logActivity('time_added', null, null, `${newTimeEntry.hours}h`, {
+      hours: parseFloat(newTimeEntry.hours),
+      description: newTimeEntry.description,
+      date: newTimeEntry.date
+    });
+
     setNewTimeEntry({ hours: '', description: '', date: new Date().toISOString().split('T')[0] });
     loadTimeEntries();
+    loadActivityLog();
   }
 
   async function handleCreateTask() {
@@ -533,9 +827,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       });
 
     if (error) {
-      alert('Chyba při vytváření úkolu: ' + error.message);
+      alert('Chyba pri vytvareni ukolu: ' + error.message);
       return;
     }
+
+    await logActivity('task_created', null, null, newTask.title);
 
     setNewTask({
       title: '',
@@ -545,6 +841,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     });
     setShowTaskForm(false);
     loadTasks();
+    loadActivityLog();
   }
 
   if (loading) {
@@ -794,7 +1091,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
             activeTab === 'notes' ? 'border-b-2 border-primary text-primary' : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          Poznámky ({notes.length})
+          Poznamky ({notes.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'activity' ? 'border-b-2 border-primary text-primary' : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Aktivita
         </button>
       </div>
 
@@ -1161,15 +1466,70 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                   <div>
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <h3 className="text-xl font-semibold text-gray-900">{request.title}</h3>
-                      {!request.assigned_to && (
-                        <button
-                          onClick={handleTakeRequest}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm whitespace-nowrap flex items-center gap-2"
-                        >
-                          <UserIcon className="w-4 h-4" />
-                          Přebírám poptávku
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {!request.assigned_user_id && (
+                          <button
+                            onClick={handleTakeRequest}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm whitespace-nowrap flex items-center gap-2"
+                          >
+                            <UserIcon className="w-4 h-4" />
+                            Prebiram poptavku
+                          </button>
+                        )}
+                        <div className="relative assignment-dropdown-container">
+                          <button
+                            onClick={() => setShowAssignmentDropdown(!showAssignmentDropdown)}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm flex items-center gap-2"
+                            title="Pridelit poptavku"
+                          >
+                            <UserPlusIcon className="w-4 h-4 text-gray-500" />
+                            {assignedOwner ? (
+                              <span className="text-gray-700">{assignedOwner.first_name && assignedOwner.last_name ? `${assignedOwner.first_name} ${assignedOwner.last_name}` : assignedOwner.display_name || assignedOwner.email}</span>
+                            ) : (
+                              <span className="text-gray-500">Pridelit</span>
+                            )}
+                            <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+                          </button>
+                          {showAssignmentDropdown && (
+                            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
+                              <div className="p-2 space-y-1">
+                                <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                                  Pridelit poptavku
+                                </div>
+                                {assignedOwner && (
+                                  <button
+                                    onClick={() => handleAssignRequest(null)}
+                                    className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-red-50 text-red-600 flex items-center gap-2"
+                                  >
+                                    <XIcon className="w-4 h-4" />
+                                    <span className="text-sm">Zrusit prirazeni</span>
+                                  </button>
+                                )}
+                                {allUsers.map((user) => (
+                                  <button
+                                    key={user.id}
+                                    onClick={() => handleAssignRequest(user.id)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                                      assignedOwner?.id === user.id
+                                        ? 'bg-primary/10 text-primary font-medium'
+                                        : 'hover:bg-gray-50'
+                                    }`}
+                                  >
+                                    <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
+                                      {user.first_name ? user.first_name.charAt(0) : user.email.charAt(0).toUpperCase()}
+                                    </div>
+                                    <span className="text-sm">
+                                      {user.first_name && user.last_name
+                                        ? `${user.first_name} ${user.last_name}`
+                                        : user.display_name || user.email}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {requestType && (
@@ -1192,13 +1552,13 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                           Nová poptávka
                         </span>
                       )}
-                      {!request.assigned_to ? (
+                      {!request.assigned_user_id ? (
                         <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800">
-                          Nepřevzata
+                          Neprevzata
                         </span>
                       ) : (
                         <span className="inline-flex items-center px-1.5 py-0 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
-                          Převzata
+                          Prevzata
                         </span>
                       )}
                       {request.source === 'zapier' && (
@@ -1391,14 +1751,16 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                         <span className="text-gray-900 font-medium">{new Date(request.deadline).toLocaleDateString('cs-CZ')}</span>
                       </div>
                     )}
-                    {assignedUser && (
+                    {assignedOwner && (
                       <div className="flex items-center justify-between">
                         <span className="text-gray-500 text-sm flex items-center gap-1">
                           <UserIcon className="w-4 h-4" />
-                          Přiřazeno:
+                          Prirazeno:
                         </span>
                         <span className="text-gray-900 font-medium">
-                          {assignedUser.display_name || assignedUser.email}
+                          {assignedOwner.first_name && assignedOwner.last_name
+                            ? `${assignedOwner.first_name} ${assignedOwner.last_name}`
+                            : assignedOwner.display_name || assignedOwner.email}
                         </span>
                       </div>
                     )}
@@ -1639,9 +2001,9 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Poznámky ({notes.length})</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-3">Poznamky ({notes.length})</h3>
               {notes.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">Zatím žádné poznámky</p>
+                <p className="text-center text-gray-500 py-8">Zatim zadne poznamky</p>
               ) : (
                 <div className="space-y-3">
                   {notes.map(note => (
@@ -1653,6 +2015,130 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'activity' && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800">Historie aktivit</h3>
+            {activityLog.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">Zatim zadna aktivita</p>
+            ) : (
+              <div className="relative">
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
+                <div className="space-y-4">
+                  {activityLog.map((activity) => {
+                    const user = activityUsers[activity.user_id];
+                    const userName = user?.first_name && user?.last_name
+                      ? `${user.first_name} ${user.last_name}`
+                      : user?.display_name || user?.email || 'Neznamy uzivatel';
+
+                    const getActivityIcon = () => {
+                      switch (activity.action_type) {
+                        case 'assigned':
+                          return <UserPlusIcon className="w-4 h-4 text-green-600" />;
+                        case 'unassigned':
+                          return <XIcon className="w-4 h-4 text-red-600" />;
+                        case 'status_changed':
+                          return <RefreshIcon className="w-4 h-4 text-blue-600" />;
+                        case 'field_changed':
+                          return <EditIcon className="w-4 h-4 text-orange-600" />;
+                        case 'note_added':
+                          return <MessageSquareIcon className="w-4 h-4 text-purple-600" />;
+                        case 'task_created':
+                          return <CheckSquareIcon className="w-4 h-4 text-teal-600" />;
+                        case 'time_added':
+                          return <ClockIcon className="w-4 h-4 text-cyan-600" />;
+                        default:
+                          return <HistoryIcon className="w-4 h-4 text-gray-600" />;
+                      }
+                    };
+
+                    const getActivityDescription = () => {
+                      switch (activity.action_type) {
+                        case 'assigned':
+                          return (
+                            <span>
+                              pridelil(a) poptavku uzivateli <strong>{activity.new_value}</strong>
+                            </span>
+                          );
+                        case 'unassigned':
+                          return (
+                            <span>
+                              zrusil(a) prirazeni uzivatele <strong>{activity.old_value}</strong>
+                            </span>
+                          );
+                        case 'status_changed':
+                          return (
+                            <span>
+                              zmenil(a) stav z <strong>{activity.old_value || 'Zadny'}</strong> na <strong>{activity.new_value}</strong>
+                            </span>
+                          );
+                        case 'field_changed':
+                          return (
+                            <span>
+                              zmenil(a) pole <strong>{activity.field_name}</strong>
+                              {activity.old_value && activity.new_value && (
+                                <> z "{activity.old_value.substring(0, 30)}{activity.old_value.length > 30 ? '...' : ''}" na "{activity.new_value.substring(0, 30)}{activity.new_value.length > 30 ? '...' : ''}"</>
+                              )}
+                              {!activity.old_value && activity.new_value && (
+                                <> na "{activity.new_value.substring(0, 50)}{activity.new_value.length > 50 ? '...' : ''}"</>
+                              )}
+                              {activity.old_value && !activity.new_value && (
+                                <> (smazano)</>
+                              )}
+                            </span>
+                          );
+                        case 'note_added':
+                          return (
+                            <span>
+                              pridal(a) poznamku: "{activity.new_value}"
+                            </span>
+                          );
+                        case 'task_created':
+                          return (
+                            <span>
+                              vytvoril(a) ukol: <strong>{activity.new_value}</strong>
+                            </span>
+                          );
+                        case 'time_added':
+                          return (
+                            <span>
+                              vykazal(a) <strong>{activity.new_value}</strong> casu
+                            </span>
+                          );
+                        default:
+                          return <span>provedl(a) akci {activity.action_type}</span>;
+                      }
+                    };
+
+                    return (
+                      <div key={activity.id} className="relative pl-10">
+                        <div className="absolute left-2 w-5 h-5 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center">
+                          {getActivityIcon()}
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm text-gray-700">
+                              <strong className="text-gray-900">{userName}</strong>{' '}
+                              {getActivityDescription()}
+                            </p>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                              {new Date(activity.created_at).toLocaleString('cs-CZ', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
