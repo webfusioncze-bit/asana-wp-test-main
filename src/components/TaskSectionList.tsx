@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PlusIcon, TrashIcon, GripVerticalIcon, Edit2Icon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { TaskItemSimple } from './TaskItemSimple';
+import { CompletedTasksView } from './CompletedTasksView';
 import type { Task, TaskSection, Category, User } from '../types';
 
 interface TaskSectionListProps {
@@ -373,6 +374,10 @@ export function TaskSectionList({ folderId, onTaskClick, refreshTrigger, isCompl
   }
 
   const tasksWithoutSection = tasks.filter(t => !t.section_id);
+
+  if (isCompletedFolder) {
+    return <CompletedTasksView onTaskClick={onTaskClick} refreshTrigger={refreshTrigger} />;
+  }
 
   return (
     <div className="space-y-3">
