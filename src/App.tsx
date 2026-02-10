@@ -19,6 +19,8 @@ import { WebsiteDetail } from './components/WebsiteDetail';
 import { WebsitesSidebar } from './components/WebsitesSidebar';
 import { ClientList } from './components/ClientList';
 import { ClientDetail } from './components/ClientDetail';
+import { SupportTicketSidebar } from './components/SupportTicketSidebar';
+import type { TicketFilters } from './components/SupportTicketSidebar';
 import { SupportTicketList } from './components/SupportTicketList';
 import { SupportTicketDetail } from './components/SupportTicketDetail';
 import { DataCacheProvider } from './contexts/DataCacheContext';
@@ -55,6 +57,8 @@ function App() {
   const [hasClientsPermission, setHasClientsPermission] = useState(false);
   const [hasSupportTicketsPermission, setHasSupportTicketsPermission] = useState(false);
   const [selectedSupportTicketId, setSelectedSupportTicketId] = useState<string | null>(null);
+  const [ticketFilters, setTicketFilters] = useState<TicketFilters>({ status: null, operatorUserId: null, clientId: null, showResolved: false });
+  const [ticketsSyncing, setTicketsSyncing] = useState(false);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [showTaskCreation, setShowTaskCreation] = useState(false);
@@ -242,6 +246,23 @@ function App() {
     setHasSupportTicketsPermission(!!data);
   }
 
+  async function handleSyncTickets() {
+    setTicketsSyncing(true);
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-support-tickets`;
+      await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Sync error:', error);
+    }
+    setTicketsSyncing(false);
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
   }
@@ -281,6 +302,14 @@ function App() {
         <WebsitesSidebar
           selectedView={websitesViewMode}
           onSelectView={setWebsitesViewMode}
+        />
+      )}
+      {!showAdmin && viewMode === 'support_tickets' && (
+        <SupportTicketSidebar
+          filters={ticketFilters}
+          onFiltersChange={setTicketFilters}
+          onSync={handleSyncTickets}
+          syncing={ticketsSyncing}
         />
       )}
       {!showAdmin && viewMode !== 'projects' && viewMode !== 'websites' && viewMode !== 'support_tickets' && viewMode !== 'clients' && (
@@ -553,6 +582,7 @@ function App() {
               <SupportTicketList
                 selectedTicketId={selectedSupportTicketId}
                 onSelectTicket={setSelectedSupportTicketId}
+                filters={ticketFilters}
               />
               {selectedSupportTicketId && (
                 <SupportTicketDetail
