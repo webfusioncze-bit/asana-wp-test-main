@@ -3,15 +3,21 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
 interface PortalWebsite {
   id: number;
+  title?: { rendered?: string };
   acf?: {
     url_adresa_webu?: string;
+    prihlasovaci_token?: string;
   };
+}
+
+function normalizeUrl(url: string): string {
+  return url.replace(/\/+$/, '').trim();
 }
 
 Deno.serve(async (req: Request) => {
@@ -35,20 +41,23 @@ Deno.serve(async (req: Request) => {
 
     if (!config || !config.is_enabled) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Portal sync is not configured or disabled',
-        }),
-        {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
+        JSON.stringify({ success: false, error: 'Portal sync is not configured or disabled' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const { data: adminRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin')
+      .limit(1)
+      .maybeSingle();
+
+    if (!adminRole) {
+      throw new Error('No admin user found to assign as website owner');
+    }
+
+    const ownerId = adminRole.user_id;
     const portalApiUrl = config.portal_url;
 
     console.log('Fetching websites from portal API...');
@@ -58,7 +67,8 @@ Deno.serve(async (req: Request) => {
     let totalPages: number | null = null;
 
     while (hasMore) {
-      const url = page === 1 ? portalApiUrl : `${portalApiUrl}?page=${page}`;
+      const separator = portalApiUrl.includes('?') ? '&' : '?';
+      const url = `${portalApiUrl}${separator}per_page=100&page=${page}`;
       console.log(`Fetching page ${page}: ${url}`);
 
       const response = await fetch(url, {
@@ -89,10 +99,8 @@ Deno.serve(async (req: Request) => {
         hasMore = false;
       } else {
         allPortalWebsites = allPortalWebsites.concat(pageData);
-
         if (totalPages && page >= totalPages) {
           hasMore = false;
-          console.log(`Reached last page (${totalPages})`);
         } else {
           page++;
         }
@@ -101,68 +109,66 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Fetched ${allPortalWebsites.length} websites from portal`);
 
-    const portalUrls = allPortalWebsites
-      .map(w => w.acf?.url_adresa_webu)
-      .filter((url): url is string => !!url && url.trim() !== '');
+    const portalData = allPortalWebsites
+      .map(w => ({
+        url: normalizeUrl(w.acf?.url_adresa_webu || ''),
+        name: w.title?.rendered || w.acf?.url_adresa_webu || '',
+        loginToken: w.acf?.prihlasovaci_token || null,
+      }))
+      .filter(w => w.url !== '');
 
-    console.log(`Found ${portalUrls.length} valid website URLs`);
+    console.log(`Found ${portalData.length} valid website URLs`);
 
     const { data: existingWebsites } = await supabaseAdmin
       .from('websites')
       .select('id, url');
 
-    const existingUrls = new Set(existingWebsites?.map(w => w.url) || []);
+    const existingUrlMap = new Map<string, string>();
+    for (const w of existingWebsites || []) {
+      existingUrlMap.set(normalizeUrl(w.url), w.id);
+    }
 
-    const urlsToAdd = portalUrls.filter(url => !existingUrls.has(url));
-    const urlsInPortal = new Set(portalUrls);
-    const websitesToRemove = existingWebsites?.filter(w => !urlsInPortal.has(w.url)) || [];
+    const toAdd = portalData.filter(w => !existingUrlMap.has(w.url));
 
-    console.log(`URLs to add: ${urlsToAdd.length}`);
-    console.log(`URLs to remove: ${websitesToRemove.length}`);
+    console.log(`URLs to add: ${toAdd.length}`);
 
     let added = 0;
-    let removed = 0;
+    let updated = 0;
     let skipped = 0;
 
-    for (const url of urlsToAdd) {
+    for (const website of toAdd) {
       try {
         const { error } = await supabaseAdmin
           .from('websites')
           .insert({
-            url: url,
-            name: url,
+            url: website.url,
+            name: website.name,
+            owner_id: ownerId,
+            login_token: website.loginToken,
           });
 
         if (error) {
-          console.error(`Failed to add ${url}:`, error);
+          console.error(`Failed to add ${website.url}:`, error);
           skipped++;
         } else {
-          console.log(`✓ Added ${url}`);
+          console.log(`Added ${website.url}`);
           added++;
         }
       } catch (error) {
-        console.error(`Error adding ${url}:`, error);
+        console.error(`Error adding ${website.url}:`, error);
         skipped++;
       }
     }
 
-    for (const website of websitesToRemove) {
-      try {
+    for (const website of portalData) {
+      const existingId = existingUrlMap.get(website.url);
+      if (existingId && website.loginToken) {
         const { error } = await supabaseAdmin
           .from('websites')
-          .delete()
-          .eq('id', website.id);
+          .update({ login_token: website.loginToken })
+          .eq('id', existingId);
 
-        if (error) {
-          console.error(`Failed to remove ${website.url}:`, error);
-          skipped++;
-        } else {
-          console.log(`✓ Removed ${website.url}`);
-          removed++;
-        }
-      } catch (error) {
-        console.error(`Error removing ${website.url}:`, error);
-        skipped++;
+        if (!error) updated++;
       }
     }
 
@@ -174,59 +180,49 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', config.id);
 
-    console.log(`Sync completed: ${added} added, ${removed} removed, ${skipped} skipped`);
+    console.log(`Sync completed: ${added} added, ${updated} updated, ${skipped} skipped`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        total: portalUrls.length,
+        total: portalData.length,
         added,
-        removed,
+        updated,
         skipped,
         message: `Sync completed successfully`,
       }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Sync error:', error);
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    try {
+      const supabaseAdmin = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      );
 
-    const { data: config } = await supabaseAdmin
-      .from('portal_sync_config')
-      .select('id')
-      .maybeSingle();
-
-    if (config) {
-      await supabaseAdmin
+      const { data: config } = await supabaseAdmin
         .from('portal_sync_config')
-        .update({
-          sync_error: error instanceof Error ? error.message : 'Unknown error',
-        })
-        .eq('id', config.id);
-    }
+        .select('id')
+        .maybeSingle();
+
+      if (config) {
+        await supabaseAdmin
+          .from('portal_sync_config')
+          .update({
+            sync_error: error instanceof Error ? error.message : 'Unknown error',
+          })
+          .eq('id', config.id);
+      }
+    } catch (_) {}
 
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
