@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon, GlobeIcon, MailIcon, CheckCircleIcon, AlertCircleIcon, Loader2Icon } from 'lucide-react';
+import { ShieldIcon, UsersIcon, FolderIcon, CheckSquareIcon, KeyIcon, TrashIcon, ShieldCheckIcon, Settings, Webhook, UserCog, Users as UsersGroupIcon, FolderOpen, Edit2Icon, XIcon, SaveIcon, UploadIcon, GlobeIcon, MailIcon, CheckCircleIcon, AlertCircleIcon, Loader2Icon, ClockIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { CategoryManager } from './CategoryManager';
 import { RequestTypeManager } from './RequestTypeManager';
@@ -11,8 +11,9 @@ import { GlobalFolderManager } from './GlobalFolderManager';
 import { PortalSyncManager } from './PortalSyncManager';
 import { SMTPSettingsManager } from './SMTPSettingsManager';
 import { EmailDigestPreview } from './EmailDigestPreview';
+import { TimeReports } from './TimeReports';
 
-type TabType = 'overview' | 'users' | 'settings' | 'integrations' | 'permissions' | 'groups' | 'folders' | 'portal';
+type TabType = 'overview' | 'users' | 'settings' | 'integrations' | 'permissions' | 'groups' | 'folders' | 'portal' | 'timereports';
 
 interface UserRole {
   id: string;
@@ -431,8 +432,9 @@ export function AdminDashboard() {
     { id: 'permissions' as TabType, label: 'Oprávnění', icon: UserCog },
     { id: 'groups' as TabType, label: 'Skupiny', icon: UsersGroupIcon },
     { id: 'folders' as TabType, label: 'Globální složky', icon: FolderOpen },
+    { id: 'timereports' as TabType, label: 'Vykazy', icon: ClockIcon },
     { id: 'portal' as TabType, label: 'Portal Sync', icon: GlobeIcon },
-    { id: 'settings' as TabType, label: 'Nastavení', icon: Settings },
+    { id: 'settings' as TabType, label: 'Nastaveni', icon: Settings },
     { id: 'integrations' as TabType, label: 'Integrace', icon: Webhook },
   ];
 
@@ -737,6 +739,7 @@ export function AdminDashboard() {
           </div>
         )}
 
+        {activeTab === 'timereports' && <TimeReports />}
         {activeTab === 'permissions' && <UserPermissionsManager />}
         {activeTab === 'groups' && <UserGroupManager />}
         {activeTab === 'folders' && <GlobalFolderManager />}
