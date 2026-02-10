@@ -97,78 +97,33 @@ export function TimeReports() {
     setLoading(true);
     const { start, end } = getMonthRange(selectedYear, selectedMonth);
 
-    const userMap = new Map<string, UserProfile>();
-    for (const u of users) userMap.set(u.id, u);
+    const { data, error } = await supabase.rpc('get_admin_time_report', {
+      start_date: start,
+      end_date: end,
+    });
 
-    if (users.length === 0) {
-      const { data: profiles } = await supabase
-        .from('user_profiles')
-        .select('id, email, first_name, last_name, display_name');
-      if (profiles) {
-        setUsers(profiles);
-        for (const u of profiles) userMap.set(u.id, u);
-      }
+    if (error) {
+      console.error('Error loading time report:', error);
+      setEntries([]);
+      setLoading(false);
+      return;
     }
 
-    const [taskEntriesResult, projectEntriesResult] = await Promise.all([
-      supabase
-        .from('time_entries')
-        .select('id, user_id, task_id, request_id, description, hours, date, tasks(title, folder_id, folders(name)), requests(title)')
-        .gte('date', start)
-        .lte('date', end)
-        .order('date', { ascending: false }),
-      supabase
-        .from('project_time_entries')
-        .select('id, user_id, description, hours, entry_date, project_phases(name, project_id, projects(name))')
-        .gte('entry_date', start)
-        .lte('entry_date', end)
-        .order('entry_date', { ascending: false }),
-    ]);
+    const unified: UnifiedTimeEntry[] = (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      userName: row.user_name || row.user_id,
+      date: row.entry_date,
+      hours: Number(row.hours),
+      description: row.description || '',
+      type: row.entry_type as 'project' | 'task' | 'request',
+      projectName: row.project_name,
+      phaseName: row.phase_name,
+      taskTitle: row.task_title,
+      requestTitle: row.request_title,
+      folderName: row.folder_name,
+    }));
 
-    const unified: UnifiedTimeEntry[] = [];
-
-    for (const te of taskEntriesResult.data || []) {
-      const user = userMap.get(te.user_id);
-      const task = te.tasks as any;
-      const request = te.requests as any;
-
-      unified.push({
-        id: te.id,
-        userId: te.user_id,
-        userName: user ? getUserName(user) : te.user_id,
-        date: te.date,
-        hours: Number(te.hours),
-        description: te.description || '',
-        type: te.request_id ? 'request' : 'task',
-        projectName: null,
-        phaseName: null,
-        taskTitle: task?.title || null,
-        requestTitle: request?.title || null,
-        folderName: task?.folders?.name || null,
-      });
-    }
-
-    for (const pte of projectEntriesResult.data || []) {
-      const user = userMap.get(pte.user_id);
-      const phase = pte.project_phases as any;
-
-      unified.push({
-        id: pte.id,
-        userId: pte.user_id,
-        userName: user ? getUserName(user) : pte.user_id,
-        date: pte.entry_date,
-        hours: Number(pte.hours),
-        description: pte.description || '',
-        type: 'project',
-        projectName: phase?.projects?.name || null,
-        phaseName: phase?.name || null,
-        taskTitle: null,
-        requestTitle: null,
-        folderName: null,
-      });
-    }
-
-    unified.sort((a, b) => b.date.localeCompare(a.date));
     setEntries(unified);
     setLoading(false);
   }
