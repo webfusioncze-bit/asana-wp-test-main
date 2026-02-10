@@ -550,3 +550,53 @@ export interface ProjectTimeEntryTag {
   tag_id: string;
   created_at: string;
 }
+
+export interface SupportTicket {
+  id: string;
+  portal_id: number;
+  title: string;
+  slug: string | null;
+  description: string;
+  portal_link: string | null;
+  status: string;
+  priority: string;
+  is_complaint: boolean;
+  hourly_rate: string | null;
+  estimated_hours: string | null;
+  actual_time: string | null;
+  manager_time: string | null;
+  approved_time: string | null;
+  estimated_completion: string | null;
+  website_portal_id: number | null;
+  website_id: string | null;
+  website_name: string | null;
+  client_id: string | null;
+  author_portal_id: number | null;
+  author_name: string;
+  operator_portal_id: number | null;
+  operator_user_id: string | null;
+  manager_portal_id: number | null;
+  manager_user_id: string | null;
+  screenshot_url: string | null;
+  attachment_url: string | null;
+  portal_created_at: string | null;
+  portal_modified_at: string | null;
+  last_sync_at: string | null;
+  sync_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportTicketComment {
+  id: string;
+  ticket_id: string;
+  portal_comment_id: number;
+  parent_portal_comment_id: number | null;
+  author_portal_id: number | null;
+  author_name: string;
+  content: string;
+  portal_date: string | null;
+  status: string | null;
+  created_at: string;
+  updated_at: string;
+}

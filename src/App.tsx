@@ -19,11 +19,13 @@ import { WebsiteDetail } from './components/WebsiteDetail';
 import { WebsitesSidebar } from './components/WebsitesSidebar';
 import { ClientList } from './components/ClientList';
 import { ClientDetail } from './components/ClientDetail';
+import { SupportTicketList } from './components/SupportTicketList';
+import { SupportTicketDetail } from './components/SupportTicketDetail';
 import { DataCacheProvider } from './contexts/DataCacheContext';
 import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 'lucide-react';
 import type { User, UserRole, Request } from './types';
 
-type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites' | 'clients';
+type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites' | 'clients' | 'support_tickets';
 type WebsitesViewMode = 'websites' | 'updates';
 
 function App() {
@@ -51,6 +53,8 @@ function App() {
   const [hasProjectsPermission, setHasProjectsPermission] = useState(false);
   const [hasWebsitesPermission, setHasWebsitesPermission] = useState(false);
   const [hasClientsPermission, setHasClientsPermission] = useState(false);
+  const [hasSupportTicketsPermission, setHasSupportTicketsPermission] = useState(false);
+  const [selectedSupportTicketId, setSelectedSupportTicketId] = useState<string | null>(null);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [userProfile, setUserProfile] = useState<User | null>(null);
   const [showTaskCreation, setShowTaskCreation] = useState(false);
@@ -152,6 +156,9 @@ function App() {
     // Zkontroluj oprávnění pro klienty
     await checkClientsPermission(userId);
 
+    // Zkontroluj oprávnění pro podporu
+    await checkSupportTicketsPermission(userId);
+
     // Načti profil uživatele
     await loadUserProfile(userId);
 
@@ -224,6 +231,17 @@ function App() {
     setHasClientsPermission(!!data);
   }
 
+  async function checkSupportTicketsPermission(userId: string) {
+    const { data } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('permission', 'manage_support_tickets')
+      .maybeSingle();
+
+    setHasSupportTicketsPermission(!!data);
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
   }
@@ -265,7 +283,7 @@ function App() {
           onSelectView={setWebsitesViewMode}
         />
       )}
-      {!showAdmin && viewMode !== 'projects' && viewMode !== 'websites' && (
+      {!showAdmin && viewMode !== 'projects' && viewMode !== 'websites' && viewMode !== 'support_tickets' && viewMode !== 'clients' && (
         <FolderSidebar
           key={`${viewMode}-${tasksRefreshKey}-${requestsRefreshKey}`}
           selectedFolderId={selectedFolderId}
@@ -285,7 +303,7 @@ function App() {
                 {viewMode === 'tasks' ? 'Nový úkol' : 'Nová poptávka'}
               </button>
             )}
-            {!showAdmin && (hasRequestsPermission || hasProjectsPermission) && (
+            {!showAdmin && (hasRequestsPermission || hasProjectsPermission || hasSupportTicketsPermission) && (
               <div className="flex gap-2 border border-gray-600 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('tasks')}
@@ -343,6 +361,18 @@ function App() {
                     }`}
                   >
                     Klienti
+                  </button>
+                )}
+                {(hasSupportTicketsPermission || isAdmin) && (
+                  <button
+                    onClick={() => setViewMode('support_tickets')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      viewMode === 'support_tickets'
+                        ? 'bg-primary text-white'
+                        : 'text-gray-300 hover:bg-dark-light'
+                    }`}
+                  >
+                    Podpora
                   </button>
                 )}
               </div>
@@ -511,6 +541,23 @@ function App() {
                 <ClientDetail
                   clientId={selectedClientId}
                   onClose={() => setSelectedClientId(null)}
+                  onNavigateToWebsite={(websiteId) => {
+                    setViewMode('websites');
+                    setSelectedWebsiteId(websiteId);
+                  }}
+                />
+              )}
+            </div>
+          ) : viewMode === 'support_tickets' ? (
+            <div className="flex h-full overflow-hidden">
+              <SupportTicketList
+                selectedTicketId={selectedSupportTicketId}
+                onSelectTicket={setSelectedSupportTicketId}
+              />
+              {selectedSupportTicketId && (
+                <SupportTicketDetail
+                  ticketId={selectedSupportTicketId}
+                  onClose={() => setSelectedSupportTicketId(null)}
                   onNavigateToWebsite={(websiteId) => {
                     setViewMode('websites');
                     setSelectedWebsiteId(websiteId);
