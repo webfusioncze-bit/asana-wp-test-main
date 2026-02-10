@@ -109,66 +109,133 @@ Deno.serve(async (req: Request) => {
 
     console.log(`Fetched ${allPortalWebsites.length} websites from portal`);
 
-    const portalData = allPortalWebsites
-      .map(w => ({
-        url: normalizeUrl(w.acf?.url_adresa_webu || ''),
-        name: w.title?.rendered || w.acf?.url_adresa_webu || '',
+    const portalMap = new Map<string, { name: string; loginToken: string | null }>();
+    for (const w of allPortalWebsites) {
+      const rawUrl = w.acf?.url_adresa_webu || '';
+      const url = normalizeUrl(rawUrl);
+      if (!url) continue;
+      if (portalMap.has(url)) continue;
+      portalMap.set(url, {
+        name: w.title?.rendered || rawUrl,
         loginToken: w.acf?.prihlasovaci_token || null,
-      }))
-      .filter(w => w.url !== '');
+      });
+    }
 
-    console.log(`Found ${portalData.length} valid website URLs`);
+    const uniquePortalCount = portalMap.size;
+    console.log(`Found ${uniquePortalCount} unique website URLs in portal`);
 
     const { data: existingWebsites } = await supabaseAdmin
       .from('websites')
       .select('id, url');
 
-    const existingUrlMap = new Map<string, string>();
+    const existingByNormalized = new Map<string, { id: string; originalUrl: string }[]>();
     for (const w of existingWebsites || []) {
-      existingUrlMap.set(normalizeUrl(w.url), w.id);
+      const norm = normalizeUrl(w.url);
+      if (!existingByNormalized.has(norm)) {
+        existingByNormalized.set(norm, []);
+      }
+      existingByNormalized.get(norm)!.push({ id: w.id, originalUrl: w.url });
     }
-
-    const toAdd = portalData.filter(w => !existingUrlMap.has(w.url));
-
-    console.log(`URLs to add: ${toAdd.length}`);
 
     let added = 0;
     let updated = 0;
+    let removed = 0;
     let skipped = 0;
+    let normalizedUrls = 0;
 
-    for (const website of toAdd) {
-      try {
-        const { error } = await supabaseAdmin
-          .from('websites')
-          .insert({
-            url: website.url,
-            name: website.name,
-            owner_id: ownerId,
-            login_token: website.loginToken,
-          });
+    for (const [normalizedUrl, portalInfo] of portalMap) {
+      const existing = existingByNormalized.get(normalizedUrl);
 
-        if (error) {
-          console.error(`Failed to add ${website.url}:`, error);
+      if (!existing || existing.length === 0) {
+        try {
+          const { error } = await supabaseAdmin
+            .from('websites')
+            .insert({
+              url: normalizedUrl,
+              name: portalInfo.name,
+              owner_id: ownerId,
+              login_token: portalInfo.loginToken,
+            });
+
+          if (error) {
+            console.error(`Failed to add ${normalizedUrl}:`, error);
+            skipped++;
+          } else {
+            console.log(`Added ${normalizedUrl}`);
+            added++;
+          }
+        } catch (error) {
+          console.error(`Error adding ${normalizedUrl}:`, error);
           skipped++;
-        } else {
-          console.log(`Added ${website.url}`);
-          added++;
         }
-      } catch (error) {
-        console.error(`Error adding ${website.url}:`, error);
-        skipped++;
+      } else {
+        if (existing.length > 1) {
+          console.log(`Deduplicating ${normalizedUrl}: ${existing.length} entries`);
+          for (let i = 1; i < existing.length; i++) {
+            const { error } = await supabaseAdmin
+              .from('websites')
+              .delete()
+              .eq('id', existing[i].id);
+
+            if (!error) {
+              console.log(`Removed duplicate ${existing[i].originalUrl}`);
+              removed++;
+            }
+          }
+        }
+
+        const keepEntry = existing[0];
+
+        const updateData: Record<string, string | null> = {};
+        if (portalInfo.loginToken) {
+          updateData.login_token = portalInfo.loginToken;
+        }
+        if (keepEntry.originalUrl !== normalizedUrl) {
+          updateData.url = normalizedUrl;
+          normalizedUrls++;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          const { error } = await supabaseAdmin
+            .from('websites')
+            .update(updateData)
+            .eq('id', keepEntry.id);
+
+          if (!error) updated++;
+        }
       }
     }
 
-    for (const website of portalData) {
-      const existingId = existingUrlMap.get(website.url);
-      if (existingId && website.loginToken) {
+    const portalNormalizedUrls = new Set(portalMap.keys());
+    const websitesToRemove: { id: string; url: string }[] = [];
+
+    for (const [normUrl, entries] of existingByNormalized) {
+      if (!portalNormalizedUrls.has(normUrl)) {
+        for (const entry of entries) {
+          websitesToRemove.push({ id: entry.id, url: entry.originalUrl });
+        }
+      }
+    }
+
+    console.log(`Websites to remove (not in portal): ${websitesToRemove.length}`);
+
+    for (const website of websitesToRemove) {
+      try {
         const { error } = await supabaseAdmin
           .from('websites')
-          .update({ login_token: website.loginToken })
-          .eq('id', existingId);
+          .delete()
+          .eq('id', website.id);
 
-        if (!error) updated++;
+        if (error) {
+          console.error(`Failed to remove ${website.url}:`, error);
+          skipped++;
+        } else {
+          console.log(`Removed ${website.url}`);
+          removed++;
+        }
+      } catch (error) {
+        console.error(`Error removing ${website.url}:`, error);
+        skipped++;
       }
     }
 
@@ -180,16 +247,19 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', config.id);
 
-    console.log(`Sync completed: ${added} added, ${updated} updated, ${skipped} skipped`);
+    const summary = `Sync completed: ${added} added, ${updated} updated, ${removed} removed, ${normalizedUrls} URLs normalized, ${skipped} skipped`;
+    console.log(summary);
 
     return new Response(
       JSON.stringify({
         success: true,
-        total: portalData.length,
+        portalTotal: uniquePortalCount,
         added,
         updated,
+        removed,
+        normalizedUrls,
         skipped,
-        message: `Sync completed successfully`,
+        message: summary,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
