@@ -110,65 +110,31 @@ export function TimeReports() {
       }
     }
 
-    const [taskEntriesResult, projectEntriesResult] = await Promise.all([
-      supabase
-        .from('time_entries')
-        .select('id, user_id, task_id, request_id, description, hours, date, tasks(title, folder_id, folders(name)), requests(title)')
-        .gte('date', start)
-        .lte('date', end)
-        .order('date', { ascending: false }),
-      supabase
-        .from('project_time_entries')
-        .select('id, user_id, description, hours, entry_date, project_phases(name, project_id, projects(name))')
-        .gte('entry_date', start)
-        .lte('entry_date', end)
-        .order('entry_date', { ascending: false }),
-    ]);
+    const { data: rpcData, error: rpcError } = await supabase
+      .rpc('get_admin_time_report', { start_date: start, end_date: end });
 
     const unified: UnifiedTimeEntry[] = [];
 
-    for (const te of taskEntriesResult.data || []) {
-      const user = userMap.get(te.user_id);
-      const task = te.tasks as any;
-      const request = te.requests as any;
-
-      unified.push({
-        id: te.id,
-        userId: te.user_id,
-        userName: user ? getUserName(user) : te.user_id,
-        date: te.date,
-        hours: Number(te.hours),
-        description: te.description || '',
-        type: te.request_id ? 'request' : 'task',
-        projectName: null,
-        phaseName: null,
-        taskTitle: task?.title || null,
-        requestTitle: request?.title || null,
-        folderName: task?.folders?.name || null,
-      });
+    if (rpcError) {
+      console.error('Failed to load time report:', rpcError);
+    } else if (rpcData) {
+      for (const row of rpcData as any[]) {
+        unified.push({
+          id: row.id,
+          userId: row.user_id,
+          userName: row.user_name || userMap.get(row.user_id)?.email || row.user_id,
+          date: row.entry_date,
+          hours: Number(row.hours),
+          description: row.description || '',
+          type: row.entry_type as 'project' | 'task' | 'request',
+          projectName: row.project_name || null,
+          phaseName: row.phase_name || null,
+          taskTitle: row.task_title || null,
+          requestTitle: row.request_title || null,
+          folderName: row.folder_name || null,
+        });
+      }
     }
-
-    for (const pte of projectEntriesResult.data || []) {
-      const user = userMap.get(pte.user_id);
-      const phase = pte.project_phases as any;
-
-      unified.push({
-        id: pte.id,
-        userId: pte.user_id,
-        userName: user ? getUserName(user) : pte.user_id,
-        date: pte.entry_date,
-        hours: Number(pte.hours),
-        description: pte.description || '',
-        type: 'project',
-        projectName: phase?.projects?.name || null,
-        phaseName: phase?.name || null,
-        taskTitle: null,
-        requestTitle: null,
-        folderName: null,
-      });
-    }
-
-    unified.sort((a, b) => b.date.localeCompare(a.date));
     setEntries(unified);
     setLoading(false);
   }
