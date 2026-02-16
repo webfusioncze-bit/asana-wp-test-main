@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon, CheckCheck as CheckCheckIcon, Trash2 as Trash2Icon, FolderIcon, XIcon, MailIcon, UserIcon, ChevronDownIcon, UsersIcon, FilterIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Plus as PlusIcon, Search as SearchIcon, MessageSquareIcon, CheckSquareIcon, ClockIcon, ZapIcon, ShoppingCart as ShoppingCartIcon, TrendingUp as TrendingUpIcon, Settings as SettingsIcon, Smartphone as SmartphoneIcon, CheckCheck as CheckCheckIcon, Trash2 as Trash2Icon, FolderIcon, XIcon, MailIcon, UserIcon, ChevronDownIcon, UsersIcon, FilterIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, AlertTriangleIcon } from 'lucide-react';
 import { RequestCreationPanel } from './RequestCreationPanel';
 import { RequestListSkeleton } from './LoadingSkeleton';
 import { useDataCache } from '../contexts/DataCacheContext';
@@ -33,6 +33,17 @@ interface RequestWithUser extends Request {
   } | null;
 }
 
+interface FailedWebhook {
+  id: string;
+  error_message: string | null;
+  created_at: string;
+  payload: any;
+  source_id: string | null;
+  zapier_source?: {
+    name: string;
+  } | null;
+}
+
 type TakenFilterType = 'mine' | 'all' | string;
 type UntakenFilterType = 'unassigned' | 'assigned_pending';
 
@@ -58,6 +69,8 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   const [untakenPage, setUntakenPage] = useState(1);
   const [untakenFilter, setUntakenFilter] = useState<UntakenFilterType>('unassigned');
   const { isLoading: cacheLoading } = useDataCache();
+  const [failedWebhooks, setFailedWebhooks] = useState<FailedWebhook[]>([]);
+  const [showFailedWebhooks, setShowFailedWebhooks] = useState(true);
 
   const isSearchMode = searchQuery.length > 0;
 
@@ -85,6 +98,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
   useEffect(() => {
     loadCurrentUser();
     loadData();
+    loadFailedWebhooks();
   }, [folderId]);
 
   useEffect(() => {
@@ -113,6 +127,70 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
     if (user) {
       setCurrentUserId(user.id);
     }
+  }
+
+  async function loadFailedWebhooks() {
+    const { data, error } = await supabase
+      .from('zapier_webhooks_log')
+      .select(`
+        id,
+        error_message,
+        created_at,
+        payload,
+        source_id,
+        zapier_source:zapier_sources(name)
+      `)
+      .eq('status', 'error')
+      .is('dismissed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Error loading failed webhooks:', error);
+      return;
+    }
+
+    setFailedWebhooks((data || []) as FailedWebhook[]);
+  }
+
+  async function dismissWebhookError(webhookId: string) {
+    const { error } = await supabase
+      .from('zapier_webhooks_log')
+      .update({
+        dismissed_at: new Date().toISOString(),
+        dismissed_by: currentUserId
+      })
+      .eq('id', webhookId);
+
+    if (error) {
+      console.error('Error dismissing webhook:', error);
+      alert('Chyba při odkliknutí chyby');
+      return;
+    }
+
+    await loadFailedWebhooks();
+  }
+
+  async function dismissAllWebhookErrors() {
+    if (failedWebhooks.length === 0) return;
+
+    const webhookIds = failedWebhooks.map(w => w.id);
+
+    const { error } = await supabase
+      .from('zapier_webhooks_log')
+      .update({
+        dismissed_at: new Date().toISOString(),
+        dismissed_by: currentUserId
+      })
+      .in('id', webhookIds);
+
+    if (error) {
+      console.error('Error dismissing all webhooks:', error);
+      alert('Chyba při odkliknutí všech chyb');
+      return;
+    }
+
+    await loadFailedWebhooks();
   }
 
   async function loadData() {
@@ -737,6 +815,69 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
   return (
     <div className="w-[420px] border-r border-gray-200 bg-white flex flex-col">
+      {failedWebhooks.length > 0 && showFailedWebhooks && (
+        <div className="bg-red-50 border-b-2 border-red-200">
+          <div className="p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5 animate-pulse" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-red-800 mb-1">
+                  Chyba importu poptávek z Zapier
+                </h3>
+                <p className="text-xs text-red-700 mb-2">
+                  {failedWebhooks.length === 1
+                    ? 'Selhal import 1 poptávky.'
+                    : `Selhalo ${failedWebhooks.length} importů poptávek.`}
+                  {' '}Zkontrolujte nastavení Zapier mapování.
+                </p>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {failedWebhooks.map((webhook) => (
+                    <div
+                      key={webhook.id}
+                      className="bg-white rounded border border-red-200 p-2 text-xs"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-red-800 mb-0.5">
+                            {webhook.zapier_source?.name || 'Neznámý zdroj'}
+                          </div>
+                          <div className="text-red-600 text-[11px] mb-1">
+                            {webhook.error_message || 'Neznámá chyba'}
+                          </div>
+                          <div className="text-gray-500 text-[10px]">
+                            {new Date(webhook.created_at).toLocaleString('cs-CZ')}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => dismissWebhookError(webhook.id)}
+                          className="flex-shrink-0 p-1 hover:bg-red-100 rounded transition-colors"
+                          title="Odkliknout"
+                        >
+                          <XIcon className="w-3.5 h-3.5 text-red-600" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-red-200">
+                  <button
+                    onClick={dismissAllWebhookErrors}
+                    className="text-xs font-medium text-red-700 hover:text-red-800 underline"
+                  >
+                    Odkliknout vše
+                  </button>
+                  <button
+                    onClick={() => setShowFailedWebhooks(false)}
+                    className="ml-auto text-xs font-medium text-red-600 hover:text-red-700"
+                  >
+                    Skrýt
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
