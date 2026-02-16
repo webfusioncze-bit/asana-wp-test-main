@@ -148,6 +148,24 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Helper function to parse integer values that might be ranges like "5-10" or "1-2"
+    function parseIntegerValue(value: any): number | null {
+      if (value === null || value === undefined || value === '') return null;
+
+      const strValue = String(value).trim();
+
+      // If it's a range like "5-10" or "1-2", take the first number
+      if (strValue.includes('-')) {
+        const parts = strValue.split('-');
+        const firstNum = parseInt(parts[0].trim(), 10);
+        return isNaN(firstNum) ? null : firstNum;
+      }
+
+      // Otherwise try to parse as regular integer
+      const num = parseInt(strValue, 10);
+      return isNaN(num) ? null : num;
+    }
+
     // Map fields from payload to request format
     const mappedData: any = {
       status: "new",
@@ -158,9 +176,19 @@ Deno.serve(async (req: Request) => {
       zapier_source_id: source.id,
     };
 
+    // Fields that should be parsed as integers
+    const integerFields = ['subpage_count', 'product_count'];
+
     for (const [webhookField, requestField] of Object.entries(fieldMapping)) {
       if (payload[webhookField] !== undefined) {
-        mappedData[requestField as string] = payload[webhookField];
+        let value = payload[webhookField];
+
+        // Parse integer fields specially to handle ranges like "5-10"
+        if (integerFields.includes(requestField as string)) {
+          value = parseIntegerValue(value);
+        }
+
+        mappedData[requestField as string] = value;
       }
     }
 
