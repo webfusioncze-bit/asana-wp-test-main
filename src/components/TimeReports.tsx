@@ -238,11 +238,11 @@ export function TimeReports() {
   }
 
   function exportCSV() {
-    const headers = ['Datum', 'Uzivatel', 'Typ', 'Projekt', 'Faze', 'Ukol', 'Pozadavek', 'Slozka', 'Popis', 'Hodiny'];
+    const headers = ['Datum', 'Uzivatel', 'Typ', 'Projekt', 'Faze', 'Ukol', 'Poptavka', 'Slozka', 'Cinnost', 'Hodiny'];
     const rows = filteredEntries.map(e => [
       e.date,
       e.userName,
-      e.type === 'project' ? 'Projekt' : e.type === 'task' ? 'Ukol' : 'Pozadavek',
+      e.type === 'project' ? 'Projekt' : e.type === 'task' ? 'Ukol' : 'Poptavka',
       e.projectName || '',
       e.phaseName || '',
       e.taskTitle || '',
@@ -365,7 +365,7 @@ export function TimeReports() {
         />
         <SummaryCard
           icon={InboxIcon}
-          label="Pozadavky"
+          label="Poptavky"
           value={summary.requestHours}
           color="rose"
         />
