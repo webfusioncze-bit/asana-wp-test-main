@@ -173,6 +173,7 @@ export interface Request {
   closure_date: string | null;
   assigned_user_id: string | null;
   is_taken: boolean;
+  cn_sent_date: string | null;
 }
 
 export interface RequestAction {

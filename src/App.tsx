@@ -332,7 +332,7 @@ function App() {
                 {viewMode === 'tasks' ? 'Nový úkol' : 'Nová poptávka'}
               </button>
             )}
-            {!showAdmin && (hasRequestsPermission || hasProjectsPermission || hasSupportTicketsPermission) && (
+            {!showAdmin && (hasRequestsPermission || hasProjectsPermission || hasWebsitesPermission || hasClientsPermission || hasSupportTicketsPermission) && (
               <div className="flex gap-2 border border-gray-600 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('tasks')}

@@ -68,6 +68,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     request_date: '',
     result: '' as '' | 'success' | 'failure',
     closure_date: '',
+    cn_sent_date: '',
   });
 
   const [visibleFields, setVisibleFields] = useState<Set<string>>(new Set());
@@ -197,6 +198,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       request_date: requestData.request_date || '',
       result: requestData.result || '',
       closure_date: requestData.closure_date || '',
+      cn_sent_date: requestData.cn_sent_date || '',
     });
 
     const filledFields = new Set<string>();
@@ -224,6 +226,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     if (requestData.request_date) filledFields.add('request_date');
     if (requestData.result) filledFields.add('result');
     if (requestData.closure_date) filledFields.add('closure_date');
+    if (requestData.cn_sent_date) filledFields.add('cn_sent_date');
     setVisibleFields(filledFields);
 
     if (requestData.request_type_id) {
@@ -564,7 +567,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       development_phase: 'Faze vyvoje',
       request_date: 'Datum poptavky',
       result: 'Vysledek',
-      closure_date: 'Datum uzavreni'
+      closure_date: 'Datum uzavreni',
+      cn_sent_date: 'Datum odeslani CN'
     };
 
     const changes: Array<{ field: string; oldValue: string | null; newValue: string | null }> = [];
@@ -603,6 +607,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     checkChange('request_date', request.request_date, editForm.request_date);
     checkChange('result', request.result, editForm.result);
     checkChange('closure_date', request.closure_date, editForm.closure_date);
+    checkChange('cn_sent_date', request.cn_sent_date, editForm.cn_sent_date);
 
     if (request.request_type_id !== (editForm.request_type_id || null)) {
       const oldType = requestTypes.find(t => t.id === request.request_type_id);
@@ -655,6 +660,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
         request_date: editForm.request_date || null,
         result: editForm.result || null,
         closure_date: editForm.closure_date || null,
+        cn_sent_date: editForm.cn_sent_date || null,
       })
       .eq('id', requestId);
 
@@ -1284,6 +1290,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                         <input type="date" value={editForm.closure_date} onChange={(e) => setEditForm({ ...editForm, closure_date: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
                       </div>
                     )}
+                    {(visibleFields.has('cn_sent_date') || editForm.cn_sent_date) && (
+                      <div className={`transition-all duration-500 ${recentlyAddedFields.has('cn_sent_date') ? 'bg-green-50 ring-2 ring-green-400 rounded-lg p-1.5 -m-1.5' : ''}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-medium text-gray-500">Datum odeslani CN</label>
+                          <button onClick={() => removeField('cn_sent_date', () => setEditForm({...editForm, cn_sent_date: ''}))} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                        </div>
+                        <input type="date" value={editForm.cn_sent_date} onChange={(e) => setEditForm({ ...editForm, cn_sent_date: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                      </div>
+                    )}
                     {(visibleFields.has('result') || editForm.result) && (
                       <div className={`transition-all duration-500 ${recentlyAddedFields.has('result') ? 'bg-green-50 ring-2 ring-green-400 rounded-lg p-1.5 -m-1.5' : ''}`}>
                         <div className="flex items-center justify-between mb-1">
@@ -1451,6 +1466,9 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                       )}
                       {!visibleFields.has('closure_date') && !editForm.closure_date && (
                         <button onClick={() => addField('closure_date')} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 rounded transition-colors">+ Datum uzavření</button>
+                      )}
+                      {!visibleFields.has('cn_sent_date') && !editForm.cn_sent_date && (
+                        <button onClick={() => addField('cn_sent_date')} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 rounded transition-colors">+ Datum odeslani CN</button>
                       )}
                       {!visibleFields.has('result') && !editForm.result && (
                         <button onClick={() => addField('result')} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-green-100 text-gray-600 hover:text-green-700 rounded transition-colors">+ Výsledek poptávky</button>
@@ -1778,6 +1796,18 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                             <p className="text-gray-700">{request.development_phase}</p>
                           </div>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {request.cn_sent_date && (
+                    <div className="bg-emerald-50 border-2 border-emerald-300 rounded-lg p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <CalendarIcon className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">Cenova nabidka odeslana</p>
+                        <p className="text-lg font-bold text-emerald-800">{new Date(request.cn_sent_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
                     </div>
                   )}
@@ -2155,18 +2185,18 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
         {activeTab === 'notes' && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Přidat poznámku</h3>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Přidat poznámku</h3>
               <div className="space-y-3">
                 <textarea
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  rows={4}
+                  rows={8}
                   placeholder="Poznámka z hovoru, jednání..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-y min-h-[200px]"
                 />
                 <button
                   onClick={handleAddNote}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm"
                 >
                   <MessageSquareIcon className="w-4 h-4" />
                   Přidat poznámku
@@ -2175,15 +2205,15 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Poznamky ({notes.length})</h3>
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">Poznamky ({notes.length})</h3>
               {notes.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">Zatim zadne poznamky</p>
+                <p className="text-center text-gray-500 py-8 text-sm">Zatim zadne poznamky</p>
               ) : (
                 <div className="space-y-3">
                   {notes.map(note => (
-                    <div key={note.id} className="p-4 border border-gray-200 rounded-lg">
-                      <p className="text-gray-700 whitespace-pre-wrap mb-2">{note.note}</p>
-                      <p className="text-xs text-gray-500">{new Date(note.created_at).toLocaleString('cs-CZ')}</p>
+                    <div key={note.id} className="p-3 border border-gray-200 rounded-lg">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2">{note.note}</p>
+                      <p className="text-xs text-gray-400">{new Date(note.created_at).toLocaleString('cs-CZ')}</p>
                     </div>
                   ))}
                 </div>
