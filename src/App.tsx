@@ -17,6 +17,8 @@ import { ProjectDetail } from './components/ProjectDetail';
 import { WebsiteList } from './components/WebsiteList';
 import { WebsiteDetail } from './components/WebsiteDetail';
 import { WebsitesSidebar } from './components/WebsitesSidebar';
+import type { WebsitesViewMode } from './components/WebsitesSidebar';
+import { WebsiteFilter } from './components/WebsiteFilter';
 import { ClientList } from './components/ClientList';
 import { ClientDetail } from './components/ClientDetail';
 import { SupportTicketSidebar } from './components/SupportTicketSidebar';
@@ -28,7 +30,6 @@ import { LogOutIcon, ShieldIcon, LayoutDashboardIcon, UserIcon, PlusIcon } from 
 import type { User, UserRole, Request } from './types';
 
 type ViewMode = 'tasks' | 'requests' | 'projects' | 'websites' | 'clients' | 'support_tickets';
-type WebsitesViewMode = 'websites' | 'updates';
 
 function App() {
   const hash = window.location.hash;
@@ -301,7 +302,10 @@ function App() {
       {!showAdmin && viewMode === 'websites' && (
         <WebsitesSidebar
           selectedView={websitesViewMode}
-          onSelectView={setWebsitesViewMode}
+          onSelectView={(view) => {
+            setWebsitesViewMode(view);
+            if (view === 'filter') setSelectedWebsiteId(null);
+          }}
         />
       )}
       {!showAdmin && viewMode === 'support_tickets' && (
@@ -545,7 +549,9 @@ function App() {
             )
           ) : viewMode === 'websites' ? (
             <div className="flex h-full">
-              {selectedWebsiteId ? (
+              {websitesViewMode === 'filter' ? (
+                <WebsiteFilter />
+              ) : selectedWebsiteId ? (
                 <WebsiteDetail
                   websiteId={selectedWebsiteId}
                   onClose={() => setSelectedWebsiteId(null)}

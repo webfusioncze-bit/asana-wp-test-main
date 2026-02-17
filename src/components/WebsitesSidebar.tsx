@@ -1,8 +1,10 @@
-import { GlobeIcon, CalendarIcon } from 'lucide-react';
+import { GlobeIcon, CalendarIcon, FilterIcon } from 'lucide-react';
+
+export type WebsitesViewMode = 'websites' | 'updates' | 'filter';
 
 interface WebsitesSidebarProps {
-  selectedView: 'websites' | 'updates';
-  onSelectView: (view: 'websites' | 'updates') => void;
+  selectedView: WebsitesViewMode;
+  onSelectView: (view: WebsitesViewMode) => void;
 }
 
 export function WebsitesSidebar({ selectedView, onSelectView }: WebsitesSidebarProps) {
@@ -37,6 +39,18 @@ export function WebsitesSidebar({ selectedView, onSelectView }: WebsitesSidebarP
             >
               <CalendarIcon className="w-4 h-4 flex-shrink-0" />
               <span className="flex-1 text-left">Aktualizace</span>
+            </button>
+
+            <button
+              onClick={() => onSelectView('filter')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedView === 'filter'
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <FilterIcon className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1 text-left">Filtrace</span>
             </button>
           </div>
         </div>
