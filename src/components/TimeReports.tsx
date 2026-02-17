@@ -112,83 +112,83 @@ export function TimeReports() {
 
     const unified: UnifiedTimeEntry[] = [];
 
-    const { data: rpcData, error: rpcError } = await supabase
-      .rpc('get_admin_time_report', { start_date: start, end_date: end });
+    const [timeEntriesResult, projectEntriesResult] = await Promise.all([
+      supabase
+        .from('time_entries')
+        .select('id, user_id, task_id, request_id, description, hours, date')
+        .gte('date', start)
+        .lte('date', end)
+        .order('date', { ascending: false }),
+      supabase
+        .from('project_time_entries')
+        .select('id, user_id, description, hours, entry_date, project_phases(name, project_id, projects(name))')
+        .gte('entry_date', start)
+        .lte('entry_date', end)
+        .order('entry_date', { ascending: false }),
+    ]);
 
-    if (!rpcError && rpcData && (rpcData as any[]).length > 0) {
-      for (const row of rpcData as any[]) {
-        unified.push({
-          id: row.id,
-          userId: row.user_id,
-          userName: row.user_name || userMap.get(row.user_id)?.email || row.user_id,
-          date: row.entry_date,
-          hours: Number(row.hours),
-          description: row.description || '',
-          type: row.entry_type as 'project' | 'task' | 'request',
-          projectName: row.project_name || null,
-          phaseName: row.phase_name || null,
-          taskTitle: row.task_title || null,
-          requestTitle: row.request_title || null,
-          folderName: row.folder_name || null,
-        });
-      }
-    } else {
-      const [taskEntriesResult, projectEntriesResult] = await Promise.all([
-        supabase
-          .from('time_entries')
-          .select('id, user_id, task_id, request_id, description, hours, date, tasks(title, folder_id, folders(name)), requests(title)')
-          .gte('date', start)
-          .lte('date', end)
-          .order('date', { ascending: false }),
-        supabase
-          .from('project_time_entries')
-          .select('id, user_id, description, hours, entry_date, project_phases(name, project_id, projects(name))')
-          .gte('entry_date', start)
-          .lte('entry_date', end)
-          .order('entry_date', { ascending: false }),
-      ]);
+    const timeEntries = timeEntriesResult.data || [];
+    const requestIds = [...new Set(timeEntries.filter(t => t.request_id).map(t => t.request_id))];
+    const taskIds = [...new Set(timeEntries.filter(t => t.task_id).map(t => t.task_id))];
 
-      for (const te of taskEntriesResult.data || []) {
-        const user = userMap.get(te.user_id);
-        const task = te.tasks as any;
-        const request = te.requests as any;
-        unified.push({
-          id: te.id,
-          userId: te.user_id,
-          userName: user ? getUserName(user) : te.user_id,
-          date: te.date,
-          hours: Number(te.hours),
-          description: te.description || '',
-          type: te.request_id ? 'request' : 'task',
-          projectName: null,
-          phaseName: null,
-          taskTitle: task?.title || null,
-          requestTitle: request?.title || null,
-          folderName: task?.folders?.name || null,
-        });
-      }
+    const [requestsResult, tasksResult] = await Promise.all([
+      requestIds.length > 0
+        ? supabase.from('requests').select('id, title').in('id', requestIds)
+        : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+      taskIds.length > 0
+        ? supabase.from('tasks').select('id, title, folders(name)').in('id', taskIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
 
-      for (const pte of projectEntriesResult.data || []) {
-        const user = userMap.get(pte.user_id);
-        const phase = pte.project_phases as any;
-        unified.push({
-          id: pte.id,
-          userId: pte.user_id,
-          userName: user ? getUserName(user) : pte.user_id,
-          date: pte.entry_date,
-          hours: Number(pte.hours),
-          description: pte.description || '',
-          type: 'project',
-          projectName: phase?.projects?.name || null,
-          phaseName: phase?.name || null,
-          taskTitle: null,
-          requestTitle: null,
-          folderName: null,
-        });
-      }
-
-      unified.sort((a, b) => b.date.localeCompare(a.date));
+    const requestMap = new Map<string, string>();
+    for (const r of requestsResult.data || []) {
+      requestMap.set(r.id, r.title);
     }
+    const taskMap = new Map<string, { title: string; folderName: string | null }>();
+    for (const t of tasksResult.data || []) {
+      taskMap.set(t.id, { title: t.title, folderName: (t.folders as any)?.name || null });
+    }
+
+    for (const te of timeEntries) {
+      const user = userMap.get(te.user_id);
+      const taskInfo = te.task_id ? taskMap.get(te.task_id) : null;
+      const requestTitle = te.request_id ? requestMap.get(te.request_id) : null;
+      unified.push({
+        id: te.id,
+        userId: te.user_id,
+        userName: user ? getUserName(user) : te.user_id,
+        date: te.date,
+        hours: Number(te.hours),
+        description: te.description || '',
+        type: te.request_id ? 'request' : 'task',
+        projectName: null,
+        phaseName: null,
+        taskTitle: taskInfo?.title || null,
+        requestTitle: requestTitle || null,
+        folderName: taskInfo?.folderName || null,
+      });
+    }
+
+    for (const pte of projectEntriesResult.data || []) {
+      const user = userMap.get(pte.user_id);
+      const phase = pte.project_phases as any;
+      unified.push({
+        id: pte.id,
+        userId: pte.user_id,
+        userName: user ? getUserName(user) : pte.user_id,
+        date: pte.entry_date,
+        hours: Number(pte.hours),
+        description: pte.description || '',
+        type: 'project',
+        projectName: phase?.projects?.name || null,
+        phaseName: phase?.name || null,
+        taskTitle: null,
+        requestTitle: null,
+        folderName: null,
+      });
+    }
+
+    unified.sort((a, b) => b.date.localeCompare(a.date));
 
     setEntries(unified);
     setLoading(false);
