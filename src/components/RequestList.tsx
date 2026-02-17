@@ -49,6 +49,21 @@ type UntakenFilterType = 'unassigned' | 'assigned_pending';
 
 const UNTAKEN_PAGE_SIZE = 5;
 
+function shortenNumber(num: number): string {
+  if (num >= 1000000) return Math.round(num / 1000000) + 'M';
+  if (num >= 1000) return Math.round(num / 1000) + 'k';
+  return String(num);
+}
+
+function shortenBudget(budget: string): string {
+  const withoutKc = budget.replace(/\s*Kč\s*/gi, '').trim();
+  return withoutKc.replace(/\d[\d\s]*/g, (match) => {
+    const n = parseInt(match.replace(/\s/g, ''), 10);
+    if (isNaN(n)) return match;
+    return shortenNumber(n);
+  });
+}
+
 export function RequestList({ folderId, selectedRequestId, onSelectRequest }: RequestListProps) {
   const [requests, setRequests] = useState<RequestWithUser[]>([]);
   const [allRequests, setAllRequests] = useState<RequestWithUser[]>([]);
@@ -534,9 +549,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
 
   const getUserDisplayName = (user: RequestWithUser['assigned_owner']) => {
     if (!user) return '';
-    if (user.first_name && user.last_name) {
-      return `${user.first_name} ${user.last_name}`;
-    }
+    if (user.first_name) return user.first_name;
     return user.display_name || user.email || '';
   };
 
@@ -774,19 +787,25 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
               </span>
             </div>
           )}
-          <div className="flex items-center gap-0.5 text-gray-600" title="Počet poznámek">
-            <MessageSquareIcon className="w-3 h-3" />
-            <span className="text-xs font-medium">{stats.notesCount}</span>
-          </div>
-          <div className="flex items-center gap-0.5 text-gray-600" title="Počet úkolů">
-            <CheckSquareIcon className="w-3 h-3" />
-            <span className="text-xs font-medium">{stats.tasksCount}</span>
-          </div>
-          <div className="flex items-center gap-0.5 text-gray-600" title="Celkový strávený čas">
-            <ClockIcon className="w-3 h-3" />
-            <span className="text-xs font-medium">{stats.totalTime}h</span>
-          </div>
-          {request.product_count && (
+          {stats.notesCount > 0 && (
+            <div className="flex items-center gap-0.5 text-gray-600" title="Počet poznámek">
+              <MessageSquareIcon className="w-3 h-3" />
+              <span className="text-xs font-medium">{stats.notesCount}</span>
+            </div>
+          )}
+          {stats.tasksCount > 0 && (
+            <div className="flex items-center gap-0.5 text-gray-600" title="Počet úkolů">
+              <CheckSquareIcon className="w-3 h-3" />
+              <span className="text-xs font-medium">{stats.tasksCount}</span>
+            </div>
+          )}
+          {stats.totalTime > 0 && (
+            <div className="flex items-center gap-0.5 text-gray-600" title="Celkový strávený čas">
+              <ClockIcon className="w-3 h-3" />
+              <span className="text-xs font-medium">{stats.totalTime}h</span>
+            </div>
+          )}
+          {request.product_count && Number(request.product_count) > 0 && (
             <div className="flex items-center gap-0.5 text-indigo-600" title="Počet produktů e-shopu">
               <ShoppingCartIcon className="w-3 h-3" />
               <span className="text-xs font-medium">{request.product_count}</span>
@@ -795,7 +814,7 @@ export function RequestList({ folderId, selectedRequestId, onSelectRequest }: Re
           <div className="ml-auto flex items-center gap-1.5">
             {request.budget && (
               <span className="text-xs font-medium text-gray-700">
-                {request.budget}
+                {shortenBudget(request.budget)}
               </span>
             )}
             {request.deadline && (

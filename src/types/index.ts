@@ -174,6 +174,7 @@ export interface Request {
   assigned_user_id: string | null;
   is_taken: boolean;
   cn_sent_date: string | null;
+  offer_price: number | null;
 }
 
 export interface RequestAction {

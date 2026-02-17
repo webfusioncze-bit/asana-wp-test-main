@@ -69,6 +69,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     result: '' as '' | 'success' | 'failure',
     closure_date: '',
     cn_sent_date: '',
+    offer_price: 0,
   });
 
   const [visibleFields, setVisibleFields] = useState<Set<string>>(new Set());
@@ -199,6 +200,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       result: requestData.result || '',
       closure_date: requestData.closure_date || '',
       cn_sent_date: requestData.cn_sent_date || '',
+      offer_price: requestData.offer_price || 0,
     });
 
     const filledFields = new Set<string>();
@@ -227,6 +229,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     if (requestData.result) filledFields.add('result');
     if (requestData.closure_date) filledFields.add('closure_date');
     if (requestData.cn_sent_date) filledFields.add('cn_sent_date');
+    if (requestData.offer_price) filledFields.add('offer_price');
     setVisibleFields(filledFields);
 
     if (requestData.request_type_id) {
@@ -539,6 +542,11 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
   async function handleSaveEdit() {
     if (!request) return;
 
+    if (editForm.cn_sent_date && !editForm.offer_price) {
+      alert('Nabídková cena je povinná, pokud je vyplněno datum odeslání CN.');
+      return;
+    }
+
     const fieldLabels: Record<string, string> = {
       title: 'Nazev',
       description: 'Popis',
@@ -568,7 +576,8 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
       request_date: 'Datum poptavky',
       result: 'Vysledek',
       closure_date: 'Datum uzavreni',
-      cn_sent_date: 'Datum odeslani CN'
+      cn_sent_date: 'Datum odeslani CN',
+      offer_price: 'Nabidkova cena'
     };
 
     const changes: Array<{ field: string; oldValue: string | null; newValue: string | null }> = [];
@@ -608,6 +617,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     checkChange('result', request.result, editForm.result);
     checkChange('closure_date', request.closure_date, editForm.closure_date);
     checkChange('cn_sent_date', request.cn_sent_date, editForm.cn_sent_date);
+    checkChange('offer_price', request.offer_price, editForm.offer_price);
 
     if (request.request_type_id !== (editForm.request_type_id || null)) {
       const oldType = requestTypes.find(t => t.id === request.request_type_id);
@@ -661,6 +671,7 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
         result: editForm.result || null,
         closure_date: editForm.closure_date || null,
         cn_sent_date: editForm.cn_sent_date || null,
+        offer_price: editForm.offer_price || null,
       })
       .eq('id', requestId);
 
@@ -1294,9 +1305,32 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                       <div className={`transition-all duration-500 ${recentlyAddedFields.has('cn_sent_date') ? 'bg-green-50 ring-2 ring-green-400 rounded-lg p-1.5 -m-1.5' : ''}`}>
                         <div className="flex items-center justify-between mb-1">
                           <label className="text-xs font-medium text-gray-500">Datum odeslani CN</label>
-                          <button onClick={() => removeField('cn_sent_date', () => setEditForm({...editForm, cn_sent_date: ''}))} className="text-xs text-gray-400 hover:text-red-500">x</button>
+                          <button onClick={() => removeField('cn_sent_date', () => setEditForm({...editForm, cn_sent_date: '', offer_price: 0}))} className="text-xs text-gray-400 hover:text-red-500">x</button>
                         </div>
                         <input type="date" value={editForm.cn_sent_date} onChange={(e) => setEditForm({ ...editForm, cn_sent_date: e.target.value })} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary" />
+                      </div>
+                    )}
+                    {editForm.cn_sent_date && (
+                      <div className={`transition-all duration-500 ${recentlyAddedFields.has('offer_price') ? 'bg-green-50 ring-2 ring-green-400 rounded-lg p-1.5 -m-1.5' : ''}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-medium text-gray-500">
+                            Nabídková cena <span className="text-red-500">*</span>
+                          </label>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={editForm.offer_price || ''}
+                            onChange={(e) => setEditForm({ ...editForm, offer_price: parseFloat(e.target.value) || 0 })}
+                            placeholder="Povinné pole"
+                            className={`w-full px-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 pr-8 ${
+                              editForm.cn_sent_date && !editForm.offer_price
+                                ? 'border-red-300 focus:ring-red-400'
+                                : 'border-gray-300 focus:ring-primary'
+                            }`}
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">Kč</span>
+                        </div>
                       </div>
                     )}
                     {(visibleFields.has('result') || editForm.result) && (
@@ -1805,10 +1839,16 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                       <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
                         <CalendarIcon className="w-5 h-5 text-emerald-600" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">Cenova nabidka odeslana</p>
                         <p className="text-lg font-bold text-emerald-800">{new Date(request.cn_sent_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
+                      {request.offer_price ? (
+                        <div className="text-right">
+                          <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">Nabídková cena</p>
+                          <p className="text-lg font-bold text-emerald-800">{request.offer_price.toLocaleString('cs-CZ')} Kč</p>
+                        </div>
+                      ) : null}
                     </div>
                   )}
 
