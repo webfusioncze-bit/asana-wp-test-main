@@ -146,26 +146,17 @@ function App() {
       console.error('Error loading user role:', error);
     }
 
-    console.log('User role loaded:', data);
     setUserRole(data);
 
-    // Zkontroluj oprávnění pro poptávky
-    await checkRequestsPermission(userId, data?.role === 'admin');
+    const isAdmin = data?.role === 'admin';
 
-    // Zkontroluj oprávnění pro projekty
-    await checkProjectsPermission(userId);
+    const [permissionsResult, profileResult] = await Promise.all([
+      loadAllPermissions(userId, isAdmin),
+      loadUserProfile(userId),
+    ]);
 
-    // Zkontroluj oprávnění pro weby
-    await checkWebsitesPermission(userId);
-
-    // Zkontroluj oprávnění pro klienty
-    await checkClientsPermission(userId);
-
-    // Zkontroluj oprávnění pro podporu
-    await checkSupportTicketsPermission(userId);
-
-    // Načti profil uživatele
-    await loadUserProfile(userId);
+    void permissionsResult;
+    void profileResult;
 
     setLoading(false);
   }
@@ -182,69 +173,34 @@ function App() {
     }
   }
 
-  async function checkRequestsPermission(userId: string, isAdmin: boolean) {
-    // Admin má vždy přístup
+  async function loadAllPermissions(userId: string, isAdmin: boolean) {
     if (isAdmin) {
       setHasRequestsPermission(true);
+      setHasProjectsPermission(true);
+      setHasWebsitesPermission(true);
+      setHasClientsPermission(true);
+      setHasSupportTicketsPermission(true);
       return;
     }
 
-    // Zkontroluj, zda má uživatel oprávnění view_requests
     const { data } = await supabase
       .from('user_permissions')
-      .select('*')
+      .select('permission')
       .eq('user_id', userId)
-      .eq('permission', 'view_requests')
-      .maybeSingle();
+      .in('permission', [
+        'view_requests',
+        'manage_projects',
+        'manage_websites',
+        'manage_clients',
+        'manage_support_tickets',
+      ]);
 
-    setHasRequestsPermission(!!data);
-  }
-
-  async function checkProjectsPermission(userId: string) {
-    // Zkontroluj, jestli má uživatel oprávnění manage_projects
-    const { data } = await supabase
-      .from('user_permissions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('permission', 'manage_projects')
-      .maybeSingle();
-
-    setHasProjectsPermission(!!data);
-  }
-
-  async function checkWebsitesPermission(userId: string) {
-    // Zkontroluj, jestli má uživatel oprávnění manage_websites
-    const { data } = await supabase
-      .from('user_permissions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('permission', 'manage_websites')
-      .maybeSingle();
-
-    setHasWebsitesPermission(!!data);
-  }
-
-  async function checkClientsPermission(userId: string) {
-    // Zkontroluj, jestli má uživatel oprávnění manage_clients
-    const { data } = await supabase
-      .from('user_permissions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('permission', 'manage_clients')
-      .maybeSingle();
-
-    setHasClientsPermission(!!data);
-  }
-
-  async function checkSupportTicketsPermission(userId: string) {
-    const { data } = await supabase
-      .from('user_permissions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('permission', 'manage_support_tickets')
-      .maybeSingle();
-
-    setHasSupportTicketsPermission(!!data);
+    const granted = new Set((data || []).map(r => r.permission));
+    setHasRequestsPermission(granted.has('view_requests'));
+    setHasProjectsPermission(granted.has('manage_projects'));
+    setHasWebsitesPermission(granted.has('manage_websites'));
+    setHasClientsPermission(granted.has('manage_clients'));
+    setHasSupportTicketsPermission(granted.has('manage_support_tickets'));
   }
 
   async function handleSyncTickets() {
