@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { GlobeIcon, RefreshCwIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { GlobeIcon, RefreshCwIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, HeadphonesIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface PortalSyncConfig {
@@ -16,8 +16,26 @@ interface PortalSyncConfig {
   clients_sync_enabled: boolean;
   clients_last_sync_at: string | null;
   clients_sync_error: string | null;
+  tickets_portal_url: string | null;
+  tickets_sync_enabled: boolean;
+  tickets_last_sync_at: string | null;
+  tickets_sync_error: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface TicketSyncProgress {
+  synced: number;
+  failed: number;
+  skipped: number;
+  total: number;
+  currentTitle: string;
+  currentStatus: string;
+  page: number;
+  totalPages: number;
+  done: boolean;
+  error: string | null;
+  syncedComments: number;
 }
 
 export function PortalSyncManager() {
@@ -27,16 +45,29 @@ export function PortalSyncManager() {
   const [syncing, setSyncing] = useState(false);
   const [syncingProjects, setSyncingProjects] = useState(false);
   const [syncingClients, setSyncingClients] = useState(false);
+  const [syncingTickets, setSyncingTickets] = useState(false);
   const [portalUrl, setPortalUrl] = useState('');
   const [isEnabled, setIsEnabled] = useState(false);
   const [projectsPortalUrl, setProjectsPortalUrl] = useState('');
   const [projectsSyncEnabled, setProjectsSyncEnabled] = useState(false);
   const [clientsPortalUrl, setClientsPortalUrl] = useState('');
   const [clientsSyncEnabled, setClientsSyncEnabled] = useState(false);
+  const [ticketsPortalUrl, setTicketsPortalUrl] = useState('');
+  const [ticketsSyncEnabled, setTicketsSyncEnabled] = useState(false);
+
+  const [ticketProgress, setTicketProgress] = useState<TicketSyncProgress | null>(null);
+  const ticketLogRef = useRef<HTMLDivElement>(null);
+  const [ticketSyncLog, setTicketSyncLog] = useState<string[]>([]);
 
   useEffect(() => {
     loadConfig();
   }, []);
+
+  useEffect(() => {
+    if (ticketLogRef.current) {
+      ticketLogRef.current.scrollTop = ticketLogRef.current.scrollHeight;
+    }
+  }, [ticketSyncLog]);
 
   async function loadConfig() {
     setLoading(true);
@@ -50,13 +81,6 @@ export function PortalSyncManager() {
       console.error('Error loading config:', configError);
     }
 
-    const { data: websitesData } = await supabase
-      .from('websites')
-      .select('last_sync_at')
-      .order('last_sync_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
     if (configData) {
       setConfig(configData);
       setPortalUrl(configData.portal_url || 'https://portal.webfusion.cz/wp-json/wp/v2/web');
@@ -65,6 +89,8 @@ export function PortalSyncManager() {
       setProjectsSyncEnabled(configData.projects_sync_enabled);
       setClientsPortalUrl(configData.clients_portal_url || 'https://portal.webfusion.cz/wp-json/webfusion/v1/klienti');
       setClientsSyncEnabled(configData.clients_sync_enabled);
+      setTicketsPortalUrl(configData.tickets_portal_url || 'https://portal.webfusion.cz/wp-json/wp/v2/pozadavek-na-podporu');
+      setTicketsSyncEnabled(configData.tickets_sync_enabled);
     } else {
       setConfig(null);
       setPortalUrl('https://portal.webfusion.cz/wp-json/wp/v2/web');
@@ -73,6 +99,8 @@ export function PortalSyncManager() {
       setProjectsSyncEnabled(false);
       setClientsPortalUrl('https://portal.webfusion.cz/wp-json/webfusion/v1/klienti');
       setClientsSyncEnabled(false);
+      setTicketsPortalUrl('https://portal.webfusion.cz/wp-json/wp/v2/pozadavek-na-podporu');
+      setTicketsSyncEnabled(false);
     }
     setLoading(false);
   }
@@ -87,6 +115,8 @@ export function PortalSyncManager() {
       projects_sync_enabled: projectsSyncEnabled,
       clients_portal_url: clientsPortalUrl,
       clients_sync_enabled: clientsSyncEnabled,
+      tickets_portal_url: ticketsPortalUrl,
+      tickets_sync_enabled: ticketsSyncEnabled,
       updated_at: new Date().toISOString(),
     };
 
@@ -222,6 +252,141 @@ export function PortalSyncManager() {
     }
   }
 
+  async function syncTicketsNow(mode: 'full' | 'incremental') {
+    setSyncingTickets(true);
+    setTicketSyncLog([]);
+    setTicketProgress({
+      synced: 0, failed: 0, skipped: 0, total: 0,
+      currentTitle: '', currentStatus: '', page: 0, totalPages: 0,
+      done: false, error: null, syncedComments: 0,
+    });
+
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-support-tickets`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mode, stream: true }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response stream');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            handleTicketStreamEvent(data, mode);
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+
+      await loadConfig();
+    } catch (error) {
+      console.error('Ticket sync error:', error);
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      setTicketProgress(prev => prev ? { ...prev, done: true, error: msg } : null);
+      setTicketSyncLog(prev => [...prev, `[CHYBA] ${msg}`]);
+    } finally {
+      setSyncingTickets(false);
+    }
+  }
+
+  function handleTicketStreamEvent(data: Record<string, unknown>, mode: string) {
+    switch (data.type) {
+      case 'init':
+        setTicketSyncLog(prev => [
+          ...prev,
+          `Zahajuji synchronizaci (${mode === 'full' ? 'kompletni' : 'inkrementalni'})...`,
+          `Celkem pozadavku v portalu: ${data.totalTickets}`,
+        ]);
+        setTicketProgress(prev => prev ? { ...prev, total: data.totalTickets as number } : null);
+        break;
+
+      case 'progress':
+        setTicketProgress(prev => prev ? {
+          ...prev,
+          synced: data.synced as number,
+          failed: data.failed as number,
+          skipped: data.skipped as number,
+          total: data.total as number,
+          currentTitle: data.title as string,
+          currentStatus: data.status as string,
+          page: data.page as number,
+          totalPages: data.totalPages as number,
+          syncedComments: prev.syncedComments + (data.comments as number || 0),
+        } : null);
+        setTicketSyncLog(prev => [
+          ...prev,
+          `[${data.synced}/${data.total}] ${data.title} (${data.status})${(data.comments as number) > 0 ? ` +${data.comments} komentaru` : ''}`,
+        ]);
+        break;
+
+      case 'skip':
+        setTicketProgress(prev => prev ? {
+          ...prev,
+          skipped: data.skipped as number,
+          total: data.total as number,
+        } : null);
+        break;
+
+      case 'error':
+        setTicketProgress(prev => prev ? {
+          ...prev,
+          failed: data.failed as number,
+        } : null);
+        setTicketSyncLog(prev => [
+          ...prev,
+          `[CHYBA] ${data.title}: ${data.error}`,
+        ]);
+        break;
+
+      case 'done':
+        setTicketProgress(prev => prev ? {
+          ...prev,
+          done: true,
+          synced: data.syncedTickets as number,
+          failed: data.failedTickets as number,
+          skipped: data.skippedResolved as number,
+          syncedComments: data.syncedComments as number,
+        } : null);
+        setTicketSyncLog(prev => [
+          ...prev,
+          `--- Synchronizace dokoncena ---`,
+          `Synchronizovano: ${data.syncedTickets} pozadavku, ${data.syncedComments} komentaru`,
+          data.skippedResolved ? `Preskoceno (vyreseno): ${data.skippedResolved}` : '',
+          data.failedTickets ? `Chybnych: ${data.failedTickets}` : '',
+        ].filter(Boolean));
+        break;
+
+      case 'fatal':
+        setTicketProgress(prev => prev ? { ...prev, done: true, error: data.error as string } : null);
+        setTicketSyncLog(prev => [...prev, `[FATALNI CHYBA] ${data.error}`]);
+        break;
+    }
+  }
+
   const formatDate = (date: string | null) => {
     if (!date) return 'Nikdy';
     return new Date(date).toLocaleString('cs-CZ', {
@@ -236,26 +401,30 @@ export function PortalSyncManager() {
   if (loading) {
     return (
       <div className="p-6">
-        <p className="text-gray-500">Načítání...</p>
+        <p className="text-gray-500">Nacitani...</p>
       </div>
     );
   }
+
+  const ticketProgressPercent = ticketProgress && ticketProgress.total > 0
+    ? Math.round(((ticketProgress.synced + ticketProgress.skipped + ticketProgress.failed) / ticketProgress.total) * 100)
+    : 0;
 
   return (
     <div className="p-6">
       <div className="max-w-4xl">
         <div className="flex items-center gap-3 mb-6">
           <GlobeIcon className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-semibold text-gray-900">Synchronizace s portálem</h2>
+          <h2 className="text-2xl font-semibold text-gray-900">Synchronizace s portalem</h2>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
           <h3 className="text-lg font-semibold text-gray-900 pb-3 border-b border-gray-200">
-            Synchronizace webů
+            Synchronizace webu
           </h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              URL portálu webů
+              URL portalu webu
             </label>
             <input
               type="text"
@@ -265,7 +434,7 @@ export function PortalSyncManager() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">
-              URL JSON API endpointu, který vrací seznam webů z portálu
+              URL JSON API endpointu, ktery vraci seznam webu z portalu
             </p>
           </div>
 
@@ -278,7 +447,7 @@ export function PortalSyncManager() {
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
             <label htmlFor="is_enabled" className="text-sm font-medium text-gray-700">
-              Povolit automatickou synchronizaci každých 15 minut
+              Povolit automatickou synchronizaci kazdych 15 minut
             </label>
           </div>
 
@@ -299,7 +468,7 @@ export function PortalSyncManager() {
               <div className="flex items-start gap-3">
                 <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-green-900 mb-1">Poslední synchronizace</h3>
+                  <h3 className="font-medium text-green-900 mb-1">Posledni synchronizace</h3>
                   <p className="text-sm text-green-700">{formatDate(config.last_sync_at)}</p>
                 </div>
               </div>
@@ -312,11 +481,11 @@ export function PortalSyncManager() {
               <div className="text-sm text-blue-900">
                 <h3 className="font-medium mb-2">Jak to funguje?</h3>
                 <ul className="list-disc list-inside space-y-1 text-blue-800">
-                  <li>Systém načte seznam webů z portálu z JSON API</li>
-                  <li>Pro každý web v portálu zkontroluje pole <code className="bg-blue-100 px-1 py-0.5 rounded">acf.url_adresa_webu</code></li>
-                  <li>Pokud web v databázi neexistuje, přidá ho</li>
-                  <li>Pokud web v databázi existuje, ale není v portálu, odstraní ho</li>
-                  <li>Po přidání webů se automaticky spustí synchronizace jejich stavů (XML feed každých 5 minut)</li>
+                  <li>System nacte seznam webu z portalu z JSON API</li>
+                  <li>Pro kazdy web v portalu zkontroluje pole <code className="bg-blue-100 px-1 py-0.5 rounded">acf.url_adresa_webu</code></li>
+                  <li>Pokud web v databazi neexistuje, prida ho</li>
+                  <li>Pokud web v databazi existuje, ale neni v portalu, odstrani ho</li>
+                  <li>Po pridani webu se automaticky spusti synchronizace jejich stavu (XML feed kazdych 5 minut)</li>
                 </ul>
               </div>
             </div>
@@ -329,18 +498,18 @@ export function PortalSyncManager() {
               className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCwIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Synchronizuji...' : 'Synchronizovat nyní'}
+              {syncing ? 'Synchronizuji...' : 'Synchronizovat nyni'}
             </button>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6 mt-6">
           <h3 className="text-lg font-semibold text-gray-900 pb-3 border-b border-gray-200">
-            Synchronizace projektů
+            Synchronizace projektu
           </h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              URL portálu projektů
+              URL portalu projektu
             </label>
             <input
               type="text"
@@ -350,7 +519,7 @@ export function PortalSyncManager() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">
-              URL JSON API endpointu, který vrací seznam projektů z portálu
+              URL JSON API endpointu, ktery vraci seznam projektu z portalu
             </p>
           </div>
 
@@ -363,7 +532,7 @@ export function PortalSyncManager() {
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
             <label htmlFor="projects_sync_enabled" className="text-sm font-medium text-gray-700">
-              Povolit automatickou synchronizaci každých 15 minut
+              Povolit automatickou synchronizaci kazdych 15 minut
             </label>
           </div>
 
@@ -384,7 +553,7 @@ export function PortalSyncManager() {
               <div className="flex items-start gap-3">
                 <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-green-900 mb-1">Poslední synchronizace</h3>
+                  <h3 className="font-medium text-green-900 mb-1">Posledni synchronizace</h3>
                   <p className="text-sm text-green-700">{formatDate(config.projects_last_sync_at)}</p>
                 </div>
               </div>
@@ -397,12 +566,12 @@ export function PortalSyncManager() {
               <div className="text-sm text-blue-900">
                 <h3 className="font-medium mb-2">Jak to funguje?</h3>
                 <ul className="list-disc list-inside space-y-1 text-blue-800">
-                  <li>Systém načte seznam projektů z portálu z JSON API</li>
-                  <li>Pro každý projekt získá ID a název</li>
-                  <li>Pokud projekt v databázi neexistuje, vytvoří ho</li>
-                  <li>Pro každý projekt nastaví import_source_url na detail projektu</li>
-                  <li>Pokud projekt v databázi existuje, ale není v portálu, odstraní ho</li>
-                  <li>Po přidání projektů se automaticky spustí synchronizace jejich detailů (každých 15 minut)</li>
+                  <li>System nacte seznam projektu z portalu z JSON API</li>
+                  <li>Pro kazdy projekt ziska ID a nazev</li>
+                  <li>Pokud projekt v databazi neexistuje, vytvori ho</li>
+                  <li>Pro kazdy projekt nastavi import_source_url na detail projektu</li>
+                  <li>Pokud projekt v databazi existuje, ale neni v portalu, odstrani ho</li>
+                  <li>Po pridani projektu se automaticky spusti synchronizace jejich detailu (kazdych 15 minut)</li>
                 </ul>
               </div>
             </div>
@@ -415,18 +584,18 @@ export function PortalSyncManager() {
               className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCwIcon className={`w-4 h-4 ${syncingProjects ? 'animate-spin' : ''}`} />
-              {syncingProjects ? 'Synchronizuji...' : 'Synchronizovat nyní'}
+              {syncingProjects ? 'Synchronizuji...' : 'Synchronizovat nyni'}
             </button>
           </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6 mt-6">
           <h3 className="text-lg font-semibold text-gray-900 pb-3 border-b border-gray-200">
-            Synchronizace klientů
+            Synchronizace klientu
           </h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              URL portálu klientů
+              URL portalu klientu
             </label>
             <input
               type="text"
@@ -436,7 +605,7 @@ export function PortalSyncManager() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <p className="text-xs text-gray-500 mt-1">
-              URL JSON API endpointu, který vrací seznam klientů z portálu
+              URL JSON API endpointu, ktery vraci seznam klientu z portalu
             </p>
           </div>
 
@@ -449,7 +618,7 @@ export function PortalSyncManager() {
               className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
             <label htmlFor="clients_sync_enabled" className="text-sm font-medium text-gray-700">
-              Povolit automatickou synchronizaci každých 15 minut
+              Povolit automatickou synchronizaci kazdych 15 minut
             </label>
           </div>
 
@@ -470,7 +639,7 @@ export function PortalSyncManager() {
               <div className="flex items-start gap-3">
                 <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-medium text-green-900 mb-1">Poslední synchronizace</h3>
+                  <h3 className="font-medium text-green-900 mb-1">Posledni synchronizace</h3>
                   <p className="text-sm text-green-700">{formatDate(config.clients_last_sync_at)}</p>
                 </div>
               </div>
@@ -483,11 +652,11 @@ export function PortalSyncManager() {
               <div className="text-sm text-blue-900">
                 <h3 className="font-medium mb-2">Jak to funguje?</h3>
                 <ul className="list-disc list-inside space-y-1 text-blue-800">
-                  <li>Systém načte seznam klientů z portálu z JSON API se stránkováním</li>
-                  <li>Pro každého klienta získá fakturační údaje a unikátní ID</li>
-                  <li>Pokud klient v databázi neexistuje, vytvoří ho</li>
-                  <li>Synchronizuje faktury a propojí weby s klientem</li>
-                  <li>Pokud klient v databázi existuje, ale není v portálu, odstraní ho</li>
+                  <li>System nacte seznam klientu z portalu z JSON API se strankovasnim</li>
+                  <li>Pro kazdeho klienta ziska fakturacni udaje a unikatni ID</li>
+                  <li>Pokud klient v databazi neexistuje, vytvori ho</li>
+                  <li>Synchronizuje faktury a propoji weby s klientem</li>
+                  <li>Pokud klient v databazi existuje, ale neni v portalu, odstrani ho</li>
                 </ul>
               </div>
             </div>
@@ -500,7 +669,182 @@ export function PortalSyncManager() {
               className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCwIcon className={`w-4 h-4 ${syncingClients ? 'animate-spin' : ''}`} />
-              {syncingClients ? 'Synchronizuji...' : 'Synchronizovat nyní'}
+              {syncingClients ? 'Synchronizuji...' : 'Synchronizovat nyni'}
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6 mt-6">
+          <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
+            <HeadphonesIcon className="w-5 h-5 text-teal-600" />
+            <h3 className="text-lg font-semibold text-gray-900">
+              Synchronizace pozadavku na podporu
+            </h3>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              URL portalu pozadavku
+            </label>
+            <input
+              type="text"
+              value={ticketsPortalUrl}
+              onChange={(e) => setTicketsPortalUrl(e.target.value)}
+              placeholder="https://portal.webfusion.cz/wp-json/wp/v2/pozadavek-na-podporu"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              URL JSON API endpointu, ktery vraci seznam pozadavku na podporu z portalu
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="tickets_sync_enabled"
+              checked={ticketsSyncEnabled}
+              onChange={(e) => setTicketsSyncEnabled(e.target.checked)}
+              className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+            />
+            <label htmlFor="tickets_sync_enabled" className="text-sm font-medium text-gray-700">
+              Povolit automatickou synchronizaci kazdych 5 minut (pouze nevyresene)
+            </label>
+          </div>
+
+          {config?.tickets_sync_error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <XCircleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-red-900 mb-1">Chyba synchronizace</h3>
+                  <p className="text-sm text-red-700">{config.tickets_sync_error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {config?.tickets_last_sync_at && !config.tickets_sync_error && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-green-900 mb-1">Posledni synchronizace</h3>
+                  <p className="text-sm text-green-700">{formatDate(config.tickets_last_sync_at)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircleIcon className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-teal-900">
+                <h3 className="font-medium mb-2">Jak to funguje?</h3>
+                <ul className="list-disc list-inside space-y-1 text-teal-800">
+                  <li>System nacte pozadavky na podporu z portalu z JSON API</li>
+                  <li>Pro kazdy pozadavek synchronizuje vsechna ACF pole (stav, priorita, cas, operator...)</li>
+                  <li>Ke kazdemu pozadavku nacte a synchronizuje komentare</li>
+                  <li><strong>Automaticka sync (kazdy 5 min)</strong> synchronizuje pouze pozadavky, ktere nemaji stav "Vyreseno"</li>
+                  <li><strong>Manualni kompletni sync</strong> synchronizuje uplne vsechny pozadavky vcetne vyresenych</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {ticketProgress && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-gray-700">
+                  {ticketProgress.done
+                    ? (ticketProgress.error ? 'Synchronizace selhala' : 'Synchronizace dokoncena')
+                    : 'Probiha synchronizace...'
+                  }
+                </span>
+                <span className="text-gray-500">
+                  {ticketProgressPercent}%
+                </span>
+              </div>
+
+              <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    ticketProgress.error ? 'bg-red-500' :
+                    ticketProgress.done ? 'bg-green-500' : 'bg-teal-500'
+                  }`}
+                  style={{ width: `${ticketProgressPercent}%` }}
+                />
+              </div>
+
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div className="bg-white rounded-lg p-2 border border-gray-100">
+                  <div className="text-lg font-bold text-teal-600">{ticketProgress.synced}</div>
+                  <div className="text-xs text-gray-500">Synchronizovano</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-gray-100">
+                  <div className="text-lg font-bold text-gray-400">{ticketProgress.skipped}</div>
+                  <div className="text-xs text-gray-500">Preskoceno</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-gray-100">
+                  <div className="text-lg font-bold text-red-500">{ticketProgress.failed}</div>
+                  <div className="text-xs text-gray-500">Chyb</div>
+                </div>
+                <div className="bg-white rounded-lg p-2 border border-gray-100">
+                  <div className="text-lg font-bold text-blue-600">{ticketProgress.syncedComments}</div>
+                  <div className="text-xs text-gray-500">Komentaru</div>
+                </div>
+              </div>
+
+              {ticketProgress.currentTitle && !ticketProgress.done && (
+                <div className="text-xs text-gray-500 truncate">
+                  Aktualne: <span className="text-gray-700">{ticketProgress.currentTitle}</span>
+                  {ticketProgress.page > 0 && (
+                    <span className="ml-2">(strana {ticketProgress.page}/{ticketProgress.totalPages})</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {ticketSyncLog.length > 0 && (
+            <div
+              ref={ticketLogRef}
+              className="bg-gray-900 rounded-lg p-4 max-h-64 overflow-y-auto font-mono text-xs"
+            >
+              {ticketSyncLog.map((line, i) => (
+                <div
+                  key={i}
+                  className={`py-0.5 ${
+                    line.startsWith('[CHYBA]') || line.startsWith('[FATALNI')
+                      ? 'text-red-400'
+                      : line.startsWith('---')
+                        ? 'text-green-400 font-bold mt-1'
+                        : line.startsWith('Zahajuji') || line.startsWith('Celkem') || line.startsWith('Synchronizovano') || line.startsWith('Preskoceno') || line.startsWith('Chybnych')
+                          ? 'text-teal-300'
+                          : 'text-gray-300'
+                  }`}
+                >
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => syncTicketsNow('full')}
+              disabled={syncingTickets || !config || !config.tickets_sync_enabled}
+              className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCwIcon className={`w-4 h-4 ${syncingTickets ? 'animate-spin' : ''}`} />
+              {syncingTickets ? 'Synchronizuji...' : 'Kompletni synchronizace'}
+            </button>
+            <button
+              onClick={() => syncTicketsNow('incremental')}
+              disabled={syncingTickets || !config || !config.tickets_sync_enabled}
+              className="flex items-center gap-2 px-6 py-2 bg-white text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCwIcon className={`w-4 h-4 ${syncingTickets ? 'animate-spin' : ''}`} />
+              Pouze nevyresene
             </button>
           </div>
         </div>
@@ -508,10 +852,10 @@ export function PortalSyncManager() {
         <div className="mt-6">
           <button
             onClick={saveConfig}
-            disabled={saving || !portalUrl.trim() || !projectsPortalUrl.trim() || !clientsPortalUrl.trim()}
+            disabled={saving || !portalUrl.trim() || !projectsPortalUrl.trim() || !clientsPortalUrl.trim() || !ticketsPortalUrl.trim()}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Ukládání...' : 'Uložit konfiguraci'}
+            {saving ? 'Ukladani...' : 'Ulozit konfiguraci'}
           </button>
         </div>
       </div>
