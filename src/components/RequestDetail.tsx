@@ -98,6 +98,12 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
 
   const [newNote, setNewNote] = useState('');
   const [newTimeEntry, setNewTimeEntry] = useState({ hours: '', description: '', date: new Date().toISOString().split('T')[0] });
+
+  const [editingTimeEntryId, setEditingTimeEntryId] = useState<string | null>(null);
+  const [editingTimeEntry, setEditingTimeEntry] = useState({ hours: '', description: '', date: '' });
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [newTask, setNewTask] = useState({
@@ -861,6 +867,90 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
     setNewTimeEntry({ hours: '', description: '', date: new Date().toISOString().split('T')[0] });
     loadTimeEntries();
     loadActivityLog();
+  }
+
+  function startEditTimeEntry(entry: TimeEntry) {
+    setEditingTimeEntryId(entry.id);
+    setEditingTimeEntry({
+      hours: entry.hours.toString(),
+      description: entry.description || '',
+      date: entry.date,
+    });
+  }
+
+  async function handleSaveTimeEntry(entryId: string) {
+    if (!editingTimeEntry.hours || parseFloat(editingTimeEntry.hours) <= 0) return;
+
+    const { error } = await supabase
+      .from('time_entries')
+      .update({
+        hours: parseFloat(editingTimeEntry.hours),
+        description: editingTimeEntry.description,
+        date: editingTimeEntry.date,
+      })
+      .eq('id', entryId);
+
+    if (error) {
+      alert('Chyba pri ukládání: ' + error.message);
+      return;
+    }
+
+    setEditingTimeEntryId(null);
+    loadTimeEntries();
+  }
+
+  async function handleDeleteTimeEntry(entryId: string) {
+    if (!confirm('Opravdu smazat tento časový záznam?')) return;
+
+    const { error } = await supabase
+      .from('time_entries')
+      .delete()
+      .eq('id', entryId);
+
+    if (error) {
+      alert('Chyba pri mazání: ' + error.message);
+      return;
+    }
+
+    loadTimeEntries();
+  }
+
+  function startEditNote(note: RequestNote) {
+    setEditingNoteId(note.id);
+    setEditingNoteText(note.note);
+  }
+
+  async function handleSaveNote(noteId: string) {
+    if (!editingNoteText.trim()) return;
+
+    const { error } = await supabase
+      .from('request_notes')
+      .update({ note: editingNoteText })
+      .eq('id', noteId);
+
+    if (error) {
+      alert('Chyba pri ukládání poznámky: ' + error.message);
+      return;
+    }
+
+    setEditingNoteId(null);
+    loadNotes();
+  }
+
+  async function handleDeleteNote(noteId: string) {
+    if (!confirm('Opravdu smazat tuto poznámku?')) return;
+
+    const { error } = await supabase
+      .from('request_notes')
+      .delete()
+      .eq('id', noteId);
+
+    if (error) {
+      alert('Chyba pri mazání poznámky: ' + error.message);
+      return;
+    }
+
+    loadNotes();
   }
 
   async function handleCreateTask() {
@@ -2207,12 +2297,81 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
                 <div className="space-y-2">
                   {timeEntries.map(entry => (
                     <div key={entry.id} className="p-3 border border-gray-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-gray-900">{parseFloat(entry.hours.toString()).toFixed(2)}h</span>
-                        <span className="text-sm text-gray-500">{new Date(entry.date).toLocaleDateString('cs-CZ')}</span>
-                      </div>
-                      {entry.description && (
-                        <p className="text-sm text-gray-600">{entry.description}</p>
+                      {editingTimeEntryId === entry.id ? (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Hodiny</label>
+                              <input
+                                type="number"
+                                step="0.25"
+                                min="0"
+                                value={editingTimeEntry.hours}
+                                onChange={(e) => setEditingTimeEntry({ ...editingTimeEntry, hours: e.target.value })}
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
+                              <input
+                                type="date"
+                                value={editingTimeEntry.date}
+                                onChange={(e) => setEditingTimeEntry({ ...editingTimeEntry, date: e.target.value })}
+                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
+                          </div>
+                          <textarea
+                            value={editingTimeEntry.description}
+                            onChange={(e) => setEditingTimeEntry({ ...editingTimeEntry, description: e.target.value })}
+                            rows={2}
+                            placeholder="Popis..."
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveTimeEntry(entry.id)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary-dark transition-colors"
+                            >
+                              <SaveIcon className="w-3.5 h-3.5" />
+                              Uložit
+                            </button>
+                            <button
+                              onClick={() => setEditingTimeEntryId(null)}
+                              className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                            >
+                              Zrušit
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-0.5">
+                              <span className="font-semibold text-gray-900">{parseFloat(entry.hours.toString()).toFixed(2)}h</span>
+                              <span className="text-sm text-gray-500">{new Date(entry.date).toLocaleDateString('cs-CZ')}</span>
+                            </div>
+                            {entry.description && (
+                              <p className="text-sm text-gray-600">{entry.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => startEditTimeEntry(entry)}
+                              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                              title="Upravit"
+                            >
+                              <EditIcon className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteTimeEntry(entry.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Smazat"
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -2247,13 +2406,59 @@ export function RequestDetail({ requestId, onClose, onRequestUpdated, onEditMode
             <div>
               <h3 className="text-sm font-semibold text-gray-800 mb-3">Poznamky ({notes.length})</h3>
               {notes.length === 0 ? (
-                <p className="text-center text-gray-500 py-8 text-sm">Zatim zadne poznamky</p>
+                <p className="text-center text-gray-500 py-8 text-sm">Zatím žádné poznámky</p>
               ) : (
                 <div className="space-y-3">
                   {notes.map(note => (
                     <div key={note.id} className="p-3 border border-gray-200 rounded-lg">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2">{note.note}</p>
-                      <p className="text-xs text-gray-400">{new Date(note.created_at).toLocaleString('cs-CZ')}</p>
+                      {editingNoteId === note.id ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editingNoteText}
+                            onChange={(e) => setEditingNoteText(e.target.value)}
+                            rows={6}
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveNote(note.id)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary-dark transition-colors"
+                            >
+                              <SaveIcon className="w-3.5 h-3.5" />
+                              Uložit
+                            </button>
+                            <button
+                              onClick={() => setEditingNoteId(null)}
+                              className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                            >
+                              Zrušit
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap flex-1">{note.note}</p>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => startEditNote(note)}
+                                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                                title="Upravit"
+                              >
+                                <EditIcon className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteNote(note.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Smazat"
+                              >
+                                <TrashIcon className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-400">{new Date(note.created_at).toLocaleString('cs-CZ')}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
