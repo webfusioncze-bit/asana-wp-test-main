@@ -252,7 +252,24 @@ export function PortalSyncManager() {
     }
   }
 
-  async function syncTicketsNow(mode: 'full' | 'incremental') {
+  async function callSyncApi(body: Record<string, unknown>) {
+    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-support-tickets`;
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    return response.json();
+  }
+
+  async function syncTicketsNow(mode: 'full_import' | 'incremental') {
     setSyncingTickets(true);
     setTicketSyncLog([]);
     setTicketProgress({
@@ -262,128 +279,95 @@ export function PortalSyncManager() {
     });
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-support-tickets`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ mode, stream: true }),
-      });
+      const modeLabel = mode === 'full_import' ? 'kompletni import (preskakuje existujici)' : 'inkrementalni (pouze nevyresene)';
+      setTicketSyncLog(prev => [...prev, `Zahajuji synchronizaci: ${modeLabel}...`]);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
+      const info = await callSyncApi({ mode, page: 0 });
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response stream');
+      if (!info.success) throw new Error(info.error || 'Failed to get info');
 
-      const decoder = new TextDecoder();
-      let buffer = '';
+      const totalPages = info.totalPages;
+      const totalTickets = info.totalTickets;
+      const existingCount = info.existingCount || 0;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      setTicketSyncLog(prev => [
+        ...prev,
+        `Celkem v portalu: ${totalTickets} pozadavku (${totalPages} stranek)`,
+        ...(mode === 'full_import' ? [`Jiz existuje v DB: ${existingCount} -- budou preskoceny`] : []),
+      ]);
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+      setTicketProgress(prev => prev ? { ...prev, total: totalTickets, totalPages } : null);
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            handleTicketStreamEvent(data, mode);
-          } catch {
-            // ignore parse errors
+      let totalSynced = 0;
+      let totalFailed = 0;
+      let totalSkipped = 0;
+      let totalComments = 0;
+
+      for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
+        setTicketSyncLog(prev => [...prev, `--- Strana ${currentPage}/${totalPages} ---`]);
+
+        const pageResult = await callSyncApi({ mode, page: currentPage });
+
+        if (!pageResult.success) {
+          throw new Error(pageResult.error || `Failed on page ${currentPage}`);
+        }
+
+        totalSynced += pageResult.synced;
+        totalFailed += pageResult.failed;
+        totalSkipped += pageResult.skipped;
+        totalComments += pageResult.comments;
+
+        const tickets = pageResult.tickets || [];
+        for (const t of tickets) {
+          if (t.action === 'synced') {
+            setTicketSyncLog(prev => [
+              ...prev,
+              `  [SYNC] #${t.id} ${t.title} (${t.status})${t.comments > 0 ? ` +${t.comments} komentaru` : ''}`,
+            ]);
+          } else if (t.action === 'skipped_exists') {
+            // don't log individual skips to avoid spam, just count
+          } else if (t.action === 'skipped_resolved') {
+            // don't log individual skips
+          } else if (t.action === 'error') {
+            setTicketSyncLog(prev => [...prev, `  [CHYBA] #${t.id} ${t.title}`]);
           }
         }
+
+        const skippedOnPage = tickets.filter((t: { action: string }) => t.action === 'skipped_exists' || t.action === 'skipped_resolved').length;
+        if (skippedOnPage > 0) {
+          setTicketSyncLog(prev => [...prev, `  Preskoceno na strane: ${skippedOnPage}`]);
+        }
+
+        setTicketProgress(prev => prev ? {
+          ...prev,
+          synced: totalSynced,
+          failed: totalFailed,
+          skipped: totalSkipped,
+          syncedComments: totalComments,
+          page: currentPage,
+          totalPages,
+          currentTitle: tickets.length > 0 ? tickets[tickets.length - 1].title : '',
+          currentStatus: tickets.length > 0 ? tickets[tickets.length - 1].status : '',
+        } : null);
       }
+
+      setTicketProgress(prev => prev ? { ...prev, done: true } : null);
+      setTicketSyncLog(prev => [
+        ...prev,
+        `=== Synchronizace dokoncena ===`,
+        `Synchronizovano: ${totalSynced} pozadavku, ${totalComments} komentaru`,
+        totalSkipped > 0 ? `Preskoceno: ${totalSkipped}` : '',
+        totalFailed > 0 ? `Chybnych: ${totalFailed}` : '',
+      ].filter(Boolean));
 
       await loadConfig();
     } catch (error) {
       console.error('Ticket sync error:', error);
       const msg = error instanceof Error ? error.message : 'Unknown error';
       setTicketProgress(prev => prev ? { ...prev, done: true, error: msg } : null);
-      setTicketSyncLog(prev => [...prev, `[CHYBA] ${msg}`]);
+      setTicketSyncLog(prev => [...prev, `[FATALNI CHYBA] ${msg}`]);
     } finally {
       setSyncingTickets(false);
-    }
-  }
-
-  function handleTicketStreamEvent(data: Record<string, unknown>, mode: string) {
-    switch (data.type) {
-      case 'init':
-        setTicketSyncLog(prev => [
-          ...prev,
-          `Zahajuji synchronizaci (${mode === 'full' ? 'kompletni' : 'inkrementalni'})...`,
-          `Celkem pozadavku v portalu: ${data.totalTickets}`,
-        ]);
-        setTicketProgress(prev => prev ? { ...prev, total: data.totalTickets as number } : null);
-        break;
-
-      case 'progress':
-        setTicketProgress(prev => prev ? {
-          ...prev,
-          synced: data.synced as number,
-          failed: data.failed as number,
-          skipped: data.skipped as number,
-          total: data.total as number,
-          currentTitle: data.title as string,
-          currentStatus: data.status as string,
-          page: data.page as number,
-          totalPages: data.totalPages as number,
-          syncedComments: prev.syncedComments + (data.comments as number || 0),
-        } : null);
-        setTicketSyncLog(prev => [
-          ...prev,
-          `[${data.synced}/${data.total}] ${data.title} (${data.status})${(data.comments as number) > 0 ? ` +${data.comments} komentaru` : ''}`,
-        ]);
-        break;
-
-      case 'skip':
-        setTicketProgress(prev => prev ? {
-          ...prev,
-          skipped: data.skipped as number,
-          total: data.total as number,
-        } : null);
-        break;
-
-      case 'error':
-        setTicketProgress(prev => prev ? {
-          ...prev,
-          failed: data.failed as number,
-        } : null);
-        setTicketSyncLog(prev => [
-          ...prev,
-          `[CHYBA] ${data.title}: ${data.error}`,
-        ]);
-        break;
-
-      case 'done':
-        setTicketProgress(prev => prev ? {
-          ...prev,
-          done: true,
-          synced: data.syncedTickets as number,
-          failed: data.failedTickets as number,
-          skipped: data.skippedResolved as number,
-          syncedComments: data.syncedComments as number,
-        } : null);
-        setTicketSyncLog(prev => [
-          ...prev,
-          `--- Synchronizace dokoncena ---`,
-          `Synchronizovano: ${data.syncedTickets} pozadavku, ${data.syncedComments} komentaru`,
-          data.skippedResolved ? `Preskoceno (vyreseno): ${data.skippedResolved}` : '',
-          data.failedTickets ? `Chybnych: ${data.failedTickets}` : '',
-        ].filter(Boolean));
-        break;
-
-      case 'fatal':
-        setTicketProgress(prev => prev ? { ...prev, done: true, error: data.error as string } : null);
-        setTicketSyncLog(prev => [...prev, `[FATALNI CHYBA] ${data.error}`]);
-        break;
     }
   }
 
@@ -831,7 +815,7 @@ export function PortalSyncManager() {
 
           <div className="flex gap-3">
             <button
-              onClick={() => syncTicketsNow('full')}
+              onClick={() => syncTicketsNow('full_import')}
               disabled={syncingTickets || !config || !config.tickets_sync_enabled}
               className="flex items-center gap-2 px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >

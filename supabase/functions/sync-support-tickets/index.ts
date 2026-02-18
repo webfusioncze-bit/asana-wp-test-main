@@ -204,6 +204,30 @@ async function processTicket(
   return { status: statusRaw, comments: commentsCount };
 }
 
+async function loadExistingPortalIds(supabase: ReturnType<typeof createClient>): Promise<Set<number>> {
+  const ids = new Set<number>();
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data } = await supabase
+      .from('support_tickets')
+      .select('portal_id')
+      .range(from, from + batchSize - 1);
+
+    if (!data || data.length === 0) break;
+
+    for (const row of data) {
+      if (row.portal_id) ids.add(row.portal_id);
+    }
+
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+
+  return ids;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -215,13 +239,15 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let mode = 'full';
-    let stream = false;
-    let limitParam = 0;
+    let page = 0;
+    let perPage = 20;
+    let allPages = false;
     try {
       const body = await req.json();
       mode = body?.mode || 'full';
-      stream = body?.stream === true;
-      limitParam = body?.limit || 0;
+      page = body?.page || 0;
+      perPage = body?.per_page || 20;
+      allPages = body?.all_pages === true;
     } catch {
       // no body
     }
@@ -233,6 +259,120 @@ Deno.serve(async (req: Request) => {
 
     const API_BASE = configData?.tickets_portal_url ||
       'https://portal.webfusion.cz/wp-json/wp/v2/pozadavek-na-podporu';
+
+    if (allPages) {
+      const { data: operatorMappings } = await supabase
+        .from('operator_user_mappings')
+        .select('external_operator_id, user_id');
+      const opMap = new Map<string, string>();
+      if (operatorMappings) {
+        for (const m of operatorMappings) opMap.set(m.external_operator_id, m.user_id);
+      }
+      const { data: allWebsites } = await supabase.from('websites').select('id, url, owner_id');
+      const { data: allClients } = await supabase.from('clients').select('id, portal_id');
+      const clientByPortalId = new Map<number, string>();
+      if (allClients) {
+        for (const c of allClients) clientByPortalId.set(c.portal_id, c.id);
+      }
+      const { data: existingWebsiteMappings } = await supabase
+        .from('support_tickets')
+        .select('website_portal_id, website_id, client_id')
+        .not('website_id', 'is', null);
+      const websiteIdMap = new Map<number, string>();
+      if (existingWebsiteMappings) {
+        for (const m of existingWebsiteMappings) {
+          if (m.website_portal_id && m.website_id) websiteIdMap.set(m.website_portal_id, m.website_id);
+        }
+      }
+
+      let syncedTickets = 0;
+      let failedTickets = 0;
+      let skippedResolved = 0;
+      let syncedComments = 0;
+      let currentPage = 1;
+      let totalPages = 1;
+
+      while (currentPage <= totalPages) {
+        const url = `${API_BASE}?per_page=${perPage}&page=${currentPage}&_fields=id,title,slug,link,date,modified,author,acf`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          if (response.status === 400) break;
+          throw new Error(`API error: ${response.status}`);
+        }
+        const tp = response.headers.get('X-WP-TotalPages');
+        if (tp) totalPages = parseInt(tp, 10);
+        const tickets: TicketData[] = await response.json();
+
+        for (const ticket of tickets) {
+          try {
+            const acf = ticket.acf || {};
+            const statusRaw = typeof acf.stav === 'string' ? stripHtml(acf.stav) : '';
+            if (mode === 'incremental' && statusRaw === 'Vyřešeno') {
+              skippedResolved++;
+              continue;
+            }
+            const result = await processTicket(ticket, supabase, opMap, allWebsites, websiteIdMap, clientByPortalId);
+            syncedTickets++;
+            syncedComments += result.comments;
+          } catch (err) {
+            console.error(`Error processing ticket ${ticket.id}:`, err);
+            failedTickets++;
+          }
+        }
+        currentPage++;
+      }
+
+      await supabase
+        .from('portal_sync_config')
+        .update({ tickets_last_sync_at: new Date().toISOString(), tickets_sync_error: null })
+        .not('id', 'is', null);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          syncedTickets,
+          syncedComments,
+          failedTickets,
+          skippedResolved,
+          totalPages,
+          mode,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (page === 0) {
+      const countUrl = `${API_BASE}?per_page=1&page=1`;
+      const countRes = await fetch(countUrl);
+      let totalTickets = 0;
+      let totalPages = 0;
+      if (countRes.ok) {
+        const th = countRes.headers.get('X-WP-Total');
+        const tp = countRes.headers.get('X-WP-TotalPages');
+        if (th) totalTickets = parseInt(th, 10);
+        if (tp) totalPages = parseInt(tp, 10);
+      }
+
+      let existingCount = 0;
+      if (mode === 'full_import') {
+        const { count } = await supabase
+          .from('support_tickets')
+          .select('id', { count: 'exact', head: true });
+        existingCount = count || 0;
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type: 'info',
+          totalTickets,
+          totalPages: Math.ceil(totalTickets / perPage),
+          existingCount,
+          mode,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const { data: operatorMappings } = await supabase
       .from('operator_user_mappings')
@@ -274,217 +414,98 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (stream) {
-      const encoder = new TextEncoder();
-      const readableStream = new ReadableStream({
-        async start(controller) {
-          const send = (data: Record<string, unknown>) => {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-          };
-
-          try {
-            let totalTicketsInPortal = 0;
-
-            const countUrl = `${API_BASE}?per_page=1&page=1`;
-            const countRes = await fetch(countUrl);
-            if (countRes.ok) {
-              const totalHeader = countRes.headers.get('X-WP-Total');
-              if (totalHeader) totalTicketsInPortal = parseInt(totalHeader, 10);
-            }
-
-            send({ type: 'init', totalTickets: totalTicketsInPortal, mode });
-
-            let syncedTickets = 0;
-            let syncedComments = 0;
-            let failedTickets = 0;
-            let skippedResolved = 0;
-            let currentPage = 1;
-            let totalPages = 1;
-
-            while (currentPage <= totalPages) {
-              const url = `${API_BASE}?per_page=20&page=${currentPage}&_fields=id,title,slug,link,date,modified,author,acf`;
-              const response = await fetch(url);
-
-              if (!response.ok) {
-                if (response.status === 400) break;
-                throw new Error(`API error: ${response.status}`);
-              }
-
-              const totalPagesHeader = response.headers.get('X-WP-TotalPages');
-              if (totalPagesHeader) totalPages = parseInt(totalPagesHeader, 10);
-
-              const tickets: TicketData[] = await response.json();
-
-              for (const ticket of tickets) {
-                try {
-                  const acf = ticket.acf || {};
-                  const statusRaw = typeof acf.stav === 'string' ? stripHtml(acf.stav) : '';
-
-                  if (mode === 'incremental' && statusRaw === 'Vyřešeno') {
-                    skippedResolved++;
-                    send({
-                      type: 'skip',
-                      ticketId: ticket.id,
-                      title: stripHtml(ticket.title.rendered),
-                      status: statusRaw,
-                      synced: syncedTickets,
-                      failed: failedTickets,
-                      skipped: skippedResolved,
-                      total: totalTicketsInPortal,
-                    });
-                    continue;
-                  }
-
-                  const result = await processTicket(ticket, supabase, opMap, allWebsites, websiteIdMap, clientByPortalId);
-                  syncedTickets++;
-                  syncedComments += result.comments;
-
-                  send({
-                    type: 'progress',
-                    ticketId: ticket.id,
-                    title: stripHtml(ticket.title.rendered),
-                    status: result.status,
-                    comments: result.comments,
-                    synced: syncedTickets,
-                    failed: failedTickets,
-                    skipped: skippedResolved,
-                    total: totalTicketsInPortal,
-                    page: currentPage,
-                    totalPages,
-                  });
-
-                  if (limitParam > 0 && syncedTickets >= limitParam) break;
-                } catch (err) {
-                  failedTickets++;
-                  send({
-                    type: 'error',
-                    ticketId: ticket.id,
-                    title: stripHtml(ticket.title.rendered),
-                    error: err instanceof Error ? err.message : 'Unknown',
-                    synced: syncedTickets,
-                    failed: failedTickets,
-                    skipped: skippedResolved,
-                    total: totalTicketsInPortal,
-                  });
-                }
-              }
-
-              if (limitParam > 0 && syncedTickets >= limitParam) break;
-              currentPage++;
-            }
-
-            await supabase
-              .from('portal_sync_config')
-              .update({
-                tickets_last_sync_at: new Date().toISOString(),
-                tickets_sync_error: null,
-              })
-              .not('id', 'is', null);
-
-            send({
-              type: 'done',
-              syncedTickets,
-              syncedComments,
-              failedTickets,
-              skippedResolved,
-              totalPages,
-            });
-          } catch (error) {
-            send({
-              type: 'fatal',
-              error: error instanceof Error ? error.message : 'Unknown error',
-            });
-
-            try {
-              await supabase
-                .from('portal_sync_config')
-                .update({
-                  tickets_sync_error: error instanceof Error ? error.message : 'Unknown error',
-                })
-                .not('id', 'is', null);
-            } catch (_) { /* ignore */ }
-          } finally {
-            controller.close();
-          }
-        },
-      });
-
-      return new Response(readableStream, {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
-        },
-      });
+    let existingPortalIds: Set<number> | null = null;
+    if (mode === 'full_import') {
+      existingPortalIds = await loadExistingPortalIds(supabase);
     }
 
-    let syncedTickets = 0;
-    let syncedComments = 0;
-    let failedTickets = 0;
-    let skippedResolved = 0;
-    let currentPage = 1;
-    let totalPages = 1;
-    let totalFetched = 0;
+    const url = `${API_BASE}?per_page=${perPage}&page=${page}&_fields=id,title,slug,link,date,modified,author,acf`;
+    const response = await fetch(url);
 
-    while (currentPage <= totalPages) {
-      const url = `${API_BASE}?per_page=20&page=${currentPage}&_fields=id,title,slug,link,date,modified,author,acf`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        if (response.status === 400) break;
-        throw new Error(`API error: ${response.status}`);
+    if (!response.ok) {
+      if (response.status === 400) {
+        return new Response(
+          JSON.stringify({ success: true, type: 'page', synced: 0, failed: 0, skipped: 0, comments: 0, tickets: [], done: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      throw new Error(`API error: ${response.status}`);
+    }
 
-      const totalPagesHeader = response.headers.get('X-WP-TotalPages');
-      if (totalPagesHeader) totalPages = parseInt(totalPagesHeader, 10);
+    const totalPagesHeader = response.headers.get('X-WP-TotalPages');
+    const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
+    const totalHeader = response.headers.get('X-WP-Total');
+    const totalTickets = totalHeader ? parseInt(totalHeader, 10) : 0;
 
-      const tickets: TicketData[] = await response.json();
+    const tickets: TicketData[] = await response.json();
 
-      for (const ticket of tickets) {
-        try {
-          const acf = ticket.acf || {};
-          const statusRaw = typeof acf.stav === 'string' ? stripHtml(acf.stav) : '';
+    let synced = 0;
+    let failed = 0;
+    let skipped = 0;
+    let comments = 0;
+    const processedTickets: { id: number; title: string; status: string; action: string; comments: number }[] = [];
 
-          if (mode === 'incremental' && statusRaw === 'Vyřešeno') {
-            skippedResolved++;
-            continue;
-          }
+    for (const ticket of tickets) {
+      try {
+        const acf = ticket.acf || {};
+        const statusRaw = typeof acf.stav === 'string' ? stripHtml(acf.stav) : '';
+        const titleClean = stripHtml(ticket.title.rendered);
 
-          const result = await processTicket(ticket, supabase, opMap, allWebsites, websiteIdMap, clientByPortalId);
-          syncedTickets++;
-          syncedComments += result.comments;
-          totalFetched++;
-
-          if (limitParam > 0 && totalFetched >= limitParam) break;
-        } catch (err) {
-          console.error(`Error processing ticket ${ticket.id}:`, err);
-          failedTickets++;
+        if (mode === 'incremental' && statusRaw === 'Vyřešeno') {
+          skipped++;
+          processedTickets.push({ id: ticket.id, title: titleClean, status: statusRaw, action: 'skipped_resolved', comments: 0 });
+          continue;
         }
-      }
 
-      if (limitParam > 0 && totalFetched >= limitParam) break;
-      currentPage++;
+        if (mode === 'full_import' && existingPortalIds && existingPortalIds.has(ticket.id)) {
+          skipped++;
+          processedTickets.push({ id: ticket.id, title: titleClean, status: statusRaw, action: 'skipped_exists', comments: 0 });
+          continue;
+        }
+
+        const result = await processTicket(ticket, supabase, opMap, allWebsites, websiteIdMap, clientByPortalId);
+        synced++;
+        comments += result.comments;
+        processedTickets.push({ id: ticket.id, title: titleClean, status: result.status, action: 'synced', comments: result.comments });
+      } catch (err) {
+        failed++;
+        processedTickets.push({
+          id: ticket.id,
+          title: stripHtml(ticket.title.rendered),
+          status: '',
+          action: 'error',
+          comments: 0,
+        });
+        console.error(`Error processing ticket ${ticket.id}:`, err);
+      }
     }
 
-    await supabase
-      .from('portal_sync_config')
-      .update({
-        tickets_last_sync_at: new Date().toISOString(),
-        tickets_sync_error: null,
-      })
-      .not('id', 'is', null);
+    const isLastPage = page >= totalPages;
+
+    if (isLastPage) {
+      await supabase
+        .from('portal_sync_config')
+        .update({
+          tickets_last_sync_at: new Date().toISOString(),
+          tickets_sync_error: null,
+        })
+        .not('id', 'is', null);
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        syncedTickets,
-        syncedComments,
-        failedTickets,
-        skippedResolved,
+        type: 'page',
+        page,
         totalPages,
+        totalTickets,
+        synced,
+        failed,
+        skipped,
+        comments,
+        tickets: processedTickets,
+        done: isLastPage,
         mode,
-        message: `Synchronized ${syncedTickets} tickets with ${syncedComments} comments (skipped ${skippedResolved} resolved)`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
